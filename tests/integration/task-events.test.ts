@@ -281,6 +281,31 @@ describe('durable timers and terminal decisions', () => {
 });
 
 describe('corrections, immutable study dates and owner safeguards', () => {
+  it.each(['paused goal', 'archived goal', 'archived skill', 'archived profile'])('blocks new timers under a %s while retaining replay and history cleanup', async ancestor => {
+    const profile = (await post('/profiles', { name: `Synthetic timer ancestor ${ancestor}` }).expect(201)).body;
+    const skill = (await post('/skills', { profileId: profile.id, name: 'Synthetic ancestor timer skill' }).expect(201)).body;
+    const goal = (await post('/goals', { skillId: skill.id, type: 'daily', title: 'Synthetic ancestor timer goal', targetQty: 60, startDate: '2026-11-06' }).expect(201)).body;
+    const pending = await makeTask({ goalId: goal.id }), running = await makeTask({ goalId: goal.id });
+    const startInput = { clientEventId: uuid(), kind: 'started', occurredAt: '2026-11-06T10:00:00+05:30' };
+    const started = await post(`/tasks/${running.id}/events`, startInput).expect(200);
+    const target = ancestor.includes('goal') ? `/goals/${goal.id}/${ancestor.startsWith('paused') ? 'pause' : 'archive'}`
+      : ancestor.includes('skill') ? `/skills/${skill.id}/archive` : `/profiles/${profile.id}/archive`;
+    await post(target).expect(200);
+    const blockedStart = await event(pending.id, 'started').expect(409);
+    expect(blockedStart.body.error.code).toBe(ancestor.includes('goal') ? 'GOAL_NOT_ACTIVE' : 'ARCHIVED_PARENT');
+    expect(await db.progressEvent.count({ where: { taskId: pending.id } })).toBe(0);
+    const replay = await post(`/tasks/${running.id}/events`, startInput).expect(200);
+    expect(replay.body).toMatchObject({ replayed: true, event: { id: started.body.event.id } });
+    await event(running.id, 'paused', { occurredAt: '2026-11-06T10:10:00+05:30' }).expect(200);
+    await event(running.id, 'resumed', { occurredAt: '2026-11-06T10:20:00+05:30' }).expect(409);
+    await event(running.id, 'progress', { minutes: 5, occurredAt: '2026-11-06T10:30:00+05:30' }).expect(200);
+    const done = await event(running.id, 'completed', { minutes: 10, occurredAt: '2026-11-06T10:40:00+05:30' }).expect(200);
+    expect(done.body.task).toMatchObject({ status: 'completed', actualMinutes: 10, timerStartedAt: null });
+    const undo = await correction(running.id, done.body.event.id, { explicitCorrection: true }).expect(200);
+    expect(undo.body.task).toMatchObject({ status: 'partial', actualMinutes: 5, timerStartedAt: null });
+    await event(running.id, 'cancelled').expect(200);
+  });
+
   it('replays a dedicated undo request with its original server timestamp', async () => {
     const task = await makeTask();
     const done = await event(task.id, 'completed', { minutes: 40 }).expect(200);
@@ -313,6 +338,62 @@ describe('corrections, immutable study dates and owner safeguards', () => {
     const persisted = await db.progressEvent.findUniqueOrThrow({ where: { id: first.body.event.id } });
     expect(persisted).toMatchObject({ kind: 'progress', minutes: 40, qty: 6 });
     expect((await correction(task.id, first.body.event.id, { minutes: 1 })).status).toBe(409);
+  });
+
+  it('preserves a completion total after earlier progress correction in task caches and weekly summaries', async () => {
+    const baseline = (await get('/today').expect(200)).body.weekly.minutes;
+    const cache = await db.goalProgressCache.findUniqueOrThrow({ where: { goalId: countGoalId } });
+    const task = await makeTask({ goalId: countGoalId, qty: 10 });
+    const progress = await event(task.id, 'progress', { minutes: 40, qty: 4 }).expect(200);
+    const completed = await event(task.id, 'completed', { minutes: 60, qty: 10 }).expect(200);
+    expect(completed.body.event).toMatchObject({ minutes: 20, qty: 6, reportedTotalMinutes: 60, reportedTotalQty: 10 });
+    const retract = await correction(task.id, progress.body.event.id).expect(200);
+    expect(retract.body.task).toMatchObject({ status: 'completed', actualMinutes: 60, completedQty: 10 });
+    expect((await get('/today').expect(200)).body.weekly.minutes).toBe(baseline + 60);
+    expect(await db.goalProgressCache.findUniqueOrThrow({ where: { goalId: countGoalId } })).toMatchObject({ minutes: cache.minutes + 60, qty: cache.qty + 10 });
+    await correction(task.id, retract.body.event.id).expect(200);
+    expect((await get(`/tasks/${task.id}`).expect(200)).body).toMatchObject({ actualMinutes: 60, completedQty: 10 });
+    expect((await get('/today').expect(200)).body.weekly.minutes).toBe(baseline + 60);
+    expect(await db.progressEvent.findUniqueOrThrow({ where: { id: completed.body.event.id } })).toMatchObject({ minutes: 20, qty: 6, reportedTotalMinutes: 60, reportedTotalQty: 10 });
+  });
+
+  it('keeps later completion totals when an earlier completion undo is corrected', async () => {
+    const baseline = (await get('/today').expect(200)).body.weekly.minutes;
+    const task = await makeTask();
+    const first = await event(task.id, 'completed', { minutes: 60 }).expect(200);
+    const undo = await correction(task.id, first.body.event.id).expect(200);
+    const second = await event(task.id, 'completed', { minutes: 70 }).expect(200);
+    const restored = await correction(task.id, undo.body.event.id).expect(200);
+    expect(restored.body.task).toMatchObject({ status: 'completed', actualMinutes: 70, completedQty: 70 });
+    expect((await get('/today').expect(200)).body.weekly.minutes).toBe(baseline + 70);
+    expect(await db.progressEvent.findUniqueOrThrow({ where: { id: second.body.event.id } })).toMatchObject({ minutes: 70, qty: 70, reportedTotalMinutes: 70, reportedTotalQty: 70 });
+    expect((await correction(task.id, first.body.event.id).expect(409)).body.error.code).toBe('CORRECTION_REQUIRED');
+    const explicitEarlier = await correction(task.id, first.body.event.id, { explicitCorrection: true }).expect(200);
+    expect(explicitEarlier.body.task).toMatchObject({ status: 'completed', actualMinutes: 70, completedQty: 70 });
+    expect((await get('/today').expect(200)).body.weekly.minutes).toBe(baseline + 70);
+  });
+
+  it('retains implicit count completion totals while omitted time remains without an observation', async () => {
+    const count = await makeTask({ goalId: countGoalId, qty: 10 });
+    const countProgress = await event(count.id, 'progress', { minutes: 40, qty: 4 }).expect(200);
+    const countDone = await event(count.id, 'completed').expect(200);
+    expect(countDone.body.event).toMatchObject({ minutes: 0, qty: 6, reportedTotalMinutes: null, reportedTotalQty: 10 });
+    expect((await correction(count.id, countProgress.body.event.id).expect(200)).body.task).toMatchObject({ status: 'completed', actualMinutes: 0, completedQty: 10 });
+    const minute = await makeTask();
+    const minuteProgress = await event(minute.id, 'progress', { minutes: 40 }).expect(200);
+    const minuteDone = await event(minute.id, 'completed').expect(200);
+    expect(minuteDone.body.event).toMatchObject({ minutes: 0, qty: 0, reportedTotalMinutes: null, reportedTotalQty: null });
+    expect((await correction(minute.id, minuteProgress.body.event.id).expect(200)).body.task).toMatchObject({ status: 'completed', actualMinutes: 0, completedQty: 0 });
+  });
+
+  it('completes an over-target cumulative count without fabricating an out-of-range observation', async () => {
+    const task = await makeTask({ goalId: countGoalId, qty: 10 });
+    await event(task.id, 'progress', { qty: 1000000 }).expect(200);
+    await event(task.id, 'progress', { qty: 1000000 }).expect(200);
+    expect((await event(task.id, 'completed', { qty: 1000000 })).body.error.code).toBe('INVALID_COMPLETION_TOTAL');
+    const done = await event(task.id, 'completed').expect(200);
+    expect(done.body.task).toMatchObject({ status: 'completed', completedQty: 2000000, actualMinutes: 0 });
+    expect(done.body.event).toMatchObject({ qty: 0, reportedTotalQty: 10, reportedTotalMinutes: null });
   });
 
   it('uses server receipt for exact ten-minute undo and requires an explicit late correction', async () => {
@@ -356,6 +437,9 @@ describe('corrections, immutable study dates and owner safeguards', () => {
     await expect(db.progressEvent.create({ data: { ...base, taskId: foreignTaskId } })).rejects.toThrow();
     await expect(db.progressEvent.create({ data: { ...base, goalId: foreignGoalId } })).rejects.toThrow();
     await expect(db.progressEvent.create({ data: { ...base, kind: 'correction', referenceEventId: foreignEventId } })).rejects.toThrow();
+    await expect(db.progressEvent.create({ data: { ...base, reportedTotalMinutes: 20 } })).rejects.toThrow();
+    await expect(db.progressEvent.create({ data: { ...base, kind: 'completed', reportedTotalMinutes: -1 } })).rejects.toThrow();
+    await expect(db.progressEvent.create({ data: { ...base, kind: 'completed', reportedTotalQty: 1000001 } })).rejects.toThrow();
     expect((await db.progressEvent.findUniqueOrThrow({ where: { id: response.body.event.id } })).minutes).toBe(5);
   });
 });

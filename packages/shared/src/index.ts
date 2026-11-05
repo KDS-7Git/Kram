@@ -363,6 +363,8 @@ export type ProgressEvent = {
   kind: (typeof eventKinds)[number];
   minutes: number;
   qty: number;
+  reportedTotalMinutes: number | null;
+  reportedTotalQty: number | null;
   occurredAt: string;
   localDate: string;
   clientEventId: string;

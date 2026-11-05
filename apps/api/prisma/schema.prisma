@@ -301,6 +301,8 @@ model ProgressEvent {
   sequence Int @default(0)
   minutes Float @default(0)
   qty Float @default(0)
+  reportedTotalMinutes Float?
+  reportedTotalQty Float?
   occurredAt DateTime @db.Timestamptz(3)
   localDate DateTime @db.Date
   timezone String

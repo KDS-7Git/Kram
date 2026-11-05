@@ -242,6 +242,11 @@ export const tasks = {
           replayed: true,
         };
       }
+      if (data.kind === 'started' || data.kind === 'resumed') {
+        if (row.goal.archivedAt || row.goal.status !== 'active')
+          throw new ApiError('GOAL_NOT_ACTIVE', 'Resume or restore this goal before starting a timer.', 409);
+        await activeSkill(userId, row.goal.skillId, tx);
+      }
       const events = await history(userId, id, tx);
       const before = foldTaskEvents(seed(row), events, { now, today });
       const minutes = data.kind === 'completed' ? (minutesProvided ? data.minutes : before.actualMinutes) - before.actualMinutes : data.minutes;
@@ -262,6 +267,10 @@ export const tasks = {
         kind: data.kind,
         minutes,
         qty: quantity,
+        reportedTotalMinutes: data.kind === 'completed' && minutesProvided ? data.minutes : null,
+        reportedTotalQty: data.kind !== 'completed' ? null : row.goal.unit.toLowerCase() === 'minutes'
+          ? minutesProvided ? data.minutes : null
+          : quantityProvided ? data.qty : row.qty,
         occurredAt: data.occurredAt,
         localDate,
         clientEventId: data.clientEventId,
@@ -281,7 +290,7 @@ export const tasks = {
               "The referenced event could not be found in this task.",
               404,
             );
-          if (target.kind === "completed") {
+          if (target.kind === "completed" && !data.explicitCorrection) {
             const reference = undoCompletionReference(events, {
               now,
               explicitCorrection: data.explicitCorrection,

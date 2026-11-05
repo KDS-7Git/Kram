@@ -93,9 +93,9 @@ export async function refreshReminders(userId: string, c: Connection = db, now =
     } else if (rule.atLocal !== null) {
       for (const task of targets) {
         const workDate = calendarString(task.deferredToDate ?? task.dueDate ?? task.earliestDate);
-        // Once remains attached to this work date. A quiet-hours delay keeps
-        // the same key; overdue work never fabricates another daily reminder.
-        add(rule.repeatPolicy === 'once' ? workDate : [workDate, today].sort().at(-1)!, rule.atLocal, task.id, task.id);
+        // The source work date owns the key across study-day rollover. Quiet
+        // delays and repeating cadence retain it; only physical due time moves.
+        add(workDate, rule.atLocal, task.id, task.id);
       }
     } else {
       let resolved = false;

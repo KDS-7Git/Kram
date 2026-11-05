@@ -263,6 +263,23 @@ describe('private durable ntfy delivery', () => {
     expect(await db.notificationAttempt.count({ where: { notificationId: initial.id } })).toBe(1);
     await service.dispatchNotifications(renewed[0]!.scheduledFor); expect(messages).toHaveLength(2);
   });
+  it('retains the original repeat base and one pending repeat across study-day rollover', async () => {
+    await enableNotifications(); const task = await reminderTask('2026-11-06');
+    const rule = await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'task', ownerId: task.id, atLocal: 1425, repeatPolicy: 'until_completed' } });
+    const firstAt = new Date('2026-11-06T23:45:00Z');
+    await service.refreshReminders(userId, db, firstAt); await service.dispatchNotifications(firstAt);
+    const initial = await db.notification.findFirstOrThrow({ where: { reminderRuleId: rule.id, status: 'sent' } });
+    const repeat = await db.notification.findFirstOrThrow({ where: { reminderRuleId: rule.id, status: 'pending' } });
+    expect(repeat.scheduledFor.toISOString()).toBe('2026-11-07T00:15:00.000Z');
+    await service.refreshReminders(userId, db, new Date('2026-11-07T00:05:00Z'));
+    const pendingRows = await db.notification.findMany({ where: { reminderRuleId: rule.id, status: 'pending' } });
+    expect(pendingRows).toHaveLength(1); expect(pendingRows[0]!.id).toBe(repeat.id);
+    expect(pendingRows[0]!.dedupeKey).toContain(`repeat:${initial.dedupeKey}:`);
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id } })).toBe(2);
+    await service.dispatchNotifications(repeat.scheduledFor);
+    expect(messages).toHaveLength(2);
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id, status: 'pending' } })).toBe(1);
+  });
   it('records successful durable completion once and never records a failed job as complete', async () => {
     const { runDurableJob } = await import('../../apps/worker/src/domain-jobs'); let executions = 0; const period = uuid();
     await runDurableJob('fixture-idempotency', period, userId, async () => { executions++; });

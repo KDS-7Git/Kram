@@ -113,6 +113,35 @@ describe('idempotency and append-only corrections', () => {
     expect(completed.kind).toBe('completed'); expect(completed.minutes).toBe(20);
   });
 
+  it('retains reported completion totals when earlier progress is corrected', () => {
+    const partial = event('p', 'progress', { minutes: 40, qty: 6 });
+    const completed = Object.freeze(event('done', 'completed', { minutes: 20, qty: 4, reportedTotalMinutes: 60, reportedTotalQty: 10 }));
+    const events = [partial, completed, correction('retract-progress', partial.id)];
+    expect(fold(events)).toMatchObject({ status: 'completed', actualMinutes: 60, completedQty: 10 });
+    const resolved = resolveTaskEvents(events);
+    expect(resolved.events.find(value => value.id === completed.id)).toMatchObject({ minutes: 20, qty: 4 });
+    expect(resolved.activeEvents.find(value => value.id === completed.id)).toMatchObject({ minutes: 60, qty: 10 });
+    expect(completed).toMatchObject({ minutes: 20, qty: 4 });
+    expect(fold([...events, correction('restore-progress', 'retract-progress')])).toMatchObject({ actualMinutes: 60, completedQty: 10 });
+  });
+
+  it('does not double count restored completions after an undo and a later completion total', () => {
+    const first = event('first', 'completed', { minutes: 60, qty: 6, reportedTotalMinutes: 60, reportedTotalQty: 6 });
+    const undo = correction('undo', first.id);
+    const second = event('second', 'completed', { minutes: 70, qty: 10, reportedTotalMinutes: 70, reportedTotalQty: 10 });
+    expect(fold([first, undo, second])).toMatchObject({ actualMinutes: 70, completedQty: 10 });
+    expect(fold([first, undo, second, correction('restore', undo.id)])).toMatchObject({ actualMinutes: 70, completedQty: 10 });
+    const contributions = resolveTaskEvents([first, undo, second, correction('restore', undo.id)]).activeEvents;
+    expect(contributions.filter(value => value.kind === 'completed').map(value => [value.minutes, value.qty])).toEqual([[60, 6], [10, 4]]);
+  });
+
+  it('keeps omitted completion minutes as a decision without inventing an observed time total', () => {
+    const partial = event('p', 'progress', { minutes: 40, qty: 6 });
+    const completed = event('done', 'completed', { qty: 4, reportedTotalMinutes: null, reportedTotalQty: 10 });
+    expect(fold([partial, completed, correction('retract-progress', partial.id)])).toMatchObject({ status: 'completed', actualMinutes: 0, completedQty: 10 });
+    expect(fold([partial, event('legacy', 'completed', { minutes: 20, qty: 4 }), correction('retract-progress', partial.id)])).toMatchObject({ actualMinutes: 20, completedQty: 4 });
+  });
+
   it('does not discard logged contributions in tolerant terminal-state replay', () => {
     expect(fold([event('done', 'completed', { minutes: 30 }), event('late', 'progress', { minutes: 10 })])).toMatchObject({ status: 'completed', actualMinutes: 40 });
   });
@@ -181,6 +210,20 @@ describe('strict new-event validation and deterministic invariants', () => {
       expect(state.remainingMinutes).toBeGreaterThanOrEqual(0);
       expect(fold(events.flatMap((value) => [value, { ...value }]))).toEqual(state);
     }), { numRuns: 150, seed: 20261106 });
+  });
+
+  it('conserves reported totals through arbitrary earlier-progress corrections and correction reversals', () => {
+    fc.assert(fc.property(fc.array(fc.integer({ min: 0, max: 100 }), { minLength: 1, maxLength: 20 }), fc.integer({ min: 0, max: 100 }), (work, extra) => {
+      const progress = work.map((minutes, index) => event(`p-${index}`, 'progress', { minutes, qty: minutes / 10 }));
+      const before = work.reduce((sum, minutes) => sum + minutes, 0), total = before + extra;
+      const completed = event('done', 'completed', { minutes: extra, qty: extra / 10, reportedTotalMinutes: total, reportedTotalQty: total / 10 });
+      const retractions = progress.map((value, index) => correction(`c-${index}`, value.id));
+      const history = [...progress, completed, ...retractions];
+      const corrected = fold(history);
+      expect(corrected.actualMinutes).toBe(total); expect(corrected.completedQty).toBeCloseTo(total / 10, 10);
+      expect(fold([...history, ...retractions.map((value, index) => correction(`restore-${index}`, value.id))]).actualMinutes).toBe(total);
+      expect(fold(history.flatMap(value => [value, { ...value }]))).toEqual(corrected);
+    }), { numRuns: 150, seed: 20261107 });
   });
 
   it('advances deferred states by civil dates independently of elapsed-day duration', () => {

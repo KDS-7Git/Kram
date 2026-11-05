@@ -4,7 +4,8 @@ import type { ProgressEvent } from './index';
 export type TaskFoldStatus = 'pending' | 'in_progress' | 'partial' | 'completed' | 'deferred' | 'skipped' | 'cancelled';
 export type TaskStateEvent = Pick<ProgressEvent,
   'id' | 'clientEventId' | 'taskId' | 'goalId' | 'kind' | 'minutes' | 'qty' |
-  'occurredAt' | 'localDate' | 'createdAt' | 'referenceEventId' | 'toDate'> & { note?: string };
+  'occurredAt' | 'localDate' | 'createdAt' | 'referenceEventId' | 'toDate'> &
+  Partial<Pick<ProgressEvent, 'reportedTotalMinutes' | 'reportedTotalQty'>> & { note?: string };
 
 export interface TaskFoldSeed {
   id: string;
@@ -47,6 +48,12 @@ function validateEvent(event: TaskStateEvent) {
   if (!event.id || !event.clientEventId || !event.taskId || !event.goalId) fail('INVALID_EVENT', 'Task events need explicit identifiers.');
   if (!kinds.has(event.kind)) fail('INVALID_EVENT_KIND', 'Choose a supported task event.');
   amount(event.minutes, 'Minutes'); amount(event.qty, 'Quantity');
+  for (const total of [event.reportedTotalMinutes, event.reportedTotalQty]) {
+    if (total !== null && total !== undefined) {
+      amount(total, 'Completion total');
+      if (event.kind !== 'completed') fail('INVALID_COMPLETION_TOTAL', 'Only completions can observe total work.');
+    }
+  }
   instantMillis(event.occurredAt); instantMillis(event.createdAt); parseLocalDate(event.localDate);
   if (event.toDate !== null && event.toDate !== undefined) parseLocalDate(event.toDate);
   if (event.kind === 'deferred' && !event.toDate) fail('DEFER_DATE_REQUIRED', 'Choose the new study date.');
@@ -58,10 +65,11 @@ function validateEvent(event: TaskStateEvent) {
 }
 function fingerprint(event: TaskStateEvent) {
   return JSON.stringify([event.taskId, event.goalId, event.kind, event.minutes, event.qty,
-    event.occurredAt, event.localDate, event.referenceEventId ?? null, event.toDate ?? null, event.note ?? '']);
+    event.occurredAt, event.localDate, event.referenceEventId ?? null, event.toDate ?? null, event.note ?? '',
+    event.reportedTotalMinutes ?? null, event.reportedTotalQty ?? null]);
 }
 
-/** Input order is authoritative append order (repository createdAt/id order). */
+/** Input order is authoritative append order (repository sequence/id order). */
 export function resolveTaskEvents(events: readonly TaskStateEvent[]) {
   const unique: TaskStateEvent[] = [], byClient = new Map<string, string>(), ids = new Set<string>();
   const scope = events[0];
@@ -82,7 +90,19 @@ export function resolveTaskEvents(events: readonly TaskStateEvent[]) {
     const event = unique[index]!;
     if (!inactive.has(event.id) && event.kind === 'correction') inactive.add(event.referenceEventId!);
   }
-  return { events: unique, activeEvents: unique.filter((event) => !inactive.has(event.id)), inactiveEventIds: [...inactive] };
+  let minutes = 0, qty = 0;
+  const activeEvents = unique.filter((event) => !inactive.has(event.id)).map(event => {
+    // Keep the original append-only contribution in events. Completion totals
+    // remain observations even when corrections change their earlier history.
+    const effective = event.kind === 'completed' ? {
+      ...event,
+      minutes: event.reportedTotalMinutes == null ? event.minutes : Math.max(0, event.reportedTotalMinutes - minutes),
+      qty: event.reportedTotalQty == null ? event.qty : Math.max(0, event.reportedTotalQty - qty),
+    } : event;
+    if (effective.kind === 'progress' || effective.kind === 'completed') { minutes += effective.minutes; qty += effective.qty; }
+    return effective;
+  });
+  return { events: unique, activeEvents, inactiveEventIds: [...inactive] };
 }
 
 /** Rebuild a cache without I/O. Historical orphan transitions after corrections are tolerated. */
