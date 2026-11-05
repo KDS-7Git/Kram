@@ -50,6 +50,21 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
+const GoalDetail = lazy(() =>
+  import("./features/goals/Goals").then((module) => ({
+    default: module.GoalDetail,
+  })),
+);
+const ResourceLibrary = lazy(() =>
+  import("./features/resources/Resources").then((module) => ({
+    default: module.ResourceLibrary,
+  })),
+);
+const ResourceDetail = lazy(() =>
+  import("./features/resources/Resources").then((module) => ({
+    default: module.ResourceDetail,
+  })),
+);
 import { useAppearance } from "./shared/theme";
 import { api, errorMessage, type AuthMe } from "./shared/api";
 import { DataProvider, useBootstrap, useData, useOnline } from "./shared/data";
@@ -155,10 +170,13 @@ function Shell({
     mutationFn: () => api("/auth/logout", { method: "POST" }),
     onSuccess: async () => {
       client.removeQueries({ queryKey: ["bootstrap"] });
+      client.removeQueries({ queryKey: ["hierarchy"] });
+      client.removeQueries({ queryKey: ["goals"] });
+      client.removeQueries({ queryKey: ["resources"] });
       await client.invalidateQueries({ queryKey: ["auth"] });
       navigate("/");
     },
-    onError: (error) => toast(errorMessage(error)),
+    onError: (error) => toast(errorMessage(error), undefined, "error"),
   });
   const links = workshop
     ? [
@@ -305,8 +323,7 @@ function Shell({
           {!online && (
             <div style={{ marginBottom: "1.25rem" }}>
               <Banner>
-                You are offline. Reconnect to change profiles, skills or
-                settings.
+                You are offline. Reconnect to save planning or settings changes.
               </Banner>
             </div>
           )}
@@ -396,6 +413,9 @@ function SignedIn({ user }: { user: User }) {
         <Routes>
           <Route path="/" element={<WelcomePage />} />
           <Route path="/goals/*" element={<Hierarchy />} />
+          <Route path="/goals/:goalId" element={<GoalDetail />} />
+          <Route path="/resources" element={<ResourceLibrary />} />
+          <Route path="/resources/:resourceId" element={<ResourceDetail />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>

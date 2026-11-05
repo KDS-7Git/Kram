@@ -37,6 +37,8 @@ export function useRefresh() {
     Promise.all([
       client.invalidateQueries({ queryKey: ["bootstrap"] }),
       client.invalidateQueries({ queryKey: ["hierarchy"] }),
+      client.invalidateQueries({ queryKey: ["goals"] }),
+      client.invalidateQueries({ queryKey: ["resources"] }),
     ]);
 }
 export function useOnline() {

@@ -7,6 +7,7 @@ import {
   skillSchema,
   type Profile,
   type Skill,
+  type Goal,
 } from "@kram/shared";
 import {
   Archive,
@@ -41,6 +42,8 @@ import {
   weekdays,
 } from "../../shared/format";
 import { useUI } from "../../shared/ui";
+import { Link } from "react-router-dom";
+import { SkillGoals } from "./Goals";
 
 const colors = [
   "teal",
@@ -72,11 +75,12 @@ export function Hierarchy() {
   const archived = useQuery({
     queryKey: ["hierarchy", "archived"],
     queryFn: async ({ signal }) => {
-      const [profiles, skills] = await Promise.all([
+      const [profiles, skills, goals] = await Promise.all([
         apiList<Profile>("/profiles?archived=true", signal),
         apiList<Skill>("/skills?archived=true", signal),
+        apiList<Goal>("/goals?archived=true", signal),
       ]);
-      return { profiles, skills };
+      return { profiles, skills, goals };
     },
     enabled: showArchived,
     staleTime: 15000,
@@ -99,7 +103,7 @@ export function Hierarchy() {
     onSuccess: async () => {
       await refresh();
     },
-    onError: (error) => toast(errorMessage(error)),
+    onError: (error) => toast(errorMessage(error), undefined, "error"),
   });
   const reorder = async (
     kind: "profile" | "skill",
@@ -119,7 +123,7 @@ export function Hierarchy() {
       toast(`${current.name} moved ${direction < 0 ? "earlier" : "later"}.`);
     } catch (error) {
       await refresh();
-      toast(errorMessage(error));
+      toast(errorMessage(error), undefined, "error");
     }
   };
   return (
@@ -140,6 +144,10 @@ export function Hierarchy() {
         }
       />
       <div className="row between" style={{ marginBottom: "1.25rem" }}>
+        <Link className="button button-text" to="/resources">
+          <BookOpen size={18} strokeWidth={1.5} />
+          Resource library
+        </Link>
         <p className="muted">
           {data.profiles.filter((profile) => !profile.archivedAt).length}{" "}
           profiles · {data.skills.filter((skill) => !skill.archivedAt).length}{" "}
@@ -286,73 +294,82 @@ export function Hierarchy() {
                   <div className="profile-skills">
                     {skills.length ? (
                       skills.map((skill, skillIndex) => (
-                        <div className="skill-row" key={skill.id}>
-                          <div className="skill-label">
-                            <span
-                              className="profile-dot"
-                              style={{
-                                background: `var(--profile-${profile.color})`,
-                              }}
-                            />
-                            <div>
-                              <h3>{skill.name}</h3>
-                              <p className="caption">
-                                {duration(skill.dailyTargetMin)} a day ·{" "}
-                                {duration(skill.weeklyTargetMin)} a week
-                                {skill.archivedAt ? " · Archived" : ""}
-                              </p>
+                        <div className="skill-group" key={skill.id}>
+                          <div className="skill-row">
+                            <div className="skill-label">
+                              <span
+                                className="profile-dot"
+                                style={{
+                                  background: `var(--profile-${profile.color})`,
+                                }}
+                              />
+                              <div>
+                                <h3>{skill.name}</h3>
+                                <p className="caption">
+                                  {duration(skill.dailyTargetMin)} a day ·{" "}
+                                  {duration(skill.weeklyTargetMin)} a week
+                                  {skill.archivedAt ? " · Archived" : ""}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="row">
-                            <IconButton
-                              label={`Move ${skill.name} earlier`}
-                              disabled={!online || skillIndex === 0}
-                              onClick={() =>
-                                reorder("skill", skills, skillIndex, -1)
-                              }
-                            >
-                              <ArrowUp size={17} strokeWidth={1.5} />
-                            </IconButton>
-                            <IconButton
-                              label={`Move ${skill.name} later`}
-                              disabled={
-                                !online || skillIndex === skills.length - 1
-                              }
-                              onClick={() =>
-                                reorder("skill", skills, skillIndex, 1)
-                              }
-                            >
-                              <ArrowDown size={17} strokeWidth={1.5} />
-                            </IconButton>
-                            <IconButton
-                              label={`Edit ${skill.name}`}
-                              disabled={!online}
-                              onClick={() =>
-                                setEditor({
-                                  kind: "skill",
-                                  skill,
-                                  profileId: profile.id,
-                                })
-                              }
-                            >
-                              <Pencil size={17} strokeWidth={1.5} />
-                            </IconButton>
-                            {!skill.archivedAt && (
+                            <div className="row">
                               <IconButton
-                                label={`Archive ${skill.name}`}
+                                label={`Move ${skill.name} earlier`}
+                                disabled={!online || skillIndex === 0}
+                                onClick={() =>
+                                  reorder("skill", skills, skillIndex, -1)
+                                }
+                              >
+                                <ArrowUp size={17} strokeWidth={1.5} />
+                              </IconButton>
+                              <IconButton
+                                label={`Move ${skill.name} later`}
+                                disabled={
+                                  !online || skillIndex === skills.length - 1
+                                }
+                                onClick={() =>
+                                  reorder("skill", skills, skillIndex, 1)
+                                }
+                              >
+                                <ArrowDown size={17} strokeWidth={1.5} />
+                              </IconButton>
+                              <IconButton
+                                label={`Edit ${skill.name}`}
                                 disabled={!online}
                                 onClick={() =>
-                                  setArchive({
+                                  setEditor({
                                     kind: "skill",
-                                    id: skill.id,
-                                    name: skill.name,
+                                    skill,
+                                    profileId: profile.id,
                                   })
                                 }
                               >
-                                <Archive size={17} strokeWidth={1.5} />
+                                <Pencil size={17} strokeWidth={1.5} />
                               </IconButton>
-                            )}
+                              {!skill.archivedAt && (
+                                <IconButton
+                                  label={`Archive ${skill.name}`}
+                                  disabled={!online}
+                                  onClick={() =>
+                                    setArchive({
+                                      kind: "skill",
+                                      id: skill.id,
+                                      name: skill.name,
+                                    })
+                                  }
+                                >
+                                  <Archive size={17} strokeWidth={1.5} />
+                                </IconButton>
+                              )}
+                            </div>
                           </div>
+                          <SkillGoals
+                            skill={skill}
+                            disabled={!!profile.archivedAt}
+                            goals={hierarchy.goals.filter(
+                              (goal) => goal.skillId === skill.id,
+                            )}
+                          />
                         </div>
                       ))
                     ) : (

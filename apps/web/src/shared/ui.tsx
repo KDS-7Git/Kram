@@ -5,15 +5,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { Button, IconButton } from "../components/ui/kit";
 
 interface Toast {
   message: string;
   undo?: () => void | Promise<void>;
+  tone?: "success" | "error";
 }
 interface UI {
-  toast: (message: string, undo?: () => void | Promise<void>) => void;
+  toast: (
+    message: string,
+    undo?: () => void | Promise<void>,
+    tone?: "success" | "error",
+  ) => void;
 }
 const UIContext = createContext<UI>({ toast: () => undefined });
 export function UIProvider({ children }: { children: ReactNode }) {
@@ -27,8 +32,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
     );
     return () => clearTimeout(timer);
   }, [current]);
-  const toast = (message: string, undo?: () => void | Promise<void>) => {
-    setCurrent({ message, undo });
+  const toast = (
+    message: string,
+    undo?: () => void | Promise<void>,
+    tone?: "success" | "error",
+  ) => {
+    setCurrent({ message, undo, tone });
     setAnnouncement(message);
   };
   return (
@@ -39,8 +48,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
       </div>
       {current && (
         <div className="toast-region">
-          <div className="toast">
-            <CheckCircle2 size={20} strokeWidth={1.5} aria-hidden="true" />
+          <div
+            className={current.tone === "error" ? "toast toast-error" : "toast"}
+          >
+            {current.tone === "error" ? (
+              <AlertCircle size={20} strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <CheckCircle2 size={20} strokeWidth={1.5} aria-hidden="true" />
+            )}
             <span>{current.message}</span>
             {current.undo && (
               <Button

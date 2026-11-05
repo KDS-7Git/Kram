@@ -3,6 +3,8 @@ import {
   cloneElement,
   forwardRef,
   isValidElement,
+  useEffect,
+  useState,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactElement,
@@ -290,6 +292,20 @@ export function Skeleton({ height = 90 }: { height?: number }) {
     >
       <span className="sr-only">Loading</span>
     </div>
+  );
+}
+export function DelayedSkeleton({ height = 90 }: { height?: number }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
+  return visible ? (
+    <Skeleton height={height} />
+  ) : (
+    <span className="sr-only" role="status">
+      Loading
+    </span>
   );
 }
 export function Segments<T extends string>({
