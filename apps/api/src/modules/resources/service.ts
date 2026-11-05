@@ -10,6 +10,7 @@ import {
   type Connection,
 } from "../../repository";
 import { goals, activeSkill } from "../goals/service";
+import { materializeTasks } from '../tasks/materialization';
 import { parseOutline } from "./outline";
 
 type ResourceRow = Prisma.ResourceGetPayload<{ include: { goals: true } }>;
@@ -199,6 +200,7 @@ export const resources = {
         },
         include: { goals: true },
       });
+      await materializeTasks(userId, undefined, tx);
       return resourceDto(row);
     });
   },
@@ -231,6 +233,7 @@ export const resources = {
         },
         include: { goals: true },
       });
+      await materializeTasks(userId, undefined, tx);
       return resourceDto(row);
     });
   },
@@ -238,11 +241,13 @@ export const resources = {
     return db.$transaction(async (tx) => {
       await lockOwner(tx, userId);
       const current = await this.get(userId, id, tx);
-      return resourceDto(await tx.resource.update({
+      const row = await tx.resource.update({
         where: { id, userId },
         data: { archivedAt: current.archivedAt ?? new Date() },
         include: { goals: true },
-      }));
+      });
+      await materializeTasks(userId, undefined, tx);
+      return resourceDto(row);
     });
   },
   async items(
@@ -293,6 +298,7 @@ export const resources = {
         data: { ...value, id, userId, resourceId },
       });
       await writeDependencies(userId, resourceId, id, dependsOn, tx);
+      await materializeTasks(userId, undefined, tx);
       return itemDto(await getItem(userId, id, tx));
     });
   },
@@ -305,6 +311,7 @@ export const resources = {
       const { dependsOn, ...value } = data;
       await tx.resourceItem.update({ where: { id, userId }, data: value });
       await writeDependencies(userId, current.resourceId, id, dependsOn, tx);
+      await materializeTasks(userId, undefined, tx);
       return itemDto(await getItem(userId, id, tx));
     });
   },
@@ -331,6 +338,7 @@ export const resources = {
         where: { id: { in: [...ids] }, ...ownerWhere(userId) },
         data: { archivedAt: new Date() },
       });
+      await materializeTasks(userId, undefined, tx);
       return itemDto(await getItem(userId, id, tx));
     });
   },
@@ -374,6 +382,7 @@ export const resources = {
         orderBy: { createdAt: "asc" },
       });
       const rowsById = new Map(imported.map((row) => [row.id, row]));
+      await materializeTasks(userId, undefined, tx);
       return {
         items: ids.map((id) => itemDto(rowsById.get(id)!)),
         imported: entries.length,
@@ -420,6 +429,7 @@ export const resources = {
           where: { id: item.id, userId },
           data: { parentItemId: item.parentItemId, ordinal: item.ordinal },
         });
+      await materializeTasks(userId, undefined, tx);
       return { saved: true };
     });
   },

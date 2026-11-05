@@ -12,6 +12,7 @@ import type { PrismaClient, Notification } from '@prisma/client';
 import request, { type Agent } from 'supertest';
 import argon2 from 'argon2';
 import { defaultSettings, goalSchema } from '@kram/shared';
+import { addDays } from '@kram/time';
 import type { Express } from 'express';
 
 let container: StartedTestContainer, db: PrismaClient, stub: Server, apiServer: Server, app: Express, agent: Agent, workspace: string, worker: ChildProcess | undefined;
@@ -29,6 +30,11 @@ async function notification(fields: Record<string, unknown> = {}): Promise<Notif
 }
 async function enableNotifications(extra: Record<string, unknown> = {}) {
   await db.user.update({ where: { id: userId }, data: { settings: { ...settings, notificationsEnabled: true, ...extra } } });
+}
+async function stopWorker() {
+  const running = worker; if (!running || running.exitCode !== null) return;
+  running.kill('SIGTERM');
+  await new Promise<void>(resolveDone => { running.once('close', () => resolveDone()); setTimeout(() => { running.kill('SIGKILL'); resolveDone(); }, 5000).unref(); });
 }
 
 beforeAll(async () => {
@@ -80,7 +86,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  if (worker && worker.exitCode === null) { worker.kill('SIGTERM'); await new Promise<void>(resolveDone => { worker!.once('close', () => resolveDone()); setTimeout(() => { worker?.kill('SIGKILL'); resolveDone(); }, 5000).unref(); }); }
+  await stopWorker();
   for (const server of [apiServer, stub]) if (server?.listening) await new Promise<void>((resolveDone, reject) => server.close(error => error ? reject(error) : resolveDone()));
   if (typeof app?.locals.closeSessions === 'function') await app.locals.closeSessions();
   await closeJobProducer?.(); await db?.$disconnect(); await container?.stop(); if (workspace) await rm(workspace, { recursive: true, force: true });
@@ -223,15 +229,38 @@ describe('private durable ntfy delivery', () => {
     expect((await runDurableJob('fixture-idempotency', period, userId, async () => { executions++; })).reused).toBe(true); expect(executions).toBe(1);
     const fact = await db.jobRun.findUniqueOrThrow({ where: { jobName_periodKey: { jobName: 'fixture-idempotency', periodKey: period } } });
     await expect(db.jobRun.update({ where: { id: fact.id }, data: { status: 'changed' } })).rejects.toThrow('Append-only');
-    await expect(runDurableJob('fixture-failure', uuid(), userId, async () => { throw new Error('simulated job failure'); })).rejects.toThrow('simulated job failure');
+    const failedPeriod = uuid();
+    await expect(runDurableJob('fixture-failure', failedPeriod, userId, async () => { throw new Error('simulated job failure'); })).rejects.toThrow('simulated job failure');
     expect(await db.jobRun.count({ where: { jobName: 'fixture-failure' } })).toBe(0);
+    expect((await runDurableJob('fixture-failure', failedPeriod, userId, async () => undefined)).reused).toBe(false);
   });
-  it('delivers from the actual worker with no browser open using only the local provider', async () => {
-    const row = await service.queueTestNotification(userId); let output = '';
-    worker = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/worker/src/index.ts'], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
-    worker.stdout?.on('data', chunk => { output += String(chunk); }); worker.stderr?.on('data', chunk => { output += String(chunk); });
-    const until = Date.now() + 25000;
-    while (Date.now() < until) { const stored = await db.notification.findUniqueOrThrow({ where: { id: row.id } }); if (stored.status === 'sent') { expect(messages).toHaveLength(1); expect(worker.exitCode).toBeNull(); return; } if (worker.exitCode !== null) throw new Error(`Worker stopped: ${output}`); await new Promise(resolveDone => setTimeout(resolveDone, 100)); }
-    throw new Error(`Worker did not deliver the queued test: ${output}`);
-  });
+  it('delivers and catches up task jobs from the actual worker, then reuses completed periods after restart', async () => {
+    const today = DateTime.utc().toISODate()!;
+    const { MATERIALIZE_QUEUE } = await import('../../apps/api/src/jobs');
+    await db.jobRun.create({ data: { id: uuid(), userId, jobName: MATERIALIZE_QUEUE, periodKey: `${userId}:${addDays(today, -2)}`, status: 'succeeded', startedAt: new Date(), finishedAt: new Date() } });
+    const launchWorker = () => {
+      let output = ''; worker = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/worker/src/index.ts'], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+      worker.stdout?.on('data', chunk => { output += String(chunk); }); worker.stderr?.on('data', chunk => { output += String(chunk); });
+      return () => output;
+    };
+    const waitForDeliveryAndPeriods = async (id: string, readOutput: () => string) => {
+      const until = Date.now() + 25000;
+      while (Date.now() < until) {
+        const stored = await db.notification.findUniqueOrThrow({ where: { id } });
+        const periods = await db.jobRun.count({ where: { userId, jobName: MATERIALIZE_QUEUE } });
+        if (stored.status === 'sent' && periods === 3) { expect(worker?.exitCode).toBeNull(); return; }
+        if (worker?.exitCode !== null) throw new Error(`Worker stopped: ${readOutput()}`);
+        await new Promise(resolveDone => setTimeout(resolveDone, 100));
+      }
+      throw new Error(`Worker did not complete delivery/catch-up: ${readOutput()}`);
+    };
+    const first = await service.queueTestNotification(userId); await waitForDeliveryAndPeriods(first.id, launchWorker()); expect(messages).toHaveLength(1);
+    const periods = await db.jobRun.findMany({ where: { userId, jobName: MATERIALIZE_QUEUE }, orderBy: { periodKey: 'asc' } });
+    expect(periods.map(run => run.periodKey)).toEqual([-2, -1, 0].map(days => `${userId}:${addDays(today, days)}`));
+    expect(periods[1]!.finishedAt!.getTime()).toBeLessThanOrEqual(periods[2]!.startedAt.getTime());
+    const beforeRestart = await db.task.count({ where: { userId, goalId } }); expect(beforeRestart).toBeGreaterThan(1);
+    await stopWorker(); const second = await service.queueTestNotification(userId); await waitForDeliveryAndPeriods(second.id, launchWorker());
+    expect(messages).toHaveLength(2); expect(await db.task.count({ where: { userId, goalId } })).toBe(beforeRestart);
+    expect(await db.jobRun.count({ where: { userId, jobName: MATERIALIZE_QUEUE } })).toBe(3);
+  }, 60000);
 });
