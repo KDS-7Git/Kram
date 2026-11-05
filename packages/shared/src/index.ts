@@ -358,6 +358,7 @@ export type Task = Entity &
   };
 export type ProgressEvent = {
   id: string;
+  sequence: number;
   taskId: string | null;
   goalId: string;
   kind: (typeof eventKinds)[number];
