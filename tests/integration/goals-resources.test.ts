@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { devNull } from 'node:os';
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
-import request, { type Agent, type Test } from 'supertest';
+import request, { type Agent, type Test, type Response } from 'supertest';
 import { DateTime } from 'luxon';
 import { v7 as uuid } from 'uuid';
 import type { PrismaClient } from '@prisma/client';
@@ -39,6 +39,37 @@ async function makeItem(resourceId: string, fields: Record<string, unknown> = {}
   return (await post(`/resources/${resourceId}/items`, { title: 'Synthetic lesson', estMinutes: 30, ...fields }).expect(201)).body as ResourceItem;
 }
 function expectRejected(status: number) { expect([400, 409]).toContain(status); }
+
+async function waitForOwnerLockWaiters(count: number) {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    const rows = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND wait_event = 'advisory'`;
+    if (Number(rows[0]?.count ?? 0) >= count) return;
+    await new Promise(resolveDone => setTimeout(resolveDone, 25));
+  }
+  throw new Error(`Expected ${count} mutations to serialize behind the owner lock.`);
+}
+
+/** Hold the shared database boundary so the archive queues before its contender. */
+async function archiveFirstRace(archive: () => Test, contender: () => Test): Promise<Response[]> {
+  let release: () => void = () => undefined, markReady: () => void = () => undefined;
+  const held = new Promise<void>(resolveDone => { release = resolveDone; });
+  const ready = new Promise<void>(resolveDone => { markReady = resolveDone; });
+  const gate = db.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
+    markReady(); await held;
+  }, { timeout: 15000 });
+  const outcomes: Promise<Response>[] = [];
+  try {
+    await ready;
+    outcomes.push(Promise.resolve(archive())); await waitForOwnerLockWaiters(1);
+    outcomes.push(Promise.resolve(contender())); await waitForOwnerLockWaiters(2);
+    release(); await gate;
+    return await Promise.all(outcomes);
+  } finally {
+    release(); await gate.catch(() => undefined); await Promise.allSettled(outcomes);
+  }
+}
 
 beforeAll(async () => {
   container = await new GenericContainer('postgres:16-bookworm')
@@ -165,6 +196,49 @@ describe('goals and resource persistence', () => {
     expect((await db.goal.findUniqueOrThrow({ where: { id: goal.id } })).status).toBe('archived');
   });
 
+  it('rejects explicitly invalid effective dates instead of treating them as today', async () => {
+    const goal = await makeGoal({ targetQty: 20 });
+    for (const effectiveFrom of ['', null, 0, false]) {
+      const result = await patch(`/goals/${goal.id}`, { targetQty: 45, effectiveFrom });
+      expect(result.status).toBe(400);
+    }
+    expect(await db.goalRuleVersion.count({ where: { goalId: goal.id } })).toBe(1);
+    expect((await get(`/goals/${goal.id}`).expect(200)).body.targetQty).toBe(20);
+  });
+
+  it('serializes goal archive before a queued resume so archived work stays closed', async () => {
+    const goal = await makeGoal(); await post(`/goals/${goal.id}/pause`).expect(200);
+    const results = await archiveFirstRace(() => post(`/goals/${goal.id}/archive`), () => post(`/goals/${goal.id}/resume`));
+    expect(results.map(response => response.status)).toEqual([200, 409]);
+    expect((await db.goal.findUniqueOrThrow({ where: { id: goal.id } })).status).toBe('archived');
+  });
+
+  it('keeps a future target out of an earlier metadata-only rule snapshot', async () => {
+    const goal = await makeGoal({ title: 'Original rule title', targetQty: 20 });
+    await patch(`/goals/${goal.id}`, { targetQty: 45, effectiveFrom: tomorrow }).expect(200);
+    await patch(`/goals/${goal.id}`, { title: 'Today metadata title', effectiveFrom: today }).expect(200);
+    const rules = (await get(`/goals/${goal.id}/rules`).expect(200)).body as GoalRuleVersion[];
+    expect(rules).toHaveLength(3);
+    expect(rules[1]).toMatchObject({ effectiveFrom: tomorrow, rules: { targetQty: 45 } });
+    expect(rules[2]).toMatchObject({ effectiveFrom: today, rules: { targetQty: 20, title: 'Today metadata title' } });
+    const { goals } = await import('../../apps/api/src/modules/goals/service');
+    expect((await goals.rulesForDate(ownerId, goal.id, today))?.rules.targetQty).toBe(20);
+    expect((await goals.rulesForDate(ownerId, goal.id, tomorrow))?.rules.targetQty).toBe(45);
+  });
+
+  it('rejects invalid RRULE numeric bounds and impossible UNTIL dates', async () => {
+    const before = await db.goal.count({ where: { userId: ownerId } });
+    for (const rrule of ['FREQ=DAILY;INTERVAL=0', 'FREQ=DAILY;INTERVAL=-1', 'FREQ=DAILY;INTERVAL=1.5',
+      'FREQ=MONTHLY;BYMONTH=13', 'FREQ=MONTHLY;BYMONTHDAY=0', 'FREQ=MONTHLY;BYMONTHDAY=32',
+      'FREQ=YEARLY;BYYEARDAY=367', 'FREQ=YEARLY;BYWEEKNO=54', 'FREQ=DAILY;BYHOUR=25',
+      'FREQ=DAILY;BYMINUTE=60', 'FREQ=MONTHLY;BYSETPOS=0', 'FREQ=DAILY;COUNT=0',
+      'FREQ=DAILY;UNTIL=20260230T000000Z', 'FREQ=DAILY;UNTIL=20261106T999900Z']) {
+      const response = await post('/goals', { skillId, title: 'Invalid recurrence fixture', type: 'recurring', targetQty: 30, startDate: today, rrule });
+      expect(response.status, rrule).toBe(400); expect(response.body.error.code).toBe('VALIDATION_FAILED');
+    }
+    expect(await db.goal.count({ where: { userId: ownerId } })).toBe(before);
+  });
+
   it('persists all resource types and shares one resource across several owned goals', async () => {
     const first = await makeGoal({ title: 'First linked goal' }), second = await makeGoal({ title: 'Second linked goal' });
     for (const type of resourceTypes) {
@@ -181,6 +255,33 @@ describe('goals and resource persistence', () => {
       expect(unlinked.body).toMatchObject({ goalId: null, goalIds: [] });
       expect(await db.goalResource.count({ where: { resourceId: resource.id } })).toBe(0);
     }
+  });
+
+  it('preserves archived goal links and their IDs when resource metadata changes', async () => {
+    const linked = await makeGoal({ title: 'Existing archived link' }), other = await makeGoal({ title: 'New archived link' });
+    const resource = await makeResource({ goalIds: [linked.id] });
+    const before = await db.goalResource.findMany({ where: { resourceId: resource.id }, orderBy: { id: 'asc' } });
+    await post(`/goals/${linked.id}/archive`).expect(200); await post(`/goals/${other.id}/archive`).expect(200);
+    const edited = await patch(`/resources/${resource.id}`, { title: 'Metadata still editable' }).expect(200);
+    expect(edited.body.goalIds).toEqual([linked.id]);
+    expect(await db.goalResource.findMany({ where: { resourceId: resource.id }, orderBy: { id: 'asc' } })).toEqual(before);
+    expect((await patch(`/resources/${resource.id}`, { goalIds: [linked.id, other.id] })).status).toBe(409);
+    expect(await db.goalResource.findMany({ where: { resourceId: resource.id }, orderBy: { id: 'asc' } })).toEqual(before);
+  });
+
+  it('preserves unchanged archived parents/prerequisites and edge IDs on item metadata edits', async () => {
+    const resource = await makeResource(), parent = await makeItem(resource.id, { title: 'Archived parent', kind: 'chapter', estMinutes: 0 });
+    const prerequisite = await makeItem(resource.id, { title: 'Archived prerequisite' });
+    const item = await makeItem(resource.id, { parentItemId: parent.id, dependsOn: [prerequisite.id], title: 'Existing linked child' });
+    const before = await db.itemDependency.findMany({ where: { itemId: item.id }, orderBy: { id: 'asc' } });
+    await post(`/resource-items/${parent.id}/archive`).expect(200); await post(`/resource-items/${prerequisite.id}/archive`).expect(200);
+    const edited = await patch(`/resource-items/${item.id}`, { title: 'Edited historical material title' }).expect(200);
+    expect(edited.body).toMatchObject({ parentItemId: parent.id, dependsOn: [prerequisite.id] });
+    expect(await db.itemDependency.findMany({ where: { itemId: item.id }, orderBy: { id: 'asc' } })).toEqual(before);
+    const active = await makeItem(resource.id, { title: 'New active material' });
+    expect((await patch(`/resource-items/${active.id}`, { parentItemId: parent.id })).status).toBe(409);
+    expect((await patch(`/resource-items/${active.id}`, { dependsOn: [prerequisite.id] })).status).toBe(409);
+    expect(await db.itemDependency.count({ where: { itemId: active.id } })).toBe(0);
   });
 
   it('saves typed book pages, video duration and ordered tree relationships', async () => {
@@ -308,6 +409,24 @@ describe('goals and resource persistence', () => {
     expect((await post(`/resources/${resource.id}/items`, { title: 'Hidden item', estMinutes: 30 })).status).toBe(409);
     expect(((await get('/resources').expect(200)).body as Resource[]).some(row => row.id === resource.id)).toBe(false);
     expect(((await get('/resources?archived=true').expect(200)).body as Resource[]).some(row => row.id === resource.id)).toBe(true);
+  });
+
+  it('serializes resource archive before queued item creation, rejecting hidden new work', async () => {
+    const resource = await makeResource();
+    const results = await archiveFirstRace(() => post(`/resources/${resource.id}/archive`),
+      () => post(`/resources/${resource.id}/items`, { title: 'Queued after archive', estMinutes: 30 }));
+    expect(results.map(response => response.status)).toEqual([200, 409]);
+    expect(await db.resourceItem.count({ where: { resourceId: resource.id } })).toBe(0);
+    expect((await db.resource.findUniqueOrThrow({ where: { id: resource.id } })).archivedAt).not.toBeNull();
+  });
+
+  it('serializes profile archive before a queued goal under its existing skill', async () => {
+    const profile = (await post('/profiles', { name: 'Archive boundary profile' }).expect(201)).body;
+    const skill = (await post('/skills', { profileId: profile.id, name: 'Archive boundary skill' }).expect(201)).body;
+    const results = await archiveFirstRace(() => post(`/profiles/${profile.id}/archive`),
+      () => post('/goals', { skillId: skill.id, title: 'Goal after parent archive', type: 'daily', startDate: today, targetQty: 30 }));
+    expect(results.map(response => response.status)).toEqual([200, 409]);
+    expect(await db.goal.count({ where: { skillId: skill.id } })).toBe(0);
   });
 
   it('enforces owner relationships, page ranges and work estimates in PostgreSQL', async () => {
