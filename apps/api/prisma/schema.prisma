@@ -25,6 +25,12 @@ model User {
   profiles Profile[]
   skills Skill[]
   auditLogs AuditLog[]
+  goals Goal[]
+  goalRules GoalRuleVersion[]
+  resources Resource[]
+  resourceItems ResourceItem[]
+  goalResources GoalResource[]
+  itemDependencies ItemDependency[]
   @@map("app_user")
 }
 
@@ -65,9 +71,144 @@ model Skill {
   isDemo Boolean @default(false)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  goals Goal[]
+  resources Resource[]
   @@unique([id,userId])
   @@index([userId,profileId,sortOrder,id])
   @@map("skill")
+}
+
+model Goal {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  skillId String @db.Uuid
+  skill Skill @relation(fields:[skillId,userId],references:[id,userId],onDelete:Restrict)
+  type String
+  title String
+  unit String @default("minutes")
+  targetQty Float
+  startDate DateTime @db.Date
+  dueDate DateTime? @db.Date
+  priority Int?
+  usePriority String @default("inherit")
+  status String @default("active")
+  ruleVersion Int @default(1)
+  scheduleMode String @default("combined")
+  estMinutes Int @default(30)
+  availableDays Int[] @default([1,2,3,4,5,6])
+  rrule String?
+  sortOrder Int @default(0)
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  rules GoalRuleVersion[]
+  resources GoalResource[]
+  primaryResources Resource[]
+  @@unique([id,userId])
+  @@index([userId,skillId,status,sortOrder,id])
+  @@map("goal")
+}
+
+model GoalRuleVersion {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  goalId String @db.Uuid
+  goal Goal @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  version Int
+  effectiveFrom DateTime @db.Date
+  rules Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([goalId,version])
+  @@index([userId,goalId,effectiveFrom,version])
+  @@map("goal_rule_version")
+}
+
+model Resource {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  skillId String @db.Uuid
+  skill Skill @relation(fields:[skillId,userId],references:[id,userId],onDelete:Restrict)
+  goalId String? @db.Uuid
+  goal Goal? @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  type String
+  title String
+  url String?
+  notesRef String?
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  items ResourceItem[]
+  goals GoalResource[]
+  @@unique([id,userId])
+  @@index([userId,skillId,createdAt,id])
+  @@map("resource")
+}
+
+model GoalResource {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  goalId String @db.Uuid
+  goal Goal @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  resourceId String @db.Uuid
+  resource Resource @relation(fields:[resourceId,userId],references:[id,userId],onDelete:Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([goalId,resourceId])
+  @@index([userId,resourceId])
+  @@map("goal_resource")
+}
+
+model ResourceItem {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  resourceId String @db.Uuid
+  resource Resource @relation(fields:[resourceId,userId],references:[id,userId],onDelete:Restrict)
+  parentItemId String? @db.Uuid
+  parent ResourceItem? @relation("ResourceTree",fields:[parentItemId,resourceId,userId],references:[id,resourceId,userId],onDelete:Restrict)
+  children ResourceItem[] @relation("ResourceTree")
+  ordinal Int @default(0)
+  title String
+  kind String @default("task")
+  estMinutes Int @default(30)
+  durationMin Int?
+  qty Float @default(1)
+  url String?
+  pagesFrom Int?
+  pagesTo Int?
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  dependencies ItemDependency[] @relation("ItemDepends")
+  dependants ItemDependency[] @relation("ItemRequired")
+  @@unique([id,userId])
+  @@unique([id,resourceId,userId])
+  @@index([userId,resourceId,parentItemId,ordinal,id])
+  @@map("resource_item")
+}
+
+model ItemDependency {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  resourceId String @db.Uuid
+  itemId String @db.Uuid
+  item ResourceItem @relation("ItemDepends",fields:[itemId,resourceId,userId],references:[id,resourceId,userId],onDelete:Restrict)
+  dependsOnItemId String @db.Uuid
+  prerequisite ResourceItem @relation("ItemRequired",fields:[dependsOnItemId,resourceId,userId],references:[id,resourceId,userId],onDelete:Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([itemId,dependsOnItemId])
+  @@index([userId,resourceId])
+  @@map("item_dependency")
 }
 
 model AuditLog {
