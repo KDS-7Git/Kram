@@ -7,6 +7,12 @@
   "engines": {
     "node": ">=22.20.0"
   },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0",
+      "effect": "3.20.0"
+    }
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
