@@ -1,1 +1,6 @@
-{"name":"@personal-os/worker","version":"0.1.0","private":true,"type":"module"}
+{
+  "name": "@kram/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module"
+}
