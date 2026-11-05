@@ -1,16 +1,166 @@
-import { useState } from 'react';
-import { BookOpen, Check, SlidersHorizontal } from 'lucide-react';
-import { Banner, Button, Card, EmptyState, Field, PageHeader, Segments, Sheet, Skeleton, StatusPill } from './ui/kit';
+import { useState } from "react";
+import { BookOpen, Check, SlidersHorizontal } from "lucide-react";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  PageHeader,
+  Segments,
+  Sheet,
+  Skeleton,
+  StatusPill,
+} from "./ui/kit";
 
 export function Workshop() {
-  const [view, setView] = useState<'day' | 'week'>('day');
+  const [view, setView] = useState<"day" | "week">("day");
   const [open, setOpen] = useState(false);
-  return <><PageHeader title="Paper and Ink" eyebrow="Component workshop" description="One quiet visual language, in light and dark. Controls keep their meaning with colour, shape and words."/>
-    <div className="stack-lg"><Card><div className="card-header"><h2>Actions</h2><SlidersHorizontal size={20} strokeWidth={1.5} aria-hidden="true"/></div><div className="row"><Button variant="primary" onClick={() => setOpen(true)}><BookOpen size={18} strokeWidth={1.5}/>Open details</Button><Button onClick={() => setView('week')}>View week</Button><Button variant="text" onClick={() => setView('day')}>Back to day</Button><Button disabled aria-describedby="disabled-reason">Unavailable</Button></div><p id="disabled-reason" className="caption" style={{ marginTop: '.75rem' }}>Unavailable controls explain what is needed before continuing.</p></Card>
-    <div className="grid-2"><Card><h2>Status in words</h2><div className="stack" style={{ marginTop: '1rem' }}>{['pending','in_progress','partial','completed','skipped','deferred','cancelled','overdue','unverified','proposed'].map(status => <StatusPill key={status} status={status}/>)}</div></Card><Card><h2>Form controls</h2><div className="stack" style={{ marginTop: '1rem' }}><Field id="workshop-title" label="Goal title" hint="Use a short, specific name."><input className="input" id="workshop-title" placeholder="Read for 20 minutes" aria-describedby="workshop-title-hint"/></Field><Field id="workshop-duration" label="Duration" error="Enter at least 1 minute."><input className="input" id="workshop-duration" inputMode="numeric" aria-invalid="true" aria-describedby="workshop-duration-error" defaultValue="0"/></Field><Segments options={[{ value:'day',label:'Day' },{ value:'week',label:'Week' }]} value={view} onChange={setView} label="Example calendar view"/><p className="caption">Selected: {view}</p></div></Card></div>
-    <Banner tone="info">Changes to today and tomorrow are proposals. You choose when to apply them.</Banner>
-    <Banner tone="warning">This is an example warning. It names the issue and gives the next step.</Banner>
-    <div className="grid-2"><Card><EmptyState icon={<BookOpen strokeWidth={1}/>} title="Start with one goal" action={<Button onClick={() => setOpen(true)}>Explore the controls</Button>}>A goal can be as small as 15 minutes a day.</EmptyState></Card><Card><h2>Loading state</h2><div className="stack" style={{ marginTop:'1rem' }}><Skeleton height={70}/><Skeleton height={24}/><Skeleton height={24}/></div></Card></div></div>
-    <Sheet open={open} onOpenChange={setOpen} title="A little more detail" description="On a phone this becomes a bottom sheet. Keyboard focus stays inside and Escape closes it."><div className="stack"><p className="muted">Every control has a visible label, a clear focus ring and a touch target of at least 44 pixels.</p><Button variant="primary" onClick={() => setOpen(false)}><Check size={18} strokeWidth={1.5}/>Done</Button></div></Sheet>
-  </>;
+  return (
+    <>
+      <PageHeader
+        title="Paper and Ink"
+        eyebrow="Component workshop"
+        description="One quiet visual language, in light and dark. Controls keep their meaning with colour, shape and words."
+      />
+      <div className="stack-lg">
+        <Card>
+          <div className="card-header">
+            <h2>Actions</h2>
+            <SlidersHorizontal size={20} strokeWidth={1.5} aria-hidden="true" />
+          </div>
+          <div className="row">
+            <Button variant="primary" onClick={() => setOpen(true)}>
+              <BookOpen size={18} strokeWidth={1.5} />
+              Open details
+            </Button>
+            <Button onClick={() => setView("week")}>View week</Button>
+            <Button variant="text" onClick={() => setView("day")}>
+              Back to day
+            </Button>
+            <Button disabled aria-describedby="disabled-reason">
+              Unavailable
+            </Button>
+          </div>
+          <p
+            id="disabled-reason"
+            className="caption"
+            style={{ marginTop: ".75rem" }}
+          >
+            Unavailable controls explain what is needed before continuing.
+          </p>
+        </Card>
+        <div className="grid-2">
+          <Card>
+            <h2>Status in words</h2>
+            <div className="stack" style={{ marginTop: "1rem" }}>
+              {[
+                "pending",
+                "in_progress",
+                "partial",
+                "completed",
+                "skipped",
+                "deferred",
+                "cancelled",
+                "overdue",
+                "unverified",
+                "proposed",
+              ].map((status) => (
+                <StatusPill key={status} status={status} />
+              ))}
+            </div>
+          </Card>
+          <Card>
+            <h2>Form controls</h2>
+            <div className="stack" style={{ marginTop: "1rem" }}>
+              <Field
+                id="workshop-title"
+                label="Goal title"
+                hint="Use a short, specific name."
+              >
+                <input
+                  className="input"
+                  id="workshop-title"
+                  placeholder="Read for 20 minutes"
+                  aria-describedby="workshop-title-hint"
+                />
+              </Field>
+              <Field
+                id="workshop-duration"
+                label="Duration"
+                error="Enter at least 1 minute."
+              >
+                <input
+                  className="input"
+                  id="workshop-duration"
+                  inputMode="numeric"
+                  aria-invalid="true"
+                  aria-describedby="workshop-duration-error"
+                  defaultValue="0"
+                />
+              </Field>
+              <Segments
+                options={[
+                  { value: "day", label: "Day" },
+                  { value: "week", label: "Week" },
+                ]}
+                value={view}
+                onChange={setView}
+                label="Example calendar view"
+              />
+              <p className="caption">Selected: {view}</p>
+            </div>
+          </Card>
+        </div>
+        <Banner tone="info">
+          Changes to today and tomorrow are proposals. You choose when to apply
+          them.
+        </Banner>
+        <Banner tone="warning">
+          This is an example warning. It names the issue and gives the next
+          step.
+        </Banner>
+        <div className="grid-2">
+          <Card>
+            <EmptyState
+              icon={<BookOpen strokeWidth={1} />}
+              title="Start with one goal"
+              action={
+                <Button onClick={() => setOpen(true)}>
+                  Explore the controls
+                </Button>
+              }
+            >
+              A goal can be as small as 15 minutes a day.
+            </EmptyState>
+          </Card>
+          <Card>
+            <h2>Loading state</h2>
+            <div className="stack" style={{ marginTop: "1rem" }}>
+              <Skeleton height={70} />
+              <Skeleton height={24} />
+              <Skeleton height={24} />
+            </div>
+          </Card>
+        </div>
+      </div>
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title="A little more detail"
+        description="On a phone this becomes a bottom sheet. Keyboard focus stays inside and Escape closes it."
+      >
+        <div className="stack">
+          <p className="muted">
+            Every control has a visible label, a clear focus ring and a touch
+            target of at least 44 pixels.
+          </p>
+          <Button variant="primary" onClick={() => setOpen(false)}>
+            <Check size={18} strokeWidth={1.5} />
+            Done
+          </Button>
+        </div>
+      </Sheet>
+    </>
+  );
 }
