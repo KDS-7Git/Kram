@@ -116,6 +116,17 @@ describe('calendar helpers and local-time resolution', () => {
     } finally { Settings.now = originalNow; Settings.defaultZone = originalZone; }
   });
 
+  it('does not read the ambient clock through Luxon construction', () => {
+    const originalNow = Settings.now;
+    try {
+      Settings.now = () => { throw new Error('Unexpected ambient clock read'); };
+      expect(parseLocalDate('2026-11-05').toISODate()).toBe('2026-11-05');
+      expect(resolveLocalTime('2026-11-01', 90, 'America/New_York').instant).toBe('2026-11-01T01:30:00.000-04:00');
+      expect(studyDate('2026-11-06T01:30:00+05:30', 'Asia/Kolkata')).toBe('2026-11-05');
+      expect(localDateTime('2026-11-05', 1110, 'Asia/Kolkata').hour).toBe(18);
+    } finally { Settings.now = originalNow; }
+  });
+
   it('preserves civil-date arithmetic and rollover boundaries over generated dates', () => {
     fc.assert(fc.property(fc.integer({ min: 0, max: 7000 }), fc.integer({ min: -100, max: 100 }), fc.integer({ min: 0, max: 1439 }), (offset, delta, rollover) => {
       const date = addDays('2010-01-01', offset);

@@ -15,7 +15,8 @@ function integer(value: number, minimum: number, maximum: number, name: string):
 /** A calendar date in floating UTC, never an event instant or the user's timezone. */
 export function parseLocalDate(date: string): DateTime {
   if (!isoDatePattern.test(date)) throw new RangeError('Use a calendar date in YYYY-MM-DD form.');
-  const parsed = DateTime.fromISO(date, { zone: 'UTC' });
+  const [year, month, day] = date.split('-').map(Number);
+  const parsed = DateTime.fromMillis(0, { zone: 'UTC' }).set({ year, month, day, hour: 0, minute: 0, second: 0, millisecond: 0 });
   if (!parsed.isValid || parsed.toISODate() !== date) throw new RangeError(`Invalid calendar date: ${date}.`);
   return parsed;
 }
@@ -74,7 +75,7 @@ export function resolveLocalTime(date: string, minute: number, timezone = 'Asia/
   for (let advance = 0; advance <= 2880; advance++) {
     const desired = requested.plus({ minutes: advance });
     if (desired.year < 0 || desired.year > 9999) throw new RangeError('Local time is outside the supported calendar range.');
-    const candidate = DateTime.fromObject({ year: desired.year, month: desired.month, day: desired.day, hour: desired.hour, minute: desired.minute, second: 0, millisecond: 0 }, { zone: timezone });
+    const candidate = DateTime.fromMillis(0, { zone: timezone }).set({ year: desired.year, month: desired.month, day: desired.day, hour: desired.hour, minute: desired.minute, second: 0, millisecond: 0 });
     if (!candidate.isValid || candidate.year !== desired.year || candidate.month !== desired.month || candidate.day !== desired.day || candidate.hour !== desired.hour || candidate.minute !== desired.minute) continue;
     const offsets = candidate.getPossibleOffsets().sort((a, b) => a.toMillis() - b.toMillis());
     const first = offsets[0]!;
@@ -88,7 +89,7 @@ export function localToInstant(date: string, minute: number, timezone = 'Asia/Ko
 }
 
 export function localDateTime(date: string, minute: number, timezone = 'Asia/Kolkata'): DateTime {
-  return DateTime.fromISO(localToInstant(date, minute, timezone), { setZone: true });
+  return instantValue(localToInstant(date, minute, timezone)).setZone(timezone);
 }
 
 function rolloverMinute(rollover: number | string): number {
@@ -105,7 +106,15 @@ function instantValue(instant: string | number | DateTime): DateTime {
     parsed = DateTime.fromMillis(instant, { zone: 'UTC' });
   } else if (typeof instant === 'string') {
     if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(instant)) throw new RangeError('An event instant must include Z or a timezone offset.');
-    parsed = DateTime.fromISO(instant, { setZone: true });
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|([+-])(\d{2}):?(\d{2}))$/i.exec(instant);
+    if (!match) throw new RangeError('Invalid event instant.');
+    const hour = integer(Number(match[2]), 0, 23, 'Instant hour');
+    const minute = integer(Number(match[3]), 0, 59, 'Instant minute');
+    const second = integer(Number(match[4] ?? 0), 0, 59, 'Instant second');
+    const millisecond = Number((match[5] ?? '').padEnd(3, '0').slice(0, 3));
+    const offset = match[6]!.toUpperCase() === 'Z' ? 0 :
+      (match[7] === '-' ? -1 : 1) * (integer(Number(match[8]), 0, 23, 'Offset hour') * 60 + integer(Number(match[9]), 0, 59, 'Offset minute'));
+    parsed = parseLocalDate(match[1]!).plus({ hours: hour, minutes: minute - offset, seconds: second, milliseconds: millisecond });
   } else parsed = instant;
   if (!parsed.isValid) throw new RangeError('Invalid event instant.');
   return parsed;
@@ -116,7 +125,7 @@ export function studyDate(instant: string | number | DateTime, timezone = 'Asia/
   validateZone(timezone);
   const value = instantValue(instant).setZone(timezone);
   const calendarDate = value.toISODate()!;
-  const boundary = DateTime.fromISO(localToInstant(calendarDate, rolloverMinute(rollover), timezone), { setZone: true });
+  const boundary = instantValue(localToInstant(calendarDate, rolloverMinute(rollover), timezone));
   if (value.toMillis() >= boundary.toMillis()) return calendarDate;
   let previous = addDays(calendarDate, -1);
   for (let skipped = 0; skipped < 3; skipped++) {
