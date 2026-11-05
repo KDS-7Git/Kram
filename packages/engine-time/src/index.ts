@@ -120,6 +120,11 @@ function instantValue(instant: string | number | DateTime): DateTime {
   return parsed;
 }
 
+/** Epoch milliseconds for explicit instants; never reads the current clock. */
+export function instantMillis(instant: string | number | DateTime): number {
+  return instantValue(instant).toMillis();
+}
+
 /** The only event-instant to study-date mapping. The application supplies now. */
 export function studyDate(instant: string | number | DateTime, timezone = 'Asia/Kolkata', rollover: number | string = 240): string {
   validateZone(timezone);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { DateTime, Settings } from 'luxon';
-import { addDays, dateRange, daysBetween, inDateRange, localDate, localDateTime, localToInstant, parseLocalDate, resolveLocalTime, studyDate, weekday, weekStartDate } from './index';
+import { addDays, dateRange, daysBetween, inDateRange, instantMillis, localDate, localDateTime, localToInstant, parseLocalDate, resolveLocalTime, studyDate, weekday, weekStartDate } from './index';
 
 describe('event study dates', () => {
   it('assigns late-night work to the previous study day and closes exactly at rollover', () => {
@@ -18,6 +18,16 @@ describe('event study dates', () => {
     expect(studyDate(value.toMillis(), 'Asia/Kolkata')).toBe('2026-11-05');
     expect(studyDate('2026-11-05T23:00:00Z', 'Asia/Kolkata')).toBe('2026-11-06');
     expect(studyDate('2026-11-05T23:00:00Z', 'UTC')).toBe('2026-11-05');
+  });
+
+  it('converts explicit instant offsets to epoch milliseconds without a clock', () => {
+    expect(instantMillis('1970-01-01T00:00:00Z')).toBe(0);
+    expect(instantMillis('1970-01-01T05:30:00+05:30')).toBe(0);
+    expect(instantMillis('1970-01-01T00:00:00.123456789Z')).toBe(123);
+    expect(instantMillis('1970-01-01T00:00:00-01:00')).toBe(3600000);
+    expect(instantMillis(-1)).toBe(-1);
+    expect(() => instantMillis('2026-02-30T00:00:00Z')).toThrow();
+    expect(() => instantMillis('2026-11-05T25:00:00Z')).toThrow();
   });
 
   it('does not subtract elapsed hours across spring-forward or fall-back', () => {
@@ -123,6 +133,7 @@ describe('calendar helpers and local-time resolution', () => {
       expect(parseLocalDate('2026-11-05').toISODate()).toBe('2026-11-05');
       expect(resolveLocalTime('2026-11-01', 90, 'America/New_York').instant).toBe('2026-11-01T01:30:00.000-04:00');
       expect(studyDate('2026-11-06T01:30:00+05:30', 'Asia/Kolkata')).toBe('2026-11-05');
+      expect(instantMillis('1970-01-01T00:00:00Z')).toBe(0);
       expect(localDateTime('2026-11-05', 1110, 'Asia/Kolkata').hour).toBe(18);
     } finally { Settings.now = originalNow; }
   });
