@@ -58,6 +58,31 @@ describe('rolling task source projection', () => {
     const ids = rows.map(task => task.id); await materialize(userId, '2026-11-09');
     expect(await db.task.count({ where: { id: { in: ids } } })).toBe(6); expect(await db.task.count({ where: { goalId: g.id } })).toBe(9);
   });
+  it('allocates the complete first midweek quota and preserves commitments on rerun', async () => {
+    const g = await goal({ type: 'weekly', targetQty: 90, availableDays: [1, 3, 5] }); await materialize(userId, '2026-11-04');
+    let rows = await db.task.findMany({ where: { goalId: g.id, periodKey: { startsWith: 'weekly:2026-11-02:' } }, orderBy: { earliestDate: 'asc' } });
+    expect(rows).toHaveLength(2); expect(rows.map(task => task.qty)).toEqual([45, 45]);
+    await materialize(userId, '2026-11-06'); rows = await db.task.findMany({ where: { goalId: g.id, periodKey: { startsWith: 'weekly:2026-11-02:' } } });
+    expect(rows.reduce((sum, task) => sum + task.qty, 0)).toBe(90); expect(rows.every(task => task.qty === 45)).toBe(true);
+  });
+  it('keeps a started weekly commitment and shares the remaining quota with editable dates', async () => {
+    const g = await goal({ type: 'weekly', targetQty: 90, availableDays: [1, 3, 5] }); await materialize(userId, '2026-11-02');
+    const started = await db.task.findFirstOrThrow({ where: { goalId: g.id, earliestDate: date('2026-11-02') } });
+    await tasks.event(userId, started.id, { clientEventId: uuid(), kind: 'progress', minutes: 10, occurredAt: '2026-11-06T12:00:00.000Z' });
+    const version = goalSchema.parse({ ...g, startDate: '2026-11-02', dueDate: null, targetQty: 120, availableDays: [1, 3, 5] });
+    await db.goalRuleVersion.create({ data: { id: uuid(), userId, goalId: g.id, version: 2, effectiveFrom: date('2026-11-04'), rules: version } });
+    await materialize(userId, '2026-11-04');
+    const rows = await db.task.findMany({ where: { goalId: g.id, periodKey: { startsWith: 'weekly:2026-11-02:' } }, orderBy: { earliestDate: 'asc' } });
+    expect(rows.map(task => task.qty)).toEqual([30, 45, 45]); expect(rows[0]).toMatchObject({ actualMinutes: 10, remainingMinutes: 20 });
+  });
+  it('preserves an owner-moved weekly allocation without allocating its original key twice', async () => {
+    const g = await goal({ type: 'weekly', targetQty: 90, availableDays: [1, 3, 5] }); await materialize(userId, '2026-11-02');
+    const moved = await db.task.findFirstOrThrow({ where: { goalId: g.id, earliestDate: date('2026-11-04') } });
+    await tasks.edit(userId, moved.id, { earliestDate: '2026-11-08', dueDate: '2026-11-08', estMinutes: 40 }); await materialize(userId, '2026-11-02');
+    const rows = await db.task.findMany({ where: { goalId: g.id, periodKey: { startsWith: 'weekly:2026-11-02:' }, archivedAt: null } });
+    expect(rows).toHaveLength(3); expect(rows.reduce((sum, task) => sum + task.qty, 0)).toBe(90);
+    expect(await db.task.findUniqueOrThrow({ where: { id: moved.id } })).toMatchObject({ manualOverride: true, qty: 40, earliestDate: date('2026-11-08') });
+  });
   it('resolves future rule criteria per date without applying them early', async () => {
     const g = await goal({ targetQty: 20 });
     const future = goalSchema.parse({ ...g, startDate: '2026-11-02', dueDate: null, targetQty: 40, availableDays: [1, 2, 3, 4, 5, 6, 7] });
@@ -110,6 +135,36 @@ describe('rolling task source projection', () => {
       const rows = await db.task.findMany({ where: { goalId: g.id }, orderBy: { sortOrder: 'asc' } }); expect(rows).toHaveLength(2);
       expect(await db.taskDependency.count({ where: { taskId: rows[1]!.id, dependsOnTaskId: rows[0]!.id } })).toBe(1); expect(rows[0]!.qty).toBe(g.id === first.id ? 30 : 1);
     }
+  });
+  it('expands a container prerequisite into every descendant leaf before its dependent', async () => {
+    const g = await goal(); const r = await resource([g.id]); const parentId = uuid(), dependentId = uuid(), childIds = [uuid(), uuid()];
+    await db.resourceItem.create({ data: { id: dependentId, userId, resourceId: r.id, title: 'Synthetic dependent', ordinal: 0, estMinutes: 30 } });
+    await db.resourceItem.create({ data: { id: parentId, userId, resourceId: r.id, title: 'Synthetic prerequisite chapter', ordinal: 1, kind: 'chapter', estMinutes: 0 } });
+    await db.resourceItem.createMany({ data: childIds.map((id, ordinal) => ({ id, userId, resourceId: r.id, parentItemId: parentId, ordinal, title: `Synthetic prerequisite${ordinal}`, estMinutes: 30 })) });
+    await db.itemDependency.create({ data: { id: uuid(), userId, resourceId: r.id, itemId: dependentId, dependsOnItemId: parentId } }); await materialize(userId, '2026-11-06');
+    const dependent = await db.task.findFirstOrThrow({ where: { itemId: dependentId } }); const prerequisites = await db.task.findMany({ where: { itemId: { in: childIds } } });
+    expect(prerequisites).toHaveLength(2); expect(await db.taskDependency.count({ where: { taskId: dependent.id } })).toBe(2);
+    expect(prerequisites.every(task => task.earliestDate < dependent.earliestDate)).toBe(true);
+  });
+  it('archives an unstarted dependent when its prerequisite becomes unavailable, then restores it safely', async () => {
+    const g = await goal(); const r = await resource([g.id]); const ids = [uuid(), uuid()];
+    await db.resourceItem.createMany({ data: ids.map((id, ordinal) => ({ id, userId, resourceId: r.id, ordinal, title: `Synthetic guarded${ordinal}`, estMinutes: 30 })) });
+    await db.itemDependency.create({ data: { id: uuid(), userId, resourceId: r.id, itemId: ids[1]!, dependsOnItemId: ids[0]! } }); await materialize(userId, '2026-11-06');
+    const dependent = await db.task.findFirstOrThrow({ where: { itemId: ids[1] } }); await db.resourceItem.update({ where: { id: ids[0]! }, data: { archivedAt: new Date() } });
+    expect((await materialize(userId, '2026-11-06')).unresolved).toBeGreaterThan(0);
+    expect((await db.task.findUniqueOrThrow({ where: { id: dependent.id } })).archivedAt).not.toBeNull();
+    await db.resourceItem.update({ where: { id: ids[0]! }, data: { archivedAt: null } }); await materialize(userId, '2026-11-06');
+    expect((await db.task.findUniqueOrThrow({ where: { id: dependent.id } })).archivedAt).toBeNull();
+    expect(await db.taskDependency.count({ where: { taskId: dependent.id } })).toBe(1);
+  });
+  it('omits new dependent work while an oversized or empty prerequisite has no concrete task', async () => {
+    const g = await goal(); const r = await resource([g.id]); const prerequisiteId = uuid(), dependentId = uuid();
+    await db.resourceItem.create({ data: { id: prerequisiteId, userId, resourceId: r.id, title: 'Synthetic oversized prerequisite', estMinutes: 1500 } });
+    await db.resourceItem.create({ data: { id: dependentId, userId, resourceId: r.id, title: 'Synthetic blocked dependent', estMinutes: 30 } });
+    await db.itemDependency.create({ data: { id: uuid(), userId, resourceId: r.id, itemId: dependentId, dependsOnItemId: prerequisiteId } });
+    expect((await materialize(userId, '2026-11-06')).unresolved).toBe(2); expect(await db.task.count({ where: { goalId: g.id } })).toBe(0);
+    await db.resourceItem.update({ where: { id: prerequisiteId }, data: { estMinutes: 0, kind: 'chapter' } });
+    expect((await materialize(userId, '2026-11-06')).unresolved).toBeGreaterThan(0); expect(await db.task.count({ where: { goalId: g.id } })).toBe(0);
   });
   it('respects pause/start/deadline and leaves recurring occurrence generation unresolved', async () => {
     const bounded = await goal({ startDate: '2026-11-10', dueDate: '2026-11-12' }); const recurring = await goal({ type: 'recurring', rrule: 'FREQ=DAILY;INTERVAL=2' }); const paused = await goal();
