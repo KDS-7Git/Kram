@@ -31,6 +31,10 @@ Object.assign(process.env, {
   ENCRYPTION_KEY: "33".repeat(32),
   LOG_LEVEL: "silent",
   VITE_API_TARGET: "http://127.0.0.1:8422",
+  NTFY_BASE_URL: "",
+  NTFY_TOPIC: "",
+  NTFY_TOKEN: "",
+  NTFY_TOKEN_FILE: "",
 });
 for (const key of [
   "DATABASE_URL_FILE",
