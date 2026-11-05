@@ -25,6 +25,7 @@ x-app: &app
     POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     SESSION_SECRET_FILE: /run/secrets/session_secret
     ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+    OWNER_SETUP_TOKEN: ${OWNER_SETUP_TOKEN:-}
     APP_URL: ${APP_URL:-http://localhost:8420}
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     TRUST_PROXY: ${TRUST_PROXY:-0}

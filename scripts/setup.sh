@@ -14,10 +14,14 @@ for (const [file, size] of [['postgres_password', 32], ['session_secret', 64], [
 }
 if (!existsSync('.env')) {
   const password = readFileSync('secrets/postgres_password', 'utf8').trim();
-  const config = readFileSync('.env.example', 'utf8').replace(
+  let config = readFileSync('.env.example', 'utf8').replace(
     /^DATABASE_URL=.*$/m,
     `DATABASE_URL=postgresql://kram:${encodeURIComponent(password)}@127.0.0.1:5432/kram`,
-  ) + `\n# Match file-secret and backup ownership on Linux.\nLOCAL_UID=${process.getuid?.() ?? 1000}\nLOCAL_GID=${process.getgid?.() ?? 1000}\n`;
+  );
+  for (const [name, value] of [['LOCAL_UID', process.getuid?.() ?? 1000], ['LOCAL_GID', process.getgid?.() ?? 1000]]) {
+    const pattern = new RegExp(`^${name}=.*$`, 'm');
+    config = pattern.test(config) ? config.replace(pattern, `${name}=${value}`) : `${config}\n${name}=${value}\n`;
+  }
   writeFileSync('.env', config, { flag: 'wx', mode: 0o600 });
 }
 mkdirSync('backups', { recursive: true, mode: 0o700 });
