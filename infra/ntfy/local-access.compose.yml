@@ -1,0 +1,6 @@
+# Optional loopback access for local clients or an existing protected tunnel.
+# Include with the main Compose file and the notifications profile.
+services:
+  ntfy:
+    ports:
+      - "${NTFY_BIND_ADDRESS:-127.0.0.1}:${NTFY_PORT:-8421}:80"

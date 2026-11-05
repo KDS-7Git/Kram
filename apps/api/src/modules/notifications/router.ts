@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { idSchema } from '@kram/shared';
+import { iso } from '../../repository';
+import { paginate } from '../../pagination';
+import { listNotifications, notificationStatus, queueTestNotification, reminders } from './service';
+export const notificationsRouter = Router();
+const owner = (res: { locals: Record<string, unknown> }) => String(res.locals.userId);
+notificationsRouter.get('/notifications', async (req, res) => res.json(iso(paginate(await listNotifications(owner(res)), req.query, res))));
+notificationsRouter.get('/notifications/status', async (_req, res) => res.json(iso(await notificationStatus(owner(res)))));
+notificationsRouter.post('/notifications/test', async (req, res) => { z.object({}).strict().parse(req.body ?? {}); res.status(202).json(iso({ notification: await queueTestNotification(owner(res)), queued: true })); });
+notificationsRouter.get('/reminder-rules', async (req, res) => res.json(iso(paginate(await reminders.list(owner(res)), req.query, res))));
+notificationsRouter.post('/reminder-rules', async (req, res) => res.status(201).json(iso(await reminders.create(owner(res), req.body))));
+notificationsRouter.get('/reminder-rules/:id', async (req, res) => res.json(iso(await reminders.get(owner(res), idSchema.parse(req.params.id)))));
+notificationsRouter.patch('/reminder-rules/:id', async (req, res) => res.json(iso(await reminders.edit(owner(res), idSchema.parse(req.params.id), z.record(z.string(), z.unknown()).parse(req.body)))));
+notificationsRouter.post('/reminder-rules/:id/archive', async (req, res) => res.json(iso(await reminders.archive(owner(res), idSchema.parse(req.params.id)))));

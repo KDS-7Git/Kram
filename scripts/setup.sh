@@ -25,6 +25,8 @@ if (!existsSync('.env')) {
   writeFileSync('.env', config, { flag: 'wx', mode: 0o600 });
 }
 mkdirSync('backups', { recursive: true, mode: 0o700 });
+// Optional channel credential: provision a real ntfy token before enabling it.
+if (!existsSync('secrets/ntfy_token')) writeFileSync('secrets/ntfy_token', '', { flag: 'wx', mode: 0o600 });
 NODE
 
 printf '%s\n' 'Created missing local configuration and secrets; existing files were preserved.'

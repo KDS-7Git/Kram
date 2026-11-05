@@ -31,12 +31,16 @@ x-app: &app
     TRUST_PROXY: ${TRUST_PROXY:-0}
     DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Kolkata}
     LOG_LEVEL: ${LOG_LEVEL:-info}
-    NTFY_BASE_URL: http://ntfy:80
+    NTFY_BASE_URL: ${NTFY_BASE_URL:-http://ntfy:80}
+    NTFY_TOPIC: ${NTFY_TOPIC:-}
+    NTFY_TOKEN: ${NTFY_TOKEN:-}
+    NTFY_TOKEN_FILE: /run/secrets/ntfy_token
     BACKUP_DIR: /app/backups
   secrets:
     - postgres_password
     - session_secret
     - encryption_key
+    - ntfy_token
   networks:
     - private
     - database
@@ -174,3 +178,5 @@ secrets:
     file: ./secrets/session_secret
   encryption_key:
     file: ./secrets/encryption_key
+  ntfy_token:
+    file: ./secrets/ntfy_token
