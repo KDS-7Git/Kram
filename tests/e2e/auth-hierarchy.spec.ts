@@ -29,7 +29,7 @@ async function createOwner(page: Page) {
     .getByRole("button", { name: "Create my planner", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "A little room to focus", exact: true }),
+    page.getByRole("heading", { name: "Your tasks", exact: true }),
   ).toBeVisible();
 }
 
@@ -65,7 +65,7 @@ test("owner onboarding persists account, time choices and first profile", async 
   expect(data.profiles.map((profile) => profile.name)).toEqual(["Research"]);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "A little room to focus", exact: true }),
+    page.getByRole("heading", { name: "Your tasks", exact: true }),
   ).toBeVisible();
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
@@ -249,6 +249,6 @@ test("settings, device theme, sign out and sign in work on desktop and phone", a
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "A little room to focus", exact: true }),
+    page.getByRole("heading", { name: "Your tasks", exact: true }),
   ).toBeVisible();
 });
