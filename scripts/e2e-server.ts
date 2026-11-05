@@ -3,6 +3,7 @@ import { GenericContainer, Wait } from "testcontainers";
 import { execFileSync } from "node:child_process";
 import express from "express";
 import { createServer } from "vite";
+import { devNull } from "node:os";
 
 const container = await new GenericContainer("postgres:16-bookworm")
   .withEnvironment({
@@ -21,6 +22,7 @@ const container = await new GenericContainer("postgres:16-bookworm")
   .withWaitStrategy(Wait.forHealthCheck())
   .start();
 Object.assign(process.env, {
+  DOTENV_CONFIG_PATH: devNull,
   DATABASE_URL: `postgresql://kram:isolated-browser-only@${container.getHost()}:${container.getMappedPort(5432)}/kram_e2e`,
   NODE_ENV: "test",
   COOKIE_SECURE: "false",
