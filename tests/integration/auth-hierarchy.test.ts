@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import { execFileSync } from 'node:child_process';
+import { devNull } from 'node:os';
 import request, { type Agent, type Response, type Test } from 'supertest';
 import argon2 from 'argon2';
 import { v7 as uuid } from 'uuid';
@@ -71,15 +72,19 @@ beforeAll(async () => {
     .start();
   const url = `postgresql://kram:isolated-integration-only@${container.getHost()}:${container.getMappedPort(5432)}/kram`;
   process.env.DATABASE_URL = url;
+  process.env.DOTENV_CONFIG_PATH = devNull;
+  process.env.DATABASE_URL_FILE = '';
   process.env.NODE_ENV = 'test';
   process.env.COOKIE_SECURE = 'false';
   process.env.APP_URL = origin;
   process.env.DEFAULT_TIMEZONE = 'Asia/Kolkata';
   process.env.SESSION_SECRET = 'kram-integration-session-secret-long-enough-42';
+  process.env.SESSION_SECRET_FILE = '';
   process.env.ENCRYPTION_KEY = '22'.repeat(32);
+  process.env.ENCRYPTION_KEY_FILE = '';
   process.env.LOG_LEVEL = 'silent';
-  delete process.env.OWNER_SETUP_TOKEN;
-  delete process.env.OWNER_SETUP_TOKEN_FILE;
+  process.env.OWNER_SETUP_TOKEN = '';
+  process.env.OWNER_SETUP_TOKEN_FILE = '';
   execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'apps/api/prisma/schema.prisma'], { env: { ...process.env, DATABASE_URL: url }, stdio: 'pipe' });
   ({ db } = await import('../../apps/api/src/db'));
   const { createApp } = await import('../../apps/api/src/app');
@@ -297,5 +302,17 @@ describe('single-owner authentication and hierarchy', () => {
     expect(limited).toBeDefined();
     expect(limited!.body.error.code).toBe('RATE_LIMITED');
     expect((await db.user.findUniqueOrThrow({ where: { id: ownerId } })).isOwner).toBe(true);
+  });
+
+  it('counts concurrent login failures instead of overwriting the account lockout', async () => {
+    await db.authLockout.deleteMany();
+    await refreshOwnerAuth();
+    const failures = await Promise.all(Array.from({ length: 3 }, () => mutation('post', '/api/v1/auth/login', { email: ownerEmail, password: 'concurrent-invalid-password-42' })));
+    expect(failures.map(response => response.status)).toEqual([401, 401, 401]);
+    const retry = await mutation('post', '/api/v1/auth/login', { email: ownerEmail, password: 'concurrent-invalid-password-42' });
+    expect(retry.status).toBe(429);
+    expect(retry.body.error.code).toBe('RATE_LIMITED');
+    const lockouts = await db.authLockout.findMany();
+    expect(lockouts.some(lockout => lockout.failures >= 3)).toBe(true);
   });
 });
