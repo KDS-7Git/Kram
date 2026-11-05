@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir, devNull } from 'node:os';
 import { join } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
@@ -24,7 +24,7 @@ beforeAll(async () => {
     .withHealthCheck({ test: ['CMD-SHELL', 'pg_isready -U kram -d kram'], interval: 1000, timeout: 3000, retries: 30, startPeriod: 1000 })
     .withWaitStrategy(Wait.forHealthCheck()).start();
   url = `postgresql://kram:disposable-backup-test@${container.getHost()}:${container.getMappedPort(5432)}/kram`;
-  Object.assign(process.env, { DATABASE_URL: url, NODE_ENV: 'test', SESSION_SECRET: 'backup-integration-secret-that-is-long-enough', ENCRYPTION_KEY: 'backup-integration-key-that-is-long-enough', BACKUP_DIR: workspace, WORKER_HEALTH_FILE: join(workspace, 'worker-health.json') });
+  Object.assign(process.env, { DOTENV_CONFIG_PATH: devNull, DATABASE_URL: url, DATABASE_URL_FILE: '', NODE_ENV: 'test', SESSION_SECRET: 'backup-integration-secret-that-is-long-enough', SESSION_SECRET_FILE: '', ENCRYPTION_KEY: 'backup-integration-key-that-is-long-enough', ENCRYPTION_KEY_FILE: '', LOG_LEVEL: 'silent', BACKUP_DIR: workspace, WORKER_HEALTH_FILE: join(workspace, 'worker-health.json') });
   for (const tool of ['pg_dump', 'pg_restore']) {
     const wrapper = join(workspace, tool);
     await writeFile(wrapper, `#!/bin/sh\nexec docker exec -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER -e PGPASSWORD -e PGDATABASE ${container.getId()} ${tool} "$@"\n`, { mode: 0o700 });
