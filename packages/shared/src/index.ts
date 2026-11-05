@@ -352,6 +352,7 @@ export type Task = Entity &
     timerElapsedMinutes: number;
     deferredToDate: string | null;
     periodKey: string;
+    manualOverride: boolean;
     overdue?: boolean;
     unverified?: boolean;
   };

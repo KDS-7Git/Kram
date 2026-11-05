@@ -255,6 +255,7 @@ model Task {
   deferredToDate DateTime? @db.Date
   unverified Boolean @default(false)
   eventVersion Int @default(0)
+  manualOverride Boolean @default(false)
   archivedAt DateTime? @db.Timestamptz(3)
   isDemo Boolean @default(false)
   createdAt DateTime @default(now()) @db.Timestamptz(3)

@@ -366,6 +366,8 @@ export const tasks = {
         dependsOn: row.dependencies.map((edge) => edge.dependsOnTaskId),
         ...input,
       });
+      if (row.goal.unit.toLowerCase() === 'minutes')
+        data.qty = data.estMinutes !== row.estMinutes ? data.estMinutes : row.qty;
       if (data.goalId !== row.goalId || data.itemId !== row.itemId)
         throw new ApiError(
           "HISTORY_PROTECTED",
@@ -393,10 +395,15 @@ export const tasks = {
           409,
         );
       const { dependsOn: _edges, ...value } = data;
+      const changed = ['title', 'estMinutes', 'qty', 'supportsSplit', 'sortOrder']
+        .some(field => row[field as keyof TaskRow] !== value[field as keyof typeof value]) ||
+        calendarString(row.earliestDate) !== data.earliestDate ||
+        (row.dueDate ? calendarString(row.dueDate) : null) !== data.dueDate;
       await tx.task.update({
         where: { id, userId },
         data: {
           ...value,
+          manualOverride: row.manualOverride || changed,
           earliestDate: calendarDate(data.earliestDate),
           dueDate: data.dueDate ? calendarDate(data.dueDate) : null,
           ...(row.eventVersion === 0

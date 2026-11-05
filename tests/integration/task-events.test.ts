@@ -158,6 +158,47 @@ describe('authenticated append-only task events', () => {
     await patch(`/tasks/${task.id}`, { title: 'Saved event task title' }).expect(200);
     expect((await get(`/tasks/${task.id}`).expect(200)).body.estMinutes).toBe(60);
   });
+
+  it('preserves an owner-edited generated task across source refresh and rolling windows', async () => {
+    const generated = await db.task.findFirstOrThrow({ where: { goalId: minuteGoalId, earliestDate: new Date('2026-11-06T00:00:00Z'), archivedAt: null, periodKey: { startsWith: 'daily:' } } });
+    expect(generated.manualOverride).toBe(false);
+    const empty = await patch(`/tasks/${generated.id}`, { manualOverride: true }).expect(200);
+    expect(empty.body.manualOverride).toBe(false);
+    const saved = await patch(`/tasks/${generated.id}`, { title: 'Owner-adjusted generated session', estMinutes: 75, qty: 2, earliestDate: '2026-11-07', dueDate: '2026-11-09', supportsSplit: false, sortOrder: 7 }).expect(200);
+    expect(saved.body).toMatchObject({ manualOverride: true, estMinutes: 75, qty: 75, remainingMinutes: 75, earliestDate: '2026-11-07', dueDate: '2026-11-09' });
+    expect(await db.progressEvent.count({ where: { taskId: generated.id } })).toBe(0);
+    const { materializeTasks } = await import('../../apps/api/src/modules/tasks/materialization');
+    await materializeTasks(ownerId, '2026-11-06');
+    await materializeTasks(ownerId, '2026-11-07');
+    expect((await get(`/tasks/${generated.id}`).expect(200)).body).toMatchObject({
+      title: 'Owner-adjusted generated session', estMinutes: 75, qty: 75, remainingMinutes: 75,
+      earliestDate: '2026-11-07', dueDate: '2026-11-09', supportsSplit: false, sortOrder: 7, manualOverride: true, archivedAt: null,
+    });
+    const attemptToClear = await patch(`/tasks/${generated.id}`, { manualOverride: false }).expect(200);
+    expect(attemptToClear.body.manualOverride).toBe(true);
+  });
+
+  it('keeps an owner override when its unstarted resource item is archived', async () => {
+    const goal = (await post('/goals', { skillId, type: 'milestone', title: 'Synthetic override course', unit: 'videos', targetQty: 1, startDate: '2026-11-06' }).expect(201)).body;
+    const resource = await db.resource.create({ data: { id: uuid(), userId: ownerId, skillId, title: 'Synthetic override resource', type: 'course' } });
+    await db.goalResource.create({ data: { id: uuid(), userId: ownerId, goalId: goal.id, resourceId: resource.id } });
+    const item = await db.resourceItem.create({ data: { id: uuid(), userId: ownerId, resourceId: resource.id, title: 'Synthetic removable item', estMinutes: 30 } });
+    const { materializeTasks } = await import('../../apps/api/src/modules/tasks/materialization');
+    await materializeTasks(ownerId, '2026-11-06');
+    const generated = await db.task.findFirstOrThrow({ where: { goalId: goal.id, itemId: item.id, archivedAt: null } });
+    await patch(`/tasks/${generated.id}`, { title: 'Retained owner session' }).expect(200);
+    await db.resourceItem.update({ where: { id: item.id }, data: { archivedAt: new Date() } });
+    await materializeTasks(ownerId, '2026-11-06');
+    expect((await get(`/tasks/${generated.id}`).expect(200)).body).toMatchObject({ title: 'Retained owner session', manualOverride: true, archivedAt: null, estMinutes: 30, qty: 1 });
+  });
+
+  it('allows metadata edits on started minute quota work with a fractional quantity baseline', async () => {
+    const taskId = uuid();
+    await db.task.create({ data: { id: taskId, userId: ownerId, goalId: minuteGoalId, title: 'Fractional generated quota', estMinutes: 7, remainingMinutes: 7, qty: 20 / 3, earliestDate: new Date('2026-11-06T00:00:00Z'), periodKey: `weekly:fixture:${taskId}`, materializationKey: `fixture:${taskId}` } });
+    await event(taskId, 'progress', { minutes: 1 }).expect(200);
+    const saved = await patch(`/tasks/${taskId}`, { title: 'Renamed fractional quota', qty: 0.1 }).expect(200);
+    expect(saved.body).toMatchObject({ title: 'Renamed fractional quota', estMinutes: 7, qty: 20 / 3, actualMinutes: 1, remainingMinutes: 6, manualOverride: true });
+  });
 });
 
 describe('client replay and event concurrency', () => {

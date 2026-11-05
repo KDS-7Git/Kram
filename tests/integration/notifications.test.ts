@@ -31,6 +31,10 @@ async function notification(fields: Record<string, unknown> = {}): Promise<Notif
 async function enableNotifications(extra: Record<string, unknown> = {}) {
   await db.user.update({ where: { id: userId }, data: { settings: { ...settings, notificationsEnabled: true, ...extra } } });
 }
+async function reminderTask(workDate: string) {
+  const id = uuid();
+  return db.task.create({ data: { id, userId, goalId, title: 'Synthetic anchored reminder task', estMinutes: 30, remainingMinutes: 30, earliestDate: new Date(`${workDate}T00:00:00Z`), periodKey: `manual:${id}`, materializationKey: `manual:${id}` } });
+}
 async function stopWorker() {
   const running = worker; if (!running || running.exitCode !== null) return;
   running.kill('SIGTERM');
@@ -168,6 +172,42 @@ describe('private durable ntfy delivery', () => {
     expect((await db.notification.findUniqueOrThrow({ where: { id: held.id } })).status).toBe('suppressed_quiet_hours');
     await service.dispatchNotifications(held.nextAttemptAt!); expect((await db.notification.findUniqueOrThrow({ where: { id: held.id } })).status).toBe('sent');
     expect(messages).toHaveLength(1);
+  });
+  it('sends a task once reminder only once when unchanged work becomes overdue across days', async () => {
+    await enableNotifications(); const task = await reminderTask('2026-11-06');
+    const rule = await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'task', ownerId: task.id, atLocal: 720, repeatPolicy: 'once' } });
+    const first = new Date('2026-11-06T12:00:00Z');
+    await service.refreshReminders(userId, db, first); await service.dispatchNotifications(first);
+    expect(messages).toHaveLength(1);
+    for (const day of [7, 8]) {
+      const now = new Date(`2026-11-${day.toString().padStart(2, '0')}T12:00:00Z`);
+      await service.refreshReminders(userId, db, now); await service.dispatchNotifications(now);
+    }
+    expect(messages).toHaveLength(1);
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id } })).toBe(1);
+    expect(await db.notificationAttempt.count({ where: { notification: { reminderRuleId: rule.id } } })).toBe(1);
+  });
+  it('retains a task once reminder across overnight quiet hours without creating a shifted reminder', async () => {
+    await enableNotifications({ quietHours: { startMin: 1320, endMin: 420 } });
+    const task = await reminderTask('2026-11-06');
+    const rule = await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'task', ownerId: task.id, atLocal: 1380, repeatPolicy: 'once' } });
+    const now = new Date('2026-11-06T23:00:00Z');
+    await service.refreshReminders(userId, db, now); await service.dispatchNotifications(now);
+    const held = await db.notification.findFirstOrThrow({ where: { reminderRuleId: rule.id, status: 'suppressed_quiet_hours' } });
+    await service.refreshReminders(userId, db, new Date('2026-11-07T06:00:00Z'));
+    expect((await db.notification.findUniqueOrThrow({ where: { id: held.id } })).status).toBe('suppressed_quiet_hours');
+    await service.dispatchNotifications(held.nextAttemptAt!);
+    await service.refreshReminders(userId, db, new Date('2026-11-07T23:00:00Z'));
+    await service.dispatchNotifications(new Date('2026-11-08T07:00:00Z'));
+    expect(messages).toHaveLength(1);
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id } })).toBe(1);
+  });
+  it('does not fabricate a current-day once reminder for stale work without a prior projection', async () => {
+    await enableNotifications(); const task = await reminderTask('2026-11-04');
+    const rule = await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'task', ownerId: task.id, atLocal: 720, repeatPolicy: 'once' } });
+    const now = new Date('2026-11-06T12:00:00Z');
+    await service.refreshReminders(userId, db, now); await service.dispatchNotifications(now);
+    expect(messages).toHaveLength(0); expect(await db.notification.count({ where: { reminderRuleId: rule.id } })).toBe(0);
   });
   it('claims one row once across concurrent dispatchers', async () => {
     await enableNotifications(); const row = await notification(); const now = new Date(Date.now() + 100);
