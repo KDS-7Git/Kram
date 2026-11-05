@@ -20,6 +20,7 @@ import {
   type Goal,
   type Skill,
   type GoalRuleVersion,
+  type ProgressEvent,
 } from "@kram/shared";
 import type { z } from "zod";
 import {
@@ -34,11 +35,12 @@ import {
   DelayedSkeleton as Skeleton,
   StatusPill as Status,
 } from "../../components/ui/kit";
-import { api, errorMessage } from "../../shared/api";
+import { api, apiList, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
-import { duration, weekdays } from "../../shared/format";
+import { calendarDate, duration, weekdays } from "../../shared/format";
 import { useUI } from "../../shared/ui";
 import { RecurrenceFields, recurrenceWords } from "./RecurrenceFields";
+import { TaskEditor, TaskPanel, TaskEventHistory } from "../tasks/Tasks";
 
 export const goalLabels = {
   daily: "Daily practice",
@@ -55,15 +57,6 @@ const descriptions = {
   milestone: "A clear outcome, such as finishing a project or passing an exam.",
 };
 
-export function calendarDate(value: string | null) {
-  if (!value) return "No deadline";
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T12:00:00Z`));
-}
 export function goalSentence(
   goal: Pick<
     Goal,
@@ -111,8 +104,10 @@ export function SkillGoals({
           <span className="goal-row-title">
             <strong>{goal.title}</strong>
             <span className="caption">
-              {goalLabels[goal.type]} · {goal.progressQty} of {goal.targetQty}{" "}
-              {goal.unit}
+              {goalLabels[goal.type]} · {goal.progressQty} {goal.unit} logged
+              {["adaptive", "milestone"].includes(goal.type)
+                ? ` of ${goal.targetQty}`
+                : " in total"}
             </span>
           </span>
           <Status status={goal.status} />
@@ -272,13 +267,20 @@ export function GoalEditor({
         <Field
           id="goal-unit"
           label="Measurement unit"
-          hint="Minutes, pages, videos, sessions…"
+          hint={
+            goal && data.tasks.some((task) => task.goalId === goal.id)
+              ? "This unit stays fixed after tasks exist. Create a new goal to measure something differently."
+              : "Minutes, pages, videos, sessions…"
+          }
           error={errors.unit?.message}
         >
           <input
             id="goal-unit"
             className="input"
             list="goal-units"
+            readOnly={
+              !!goal && data.tasks.some((task) => task.goalId === goal.id)
+            }
             {...form.register("unit")}
           />
           <datalist id="goal-units">
@@ -502,6 +504,8 @@ export function GoalDetail() {
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [tab, setTab] = useState("overview");
+  const [addingTask, setAddingTask] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const goalQuery = useQuery({
     queryKey: ["goals", goalId],
     queryFn: () => api<Goal>(`/goals/${goalId}`),
@@ -509,6 +513,12 @@ export function GoalDetail() {
   const rules = useQuery({
     queryKey: ["goals", goalId, "rules"],
     queryFn: () => api<GoalRuleVersion[]>(`/goals/${goalId}/rules`),
+  });
+  const history = useQuery({
+    queryKey: ["goals", goalId, "events"],
+    queryFn: ({ signal }) =>
+      apiList<ProgressEvent>(`/goals/${goalId}/events`, signal),
+    enabled: tab === "history",
   });
   const changeStatus = useMutation({
     mutationFn: (action: string) =>
@@ -544,6 +554,14 @@ export function GoalDetail() {
       </Card>
     );
   const goal = goalQuery.data;
+  const cumulativeGoal = goal.type === "adaptive" || goal.type === "milestone";
+  const tasks = data.tasks
+    .filter((task) => task.goalId === goal.id)
+    .sort(
+      (a, b) =>
+        a.earliestDate.localeCompare(b.earliestDate) ||
+        a.sortOrder - b.sortOrder,
+    );
   const latestRule = [...(rules.data || [])].sort(
     (a, b) =>
       b.effectiveFrom.localeCompare(a.effectiveFrom) || b.version - a.version,
@@ -597,36 +615,49 @@ export function GoalDetail() {
       )}
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List className="tab-list" aria-label="Goal details">
-          {["overview", "resources", "rules"].map((value) => (
-            <Tabs.Trigger value={value} key={value}>
-              {value === "rules"
-                ? "Rule history"
-                : value === "resources"
-                  ? "Resources"
-                  : "Overview"}
-            </Tabs.Trigger>
-          ))}
+          {["overview", "tasks", "history", "resources", "rules"].map(
+            (value) => (
+              <Tabs.Trigger value={value} key={value}>
+                {value === "rules"
+                  ? "Rule history"
+                  : value === "resources"
+                    ? "Resources"
+                    : value === "tasks"
+                      ? "Tasks"
+                      : value === "history"
+                        ? "History"
+                        : "Overview"}
+              </Tabs.Trigger>
+            ),
+          )}
         </Tabs.List>
         <Tabs.Content value="overview" className="stack-lg">
           <>
             <div className="grid-2">
               <Card>
-                <p className="eyebrow">Progress in {goal.unit}</p>
+                <p className="eyebrow">
+                  {cumulativeGoal ? "Progress" : "Lifetime logged progress"} in{" "}
+                  {goal.unit}
+                </p>
                 <p className="goal-number">
                   {goal.progressQty}
-                  <span> of {goal.targetQty}</span>
+                  {cumulativeGoal && <span> of {goal.targetQty}</span>}
                 </p>
-                <p className="muted">
-                  {goal.unit}
-                  {goal.type === "weekly"
-                    ? " per week"
-                    : goal.type === "daily"
-                      ? " per practice day"
-                      : " in total"}
-                </p>
+                <p className="muted">{goal.unit} in total</p>
+                {!cumulativeGoal && (
+                  <p className="caption">
+                    Target: {goal.targetQty} {goal.unit}
+                    {goal.type === "weekly"
+                      ? " per week"
+                      : goal.type === "daily"
+                        ? " per practice day"
+                        : " per occurrence"}
+                    .
+                  </p>
+                )}
               </Card>
               <Card>
-                <p className="eyebrow">Time spent</p>
+                <p className="eyebrow">Lifetime time logged</p>
                 <p className="goal-number">{duration(goal.progressMinutes)}</p>
                 <p className="muted">
                   Estimated session: {duration(goal.estMinutes)}
@@ -674,6 +705,73 @@ export function GoalDetail() {
               </div>
             </Card>
           </>
+        </Tabs.Content>
+        <Tabs.Content value="tasks" className="stack-lg">
+          <Card>
+            <div className="card-header">
+              <h2>Tasks for this goal</h2>
+              <Button
+                variant="primary"
+                disabled={!online || goal.status !== "active"}
+                onClick={() => setAddingTask(true)}
+              >
+                <Plus size={18} strokeWidth={1.5} />
+                Add task
+              </Button>
+            </div>
+            {tasks.length ? (
+              <ul className="goal-task-list">
+                {tasks.map((task) => (
+                  <li key={task.id}>
+                    <button
+                      className="resource-link-row"
+                      type="button"
+                      onClick={() => setSelectedTask(task.id)}
+                    >
+                      <span>
+                        <strong>{task.title}</strong>
+                        <span className="caption">
+                          Earliest {calendarDate(task.earliestDate)} ·{" "}
+                          {duration(task.remainingMinutes)} estimated remaining
+                        </span>
+                      </span>
+                      <Status status={task.status} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">
+                Add a manageable step for this goal. Future and finished tasks
+                stay available here.
+              </p>
+            )}
+          </Card>
+        </Tabs.Content>
+        <Tabs.Content value="history" className="stack-lg">
+          <Card>
+            <h2>Recorded progress and changes</h2>
+            {history.isPending ? (
+              <Skeleton height={180} />
+            ) : history.isError ? (
+              <Banner tone="error">
+                {errorMessage(history.error)}{" "}
+                <Button variant="text" onClick={() => void history.refetch()}>
+                  Retry history
+                </Button>
+              </Banner>
+            ) : history.data?.length ? (
+              <TaskEventHistory
+                events={history.data}
+                unit={goal.unit}
+                taskLinks
+              />
+            ) : (
+              <p className="muted">
+                Task progress, timer actions and corrections will appear here.
+              </p>
+            )}
+          </Card>
         </Tabs.Content>
         <Tabs.Content value="resources" className="stack-lg">
           <Card>
@@ -750,6 +848,26 @@ export function GoalDetail() {
           </Card>
         </Tabs.Content>
       </Tabs.Root>
+      <Sheet
+        open={addingTask}
+        onOpenChange={setAddingTask}
+        title="A task for this goal"
+        description="Estimate the next manageable step."
+      >
+        {addingTask && (
+          <TaskEditor goalId={goal.id} onDone={() => setAddingTask(false)} />
+        )}
+      </Sheet>
+      <Sheet
+        open={!!selectedTask}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTask(null);
+        }}
+        title="Task in focus"
+        description="Control the timer and record additional progress."
+      >
+        {selectedTask && <TaskPanel key={selectedTask} taskId={selectedTask} />}
+      </Sheet>
       {changeStatus.isError && (
         <Banner tone="error">{errorMessage(changeStatus.error)}</Banner>
       )}

@@ -1,0 +1,961 @@
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { DateTime } from "luxon";
+import { addDays } from "@kram/time";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  GripVertical,
+  LockKeyhole,
+  Pencil,
+  Pin,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { slotSchema, type Task, type TimeSlot } from "@kram/shared";
+import type { z } from "zod";
+import {
+  Banner,
+  Button,
+  Card,
+  ConfirmDialog,
+  DelayedSkeleton,
+  EmptyState,
+  Field,
+  IconButton,
+  PageHeader,
+  Sheet,
+} from "../../components/ui/kit";
+import { api, apiList, ApiIssue, errorMessage } from "../../shared/api";
+import { useData, useOnline, useRefresh } from "../../shared/data";
+import { useWallClock } from "../../shared/clock";
+import {
+  calendarDate,
+  allocatedMinutes,
+  clockLabel,
+  duration,
+  minuteTime,
+  timeMinute,
+} from "../../shared/format";
+import { useUI } from "../../shared/ui";
+
+const pixelsPerMinute = 176 / 60;
+const timelineSize = (minutes: number) =>
+  `${(minutes * pixelsPerMinute) / 16}rem`;
+const layerLabels = {
+  unavailable: "Unavailable",
+  fixed: "Fixed",
+  pinned: "Pinned",
+  reserved: "Reserved",
+  flexible: "Flexible",
+};
+type SlotDraft = {
+  slot?: TimeSlot;
+  startMin?: number;
+  task?: Task;
+  pinned?: boolean;
+};
+type SlotConflict = Pick<
+  TimeSlot,
+  "id" | "title" | "date" | "startMin" | "endMin" | "layer"
+>;
+function conflictDetails(error: unknown): SlotConflict[] {
+  return error instanceof ApiIssue && Array.isArray(error.details)
+    ? error.details.filter(
+        (row): row is SlotConflict =>
+          row &&
+          typeof row === "object" &&
+          typeof row.id === "string" &&
+          typeof row.title === "string" &&
+          typeof row.date === "string" &&
+          typeof row.startMin === "number" &&
+          typeof row.endMin === "number",
+      )
+    : [];
+}
+function ConflictingBlocks({ error }: { error: unknown }) {
+  const data = useData();
+  const conflicts = conflictDetails(error);
+  return conflicts.length ? (
+    <ul className="conflict-list" aria-label="Conflicting time blocks">
+      {conflicts.map((slot) => (
+        <li key={slot.id}>
+          <strong>{slot.title}</strong> · {calendarDate(slot.date)} ·{" "}
+          {clockLabel(slot.startMin, data.user.settings.clockFormat)}–
+          {clockLabel(slot.endMin, data.user.settings.clockFormat)}
+        </li>
+      ))}
+    </ul>
+  ) : null;
+}
+
+export function Timetable() {
+  const data = useData();
+  const online = useOnline();
+  const refresh = useRefresh();
+  const { toast } = useUI();
+  const [params, setParams] = useSearchParams();
+  const now = useWallClock(60000);
+  const [date, setDate] = useState(params.get("date") || data.studyDate);
+  const [editor, setEditor] = useState<SlotDraft | null>(null);
+  const [remove, setRemove] = useState<TimeSlot | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<TimeSlot | null>(null);
+  const [editorConflicts, setEditorConflicts] = useState<string[]>([]);
+  const slots = useQuery({
+    queryKey: ["timetable", "day", date],
+    queryFn: ({ signal }) =>
+      apiList<TimeSlot>(`/timetable/day/${date}`, signal),
+    refetchInterval: 15000,
+  });
+  useEffect(() => {
+    if (params.has("add") || params.has("taskId")) {
+      setEditor({
+        task: data.tasks.find((task) => task.id === params.get("taskId")),
+        pinned: params.get("pin") === "true",
+      });
+      const next = new URLSearchParams(params);
+      next.delete("add");
+      next.delete("taskId");
+      next.delete("pin");
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams, data.tasks]);
+  useEffect(() => {
+    const keyboard = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest(
+            "input,textarea,select,[contenteditable=true]",
+          )) ||
+        document.querySelector("[role=dialog][data-state=open]")
+      )
+        return;
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        setDate((value) => addDays(value, event.key === "ArrowLeft" ? -1 : 1));
+      }
+      if (event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        setDate(data.studyDate);
+      }
+    };
+    window.addEventListener("keydown", keyboard);
+    return () => window.removeEventListener("keydown", keyboard);
+  }, [data.studyDate]);
+  const ordered = [...(slots.data || [])].sort(
+    (a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id),
+  );
+  const start =
+    Math.floor(
+      Math.min(
+        data.user.settings.wakingMin,
+        ...ordered.map((slot) => slot.startMin),
+      ) / 60,
+    ) * 60;
+  const end = Math.min(
+    1440,
+    Math.ceil(
+      Math.max(
+        data.user.settings.sleepingMin,
+        ...ordered.map((slot) => slot.endMin),
+      ) / 60,
+    ) * 60,
+  );
+  const current = DateTime.fromMillis(now).setZone(data.user.settings.timezone);
+  const nowMin = current.hour * 60 + current.minute;
+  const visibleNow =
+    current.toISODate() === date && nowMin >= start && nowMin <= end;
+  const move = useMutation({
+    mutationFn: ({ slot, startMin }: { slot: TimeSlot; startMin: number }) =>
+      api<TimeSlot>(`/timetable/slots/${slot.id}`, {
+        method: "PATCH",
+        headers: { "If-Match": `"${slot.version}"` },
+        body: { startMin, endMin: startMin + (slot.endMin - slot.startMin) },
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast("Time block moved.");
+    },
+    onError: (error) => toast(errorMessage(error), undefined, "error"),
+  });
+  const removeBlock = useMutation({
+    mutationFn: (slot: TimeSlot) =>
+      api(`/timetable/slots/${slot.id}`, {
+        method: "DELETE",
+        headers: { "If-Match": `"${slot.version}"` },
+      }),
+    onSuccess: async () => {
+      await refresh();
+      setRemove(null);
+      toast("Time block removed.");
+    },
+  });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 6 },
+    }),
+  );
+  const onDragEnd = (event: DragEndEvent) => {
+    const slot = ordered.find((slot) => slot.id === event.active.id);
+    if (!slot || !online) return;
+    const length = slot.endMin - slot.startMin;
+    const startMin = Math.max(
+      0,
+      Math.min(
+        1440 - length,
+        Math.round(
+          (slot.startMin +
+            event.delta.y /
+              ((pixelsPerMinute *
+                parseFloat(
+                  getComputedStyle(document.documentElement).fontSize,
+                )) /
+                16)) /
+            15,
+        ) * 15,
+      ),
+    );
+    if (startMin === slot.startMin) return;
+    setLastAttempt({ ...slot, startMin, endMin: startMin + length });
+    move.mutate({ slot, startMin });
+  };
+  const conflictIds = new Set([
+    ...editorConflicts,
+    ...conflictDetails(move.error).map((slot) => slot.id),
+  ]);
+  return (
+    <>
+      <PageHeader
+        title="A little space for your day"
+        eyebrow="Plan · day timetable"
+        description="Give tasks a time, keep fixed commitments in place, and leave room between them."
+        action={
+          <Button
+            variant="primary"
+            disabled={!online}
+            onClick={() => setEditor({})}
+          >
+            <Plus size={18} strokeWidth={1.5} />
+            Add time block
+          </Button>
+        }
+      />
+      <div className="row day-navigation">
+        <IconButton
+          label="Previous day"
+          onClick={() => setDate((value) => addDays(value, -1))}
+        >
+          <ArrowLeft size={18} strokeWidth={1.5} />
+        </IconButton>
+        <Field id="plan-date" label="Calendar date">
+          <input
+            className="input"
+            id="plan-date"
+            type="date"
+            value={date}
+            onChange={(event) => {
+              if (event.target.value) setDate(event.target.value);
+            }}
+          />
+        </Field>
+        <IconButton
+          label="Next day"
+          onClick={() => setDate((value) => addDays(value, 1))}
+        >
+          <ArrowRight size={18} strokeWidth={1.5} />
+        </IconButton>
+        <Button variant="text" onClick={() => setDate(data.studyDate)}>
+          Current study day
+        </Button>
+        <span className="caption">{data.user.settings.timezone}</span>
+      </div>
+      {move.isError && (
+        <Banner tone="error">
+          {errorMessage(move.error)}
+          <ConflictingBlocks error={move.error} />
+          {move.error instanceof ApiIssue && move.error.status === 412 && (
+            <Button
+              variant="text"
+              onClick={() => {
+                void slots.refetch();
+                move.reset();
+              }}
+            >
+              Reload latest timetable
+            </Button>
+          )}
+          {lastAttempt && (
+            <Button
+              variant="text"
+              onClick={() => setEditor({ slot: lastAttempt })}
+            >
+              <Pencil size={17} strokeWidth={1.5} />
+              Edit proposed times
+            </Button>
+          )}
+        </Banner>
+      )}
+      {slots.isError && (
+        <Banner tone="error">
+          {errorMessage(slots.error)}{" "}
+          <Button variant="text" onClick={() => void slots.refetch()}>
+            Retry timetable
+          </Button>
+        </Banner>
+      )}
+      {slots.isPending ? (
+        <DelayedSkeleton height={320} />
+      ) : (
+        <>
+          <Card className="day-summary">
+            <CalendarDays size={24} strokeWidth={1.5} aria-hidden="true" />
+            <div>
+              <h2>{calendarDate(date)}</h2>
+              <p className="caption">
+                {ordered.length} blocks · {duration(allocatedMinutes(ordered))}{" "}
+                allocated
+              </p>
+            </div>
+            {visibleNow && (
+              <Button
+                variant="text"
+                onClick={() =>
+                  document.getElementById("timeline-now")?.scrollIntoView({
+                    block: "center",
+                    behavior:
+                      data.user.settings.motion === "reduced"
+                        ? "instant"
+                        : "smooth",
+                  })
+                }
+              >
+                Jump to now
+              </Button>
+            )}
+          </Card>
+          {!ordered.length && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <Card>
+                <EmptyState
+                  title="There is room in this day"
+                  icon={<CalendarDays strokeWidth={1} />}
+                  action={
+                    <Button disabled={!online} onClick={() => setEditor({})}>
+                      Place a time block
+                    </Button>
+                  }
+                >
+                  Tap a free time or add a block to give the day a little shape.
+                </EmptyState>
+              </Card>
+            </div>
+          )}
+          <DndContext
+            sensors={sensors}
+            onDragEnd={onDragEnd}
+            accessibility={{
+              screenReaderInstructions: {
+                draggable:
+                  "Drag this handle to move the block in fifteen-minute steps. Use Edit block to change times with the keyboard.",
+              },
+              announcements: {
+                onDragStart: ({ active }) =>
+                  `Moving ${ordered.find((slot) => slot.id === active.id)?.title || "time block"}.`,
+                onDragOver: () => undefined,
+                onDragEnd: () => "Saving the new time.",
+                onDragCancel: () => "Move cancelled.",
+              },
+            }}
+          >
+            <div
+              className="day-timeline"
+              style={{ height: timelineSize(end - start) }}
+              aria-label={`Timetable for ${calendarDate(date)}`}
+            >
+              {Array.from(
+                { length: (end - start) / 60 + 1 },
+                (_, index) => start + index * 60,
+              ).map((minute) => (
+                <div
+                  className="timeline-hour"
+                  key={minute}
+                  style={{ top: timelineSize(minute - start) }}
+                >
+                  <time>
+                    {clockLabel(minute, data.user.settings.clockFormat)}
+                  </time>
+                  <span />
+                </div>
+              ))}
+              {Array.from(
+                { length: (end - start) / 15 },
+                (_, index) => start + index * 15,
+              )
+                .filter(
+                  (minute) =>
+                    !ordered.some(
+                      (slot) =>
+                        slot.startMin < minute + 15 && slot.endMin > minute,
+                    ),
+                )
+                .map((minute) => (
+                  <button
+                    type="button"
+                    className="timeline-free"
+                    tabIndex={-1}
+                    key={minute}
+                    style={{
+                      top: timelineSize(minute - start),
+                      height: timelineSize(15),
+                    }}
+                    aria-label={`Add block at ${clockLabel(minute, data.user.settings.clockFormat)}`}
+                    disabled={!online}
+                    onClick={() => setEditor({ startMin: minute })}
+                  />
+                ))}
+              {ordered.map((slot) => (
+                <TimelineBlock
+                  key={slot.id}
+                  slot={slot}
+                  start={start}
+                  editable={online && !move.isPending}
+                  conflict={conflictIds.has(slot.id)}
+                  onEdit={() => setEditor({ slot })}
+                  onRemove={() => setRemove(slot)}
+                />
+              ))}
+              {visibleNow && (
+                <div
+                  className="timeline-now"
+                  id="timeline-now"
+                  style={{ top: timelineSize(nowMin - start) }}
+                >
+                  <span>
+                    Now {clockLabel(nowMin, data.user.settings.clockFormat)}
+                  </span>
+                  <i />
+                </div>
+              )}
+            </div>
+          </DndContext>
+          <p className="caption" style={{ marginTop: "1rem" }}>
+            Fixed and unavailable blocks stay in place. Flexible and pinned
+            blocks move in 15-minute steps.
+          </p>
+        </>
+      )}
+      <Sheet
+        open={!!editor}
+        onOpenChange={(open) => {
+          if (!open) setEditor(null);
+        }}
+        title={editor?.slot ? "Edit time block" : "A time block"}
+        description="Choose local times. Overlapping blocks are checked before saving."
+      >
+        {editor && (
+          <SlotEditor
+            key={
+              editor.slot?.id ||
+              `new:${editor.startMin || 0}:${editor.task?.id || ""}`
+            }
+            date={date}
+            draft={editor}
+            onDone={() => setEditor(null)}
+            onConflicts={setEditorConflicts}
+          />
+        )}
+      </Sheet>
+      <ConfirmDialog
+        open={!!remove}
+        onOpenChange={(open) => {
+          if (!open) setRemove(null);
+        }}
+        title={`Remove ${remove?.title || "this block"}?`}
+        description={`This removes the block from ${calendarDate(remove?.date || date)}. Recorded task progress remains available.`}
+      >
+        <div className="row between">
+          <Button onClick={() => setRemove(null)}>Keep block</Button>
+          <Button
+            variant="destructive"
+            disabled={!online}
+            loading={removeBlock.isPending}
+            onClick={() => {
+              if (remove) removeBlock.mutate(remove);
+            }}
+          >
+            Remove block
+          </Button>
+        </div>
+        {removeBlock.isError && (
+          <Banner tone="error">{errorMessage(removeBlock.error)}</Banner>
+        )}
+      </ConfirmDialog>
+    </>
+  );
+}
+
+function TimelineBlock({
+  slot,
+  start,
+  editable,
+  conflict,
+  onEdit,
+  onRemove,
+}: {
+  slot: TimeSlot;
+  start: number;
+  editable: boolean;
+  conflict: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const data = useData();
+  const fixed = slot.layer === "fixed" || slot.layer === "unavailable";
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: slot.id, disabled: fixed || !editable });
+  const profile = data.profiles.find(
+    (profile) => profile.id === slot.profileId,
+  );
+  return (
+    <article
+      ref={setNodeRef}
+      className={`timeline-block timeline-${slot.layer}${isDragging ? " timeline-dragging" : ""}${conflict ? " timeline-conflict" : ""}`}
+      style={{
+        top: timelineSize(slot.startMin - start),
+        height: timelineSize(Math.max(15, slot.endMin - slot.startMin)),
+        transform: transform ? `translateY(${transform.y}px)` : undefined,
+        borderInlineStartColor: profile
+          ? `var(--profile-${profile.color})`
+          : undefined,
+      }}
+    >
+      <div className="timeline-block-heading">
+        {fixed ? (
+          <LockKeyhole size={18} strokeWidth={1.5} aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            className="button button-icon button-text timeline-handle"
+            {...attributes}
+            {...listeners}
+            aria-label={`Move ${slot.title}`}
+            disabled={!editable}
+          >
+            <GripVertical size={18} strokeWidth={1.5} />
+          </button>
+        )}
+        <button
+          type="button"
+          className="timeline-title"
+          onClick={onEdit}
+          aria-label={`Edit block ${slot.title}`}
+          disabled={!editable}
+        >
+          <strong>{slot.title}</strong>
+          <span className="caption">
+            {clockLabel(slot.startMin, data.user.settings.clockFormat)}–
+            {clockLabel(slot.endMin, data.user.settings.clockFormat)} ·{" "}
+            {layerLabels[slot.layer]}
+          </span>
+        </button>
+        {slot.layer === "pinned" && (
+          <Pin size={16} strokeWidth={1.5} aria-hidden="true" />
+        )}
+        <IconButton
+          label={`Remove block ${slot.title}`}
+          disabled={!editable}
+          onClick={onRemove}
+        >
+          <Trash2 size={17} strokeWidth={1.5} />
+        </IconButton>
+      </div>
+      {slot.taskId && slot.endMin - slot.startMin > 15 && (
+        <Link className="timeline-task-link" to={`/tasks/${slot.taskId}`}>
+          Open task
+        </Link>
+      )}
+    </article>
+  );
+}
+
+function SlotEditor({
+  date,
+  draft,
+  onDone,
+  onConflicts,
+}: {
+  date: string;
+  draft: SlotDraft;
+  onDone: () => void;
+  onConflicts: (ids: string[]) => void;
+}) {
+  const data = useData();
+  const online = useOnline();
+  const refresh = useRefresh();
+  const { toast } = useUI();
+  const slot = draft.slot;
+  const task = draft.task;
+  const goal = data.goals.find((goal) => goal.id === task?.goalId);
+  const skill = data.skills.find((skill) => skill.id === goal?.skillId);
+  const first = draft.startMin ?? data.user.settings.wakingMin;
+  const [version, setVersion] = useState(slot?.version);
+  const [fixedReview, setFixedReview] = useState<z.output<
+    typeof slotSchema
+  > | null>(null);
+  const [latestMessage, setLatestMessage] = useState("");
+  const form = useForm<
+    z.input<typeof slotSchema>,
+    unknown,
+    z.output<typeof slotSchema>
+  >({
+    resolver: zodResolver(slotSchema),
+    defaultValues: slot || {
+      date,
+      startMin: first,
+      endMin: Math.min(1440, first + (task?.remainingMinutes || 30)),
+      layer: draft.pinned ? "pinned" : "flexible",
+      title: task?.title || "",
+      profileId: skill?.profileId || null,
+      skillId: skill?.id || null,
+      goalId: goal?.id || null,
+      taskId: task?.id || null,
+      pinned: draft.pinned || false,
+    },
+  });
+  const values = form.watch();
+  const errors = form.formState.errors;
+  const save = useMutation({
+    mutationFn: (input: z.output<typeof slotSchema>) =>
+      api<TimeSlot>(slot ? `/timetable/slots/${slot.id}` : "/timetable/slots", {
+        method: slot ? "PATCH" : "POST",
+        headers: slot ? { "If-Match": `"${version}"` } : {},
+        body: input,
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast(slot ? "Time block updated." : "Time block added.");
+      onDone();
+    },
+  });
+  useEffect(() => {
+    onConflicts(conflictDetails(save.error).map((slot) => slot.id));
+    return () => onConflicts([]);
+  }, [save.error, onConflicts]);
+  const reload = async () => {
+    if (!slot) return;
+    try {
+      const current = await api<TimeSlot>(`/timetable/slots/${slot.id}`);
+      setVersion(current.version);
+      setLatestMessage(
+        `Latest saved time: ${clockLabel(current.startMin, data.user.settings.clockFormat)}–${clockLabel(current.endMin, data.user.settings.clockFormat)}. Your draft stays in the form.`,
+      );
+    } catch (error) {
+      toast(errorMessage(error), undefined, "error");
+    }
+  };
+  return (
+    <form
+      className="stack-lg"
+      noValidate
+      onSubmit={form.handleSubmit((input) => {
+        if (slot && (slot.layer === "fixed" || slot.layer === "unavailable"))
+          setFixedReview(input);
+        else save.mutate(input);
+      })}
+    >
+      <Field id="slot-title" label="Block title" error={errors.title?.message}>
+        <input
+          className="input"
+          id="slot-title"
+          autoFocus
+          {...form.register("title")}
+        />
+      </Field>
+      <Field id="slot-date" label="Block date" error={errors.date?.message}>
+        <input
+          className="input"
+          id="slot-date"
+          type="date"
+          {...form.register("date")}
+        />
+      </Field>
+      <div className="grid-2 form-grid">
+        <Field
+          id="slot-start"
+          label="Starts at"
+          error={errors.startMin?.message}
+        >
+          <input
+            className="input"
+            id="slot-start"
+            type="time"
+            step="300"
+            value={minuteTime(values.startMin)}
+            onChange={(event) =>
+              form.setValue("startMin", timeMinute(event.target.value), {
+                shouldValidate: true,
+              })
+            }
+          />
+        </Field>
+        <Field id="slot-end" label="Ends at" error={errors.endMin?.message}>
+          <input
+            className="input"
+            id="slot-end"
+            type="time"
+            step="300"
+            disabled={values.endMin === 1440}
+            value={minuteTime(values.endMin === 1440 ? 0 : values.endMin)}
+            onChange={(event) =>
+              form.setValue("endMin", timeMinute(event.target.value), {
+                shouldValidate: true,
+              })
+            }
+          />
+        </Field>
+      </div>
+      <label className="toggle-label">
+        <input
+          type="checkbox"
+          checked={values.endMin === 1440}
+          onChange={(event) =>
+            form.setValue(
+              "endMin",
+              event.target.checked
+                ? 1440
+                : Math.min(1439, values.startMin + 30),
+              { shouldValidate: true },
+            )
+          }
+        />
+        Ends at midnight
+      </label>
+      <Field
+        id="slot-layer"
+        label="Block kind"
+        hint="Fixed commitments cannot be dragged. You can still edit them after confirmation."
+      >
+        <select
+          className="input"
+          id="slot-layer"
+          {...form.register("layer", {
+            onChange: (event) =>
+              form.setValue("pinned", event.target.value === "pinned"),
+          })}
+        >
+          {Object.entries(layerLabels).map(([value, label]) => (
+            <option value={value} key={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field
+        id="slot-task"
+        label="Linked task (optional)"
+        error={errors.taskId?.message}
+      >
+        <select
+          className="input"
+          id="slot-task"
+          {...form.register("taskId", {
+            setValueAs: (value) => value || null,
+            onChange: (event) => {
+              const task = data.tasks.find(
+                (task) => task.id === event.target.value,
+              );
+              const goal = data.goals.find((goal) => goal.id === task?.goalId);
+              const skill = data.skills.find(
+                (skill) => skill.id === goal?.skillId,
+              );
+              form.setValue("goalId", goal?.id || null);
+              form.setValue("skillId", skill?.id || null);
+              form.setValue("profileId", skill?.profileId || null);
+              if (task) form.setValue("title", task.title);
+            },
+          })}
+        >
+          <option value="">No linked task</option>
+          {data.tasks
+            .filter(
+              (task) =>
+                !["completed", "cancelled", "skipped"].includes(task.status) ||
+                task.id === slot?.taskId,
+            )
+            .map((task) => (
+              <option value={task.id} key={task.id}>
+                {task.title}
+              </option>
+            ))}
+        </select>
+      </Field>
+      {!values.taskId && (
+        <details className="disclosure">
+          <summary>Link a profile, skill or goal</summary>
+          <div className="stack" style={{ marginTop: "1rem" }}>
+            <Field id="slot-profile" label="Profile (optional)">
+              <select
+                className="input"
+                id="slot-profile"
+                {...form.register("profileId", {
+                  setValueAs: (value) => value || null,
+                  onChange: () => {
+                    form.setValue("skillId", null);
+                    form.setValue("goalId", null);
+                  },
+                })}
+              >
+                <option value="">No profile</option>
+                {data.profiles.map((profile) => (
+                  <option value={profile.id} key={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              id="slot-skill"
+              label={
+                values.layer === "reserved"
+                  ? "Reserved skill"
+                  : "Skill (optional)"
+              }
+              hint={
+                values.layer === "reserved"
+                  ? "Flexible work for this skill can fit inside its reserved time."
+                  : undefined
+              }
+              error={errors.skillId?.message}
+            >
+              <select
+                className="input"
+                id="slot-skill"
+                {...form.register("skillId", {
+                  setValueAs: (value) => value || null,
+                  onChange: (event) => {
+                    const skill = data.skills.find(
+                      (skill) => skill.id === event.target.value,
+                    );
+                    if (skill) form.setValue("profileId", skill.profileId);
+                    form.setValue("goalId", null);
+                  },
+                })}
+              >
+                <option value="">No skill</option>
+                {data.skills
+                  .filter(
+                    (skill) =>
+                      !values.profileId || skill.profileId === values.profileId,
+                  )
+                  .map((skill) => (
+                    <option value={skill.id} key={skill.id}>
+                      {skill.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field id="slot-goal" label="Goal (optional)">
+              <select
+                className="input"
+                id="slot-goal"
+                {...form.register("goalId", {
+                  setValueAs: (value) => value || null,
+                  onChange: (event) => {
+                    const goal = data.goals.find(
+                      (goal) => goal.id === event.target.value,
+                    );
+                    const skill = data.skills.find(
+                      (skill) => skill.id === goal?.skillId,
+                    );
+                    form.setValue("skillId", skill?.id || null);
+                    if (skill) form.setValue("profileId", skill.profileId);
+                  },
+                })}
+              >
+                <option value="">No goal</option>
+                {data.goals.map((goal) => (
+                  <option value={goal.id} key={goal.id}>
+                    {goal.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </details>
+      )}
+      {save.isError && (
+        <Banner tone="error">
+          {errorMessage(save.error)}
+          <ConflictingBlocks error={save.error} />
+          {save.error instanceof ApiIssue && save.error.status === 412 && (
+            <Button variant="text" onClick={() => void reload()}>
+              Reload latest version
+            </Button>
+          )}
+        </Banner>
+      )}
+      {latestMessage && <Banner tone="info">{latestMessage}</Banner>}
+      {values.taskId && (
+        <Link className="button button-text" to={`/tasks/${values.taskId}`}>
+          Open linked task
+        </Link>
+      )}
+      {!online && (
+        <Banner>
+          Reconnect to save timetable changes. Your draft stays in the form.
+        </Banner>
+      )}
+      <Button
+        variant="primary"
+        type="submit"
+        loading={save.isPending}
+        disabled={!online}
+      >
+        {slot ? "Save time block" : "Place time block"}
+      </Button>
+      <ConfirmDialog
+        open={!!fixedReview}
+        onOpenChange={(open) => {
+          if (!open) setFixedReview(null);
+        }}
+        title={`Change ${slot?.title || "this fixed block"}?`}
+        description={`This changes a fixed commitment from ${slot ? `${clockLabel(slot.startMin)}–${clockLabel(slot.endMin)}` : "its current time"} to ${fixedReview ? `${clockLabel(fixedReview.startMin)}–${clockLabel(fixedReview.endMin)}` : "the entered times"}.`}
+      >
+        <div className="row between">
+          <Button onClick={() => setFixedReview(null)}>Keep editing</Button>
+          <Button
+            variant="primary"
+            disabled={!online}
+            loading={save.isPending}
+            onClick={() => {
+              if (fixedReview) save.mutate(fixedReview);
+            }}
+          >
+            Apply fixed change
+          </Button>
+        </div>
+        {save.isError && (
+          <Banner tone="error">{errorMessage(save.error)}</Banner>
+        )}
+      </ConfirmDialog>
+    </form>
+  );
+}

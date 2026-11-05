@@ -175,6 +175,7 @@ export function Banner({
 
 const labels: Record<string, string> = {
   pending: "To do",
+  queued: "Queued",
   in_progress: "In progress",
   partial: "Partial",
   completed: "Done",

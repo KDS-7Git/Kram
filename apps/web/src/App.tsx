@@ -13,6 +13,9 @@ import {
   Target,
   WifiOff,
   CircleDashed,
+  Bell,
+  CalendarClock,
+  Plus,
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
@@ -65,9 +68,34 @@ const ResourceDetail = lazy(() =>
     default: module.ResourceDetail,
   })),
 );
+const Today = lazy(() =>
+  import("./features/today/Today").then((module) => ({
+    default: module.Today,
+  })),
+);
+const TaskPage = lazy(() =>
+  import("./features/tasks/Tasks").then((module) => ({
+    default: module.TaskPage,
+  })),
+);
+const Timetable = lazy(() =>
+  import("./features/timetable/Timetable").then((module) => ({
+    default: module.Timetable,
+  })),
+);
+const NotificationCenter = lazy(() =>
+  import("./features/tasks/reminders").then((module) => ({
+    default: module.NotificationCenter,
+  })),
+);
+const CommandPalette = lazy(() =>
+  import("./components/CommandPalette").then((module) => ({
+    default: module.CommandPalette,
+  })),
+);
 import { useAppearance } from "./shared/theme";
 import { api, errorMessage, type AuthMe } from "./shared/api";
-import { DataProvider, useBootstrap, useData, useOnline } from "./shared/data";
+import { DataProvider, useBootstrap, useOnline } from "./shared/data";
 import { UIProvider, useUI } from "./shared/ui";
 
 function DelayedLoading() {
@@ -85,64 +113,6 @@ function DelayedLoading() {
     <span className="sr-only" role="status">
       Loading your planner
     </span>
-  );
-}
-
-function WelcomePage() {
-  const data = useData();
-  const profiles = data.profiles.filter((profile) => !profile.archivedAt);
-  const skills = data.skills.filter((skill) => !skill.archivedAt);
-  return (
-    <>
-      <PageHeader
-        title="A little room to focus"
-        eyebrow="Today"
-        description="Give your goals a place, then take the next small step."
-      />
-      <div className="stack-lg">
-        <Card>
-          <div className="card-header">
-            <h2>Your planner, your pace</h2>
-            <CalendarDays size={22} strokeWidth={1.5} aria-hidden="true" />
-          </div>
-          <p className="muted">
-            {profiles.length
-              ? `${profiles.length} ${profiles.length === 1 ? "profile" : "profiles"} and ${skills.length} ${skills.length === 1 ? "skill" : "skills"} are ready for your goals.`
-              : "Start with a profile for a part of your life you want to give time to."}
-          </p>
-          <div style={{ marginTop: "1.25rem" }}>
-            <NavLink className="button button-primary" to="/goals">
-              <Target size={18} strokeWidth={1.5} />
-              Manage profiles and skills
-            </NavLink>
-          </div>
-        </Card>
-        <div className="grid-2">
-          <Card>
-            <h2>Your study day</h2>
-            <p className="muted" style={{ marginTop: ".75rem" }}>
-              Timezone: {data.user.settings.timezone}
-            </p>
-            <p className="caption" style={{ marginTop: ".75rem" }}>
-              Late-night progress follows your configured day rollover.
-            </p>
-            <NavLink className="button button-text" to="/settings">
-              Adjust day and time
-            </NavLink>
-          </Card>
-          <Card>
-            <h2>A quiet workspace</h2>
-            <p className="muted" style={{ marginTop: ".75rem" }}>
-              Light, dark and scheduled themes. Comfortable spacing, with room
-              to focus.
-            </p>
-            <NavLink className="button button-text" to="/workshop">
-              Explore Paper and Ink
-            </NavLink>
-          </Card>
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -169,10 +139,9 @@ function Shell({
   const logout = useMutation({
     mutationFn: () => api("/auth/logout", { method: "POST" }),
     onSuccess: async () => {
-      client.removeQueries({ queryKey: ["bootstrap"] });
-      client.removeQueries({ queryKey: ["hierarchy"] });
-      client.removeQueries({ queryKey: ["goals"] });
-      client.removeQueries({ queryKey: ["resources"] });
+      client.removeQueries({
+        predicate: (query) => query.queryKey[0] !== "auth",
+      });
       await client.invalidateQueries({ queryKey: ["auth"] });
       navigate("/");
     },
@@ -185,6 +154,7 @@ function Shell({
       ]
     : [
         { to: "/", label: "Today", icon: CalendarDays },
+        { to: "/plan", label: "Plan", icon: CalendarClock },
         { to: "/goals", label: "Goals", icon: Target },
       ];
   return (
@@ -197,6 +167,14 @@ function Shell({
           <BookOpen size={24} strokeWidth={1.5} />
           <span>Kram</span>
         </NavLink>
+        {user && (
+          <Button
+            onClick={() => window.dispatchEvent(new Event("kram-command"))}
+          >
+            <Plus size={18} strokeWidth={1.5} />
+            Add or search
+          </Button>
+        )}
         <nav className="nav-list" aria-label="Main navigation">
           {links.map((link) => (
             <NavLink
@@ -216,6 +194,10 @@ function Shell({
               <NavLink className="nav-link" to="/settings">
                 <Settings2 size={20} strokeWidth={1.5} />
                 <span>Settings</span>
+              </NavLink>
+              <NavLink className="nav-link" to="/notifications">
+                <Bell size={20} strokeWidth={1.5} />
+                <span>Notifications</span>
               </NavLink>
               <Button
                 variant="text"
@@ -293,6 +275,12 @@ function Shell({
                       </DropdownMenu.Label>
                       <DropdownMenu.Separator className="dropdown-separator" />
                       <DropdownMenu.Item asChild>
+                        <NavLink to="/notifications" className="dropdown-item">
+                          <Bell size={18} strokeWidth={1.5} />
+                          Notifications
+                        </NavLink>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild>
                         <NavLink to="/settings" className="dropdown-item">
                           <Settings2 size={18} strokeWidth={1.5} />
                           Settings
@@ -330,7 +318,10 @@ function Shell({
           {children}
         </main>
       </div>
-      <nav className="mobile-nav" aria-label="Mobile navigation">
+      <nav
+        className={user ? "mobile-nav mobile-nav-owner" : "mobile-nav"}
+        aria-label="Mobile navigation"
+      >
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -345,10 +336,14 @@ function Shell({
           </NavLink>
         ))}
         {user && (
-          <NavLink className="nav-link" to="/settings">
-            <Settings2 size={20} strokeWidth={1.5} />
-            <span>Settings</span>
-          </NavLink>
+          <button
+            type="button"
+            className="mobile-add"
+            aria-label="Add or search"
+            onClick={() => window.dispatchEvent(new Event("kram-command"))}
+          >
+            <Plus size={24} strokeWidth={1.5} />
+          </button>
         )}
       </nav>
     </div>
@@ -410,15 +405,23 @@ function SignedIn({ user }: { user: User }) {
             </Banner>
           </div>
         )}
-        <Routes>
-          <Route path="/" element={<WelcomePage />} />
-          <Route path="/goals/*" element={<Hierarchy />} />
-          <Route path="/goals/:goalId" element={<GoalDetail />} />
-          <Route path="/resources" element={<ResourceLibrary />} />
-          <Route path="/resources/:resourceId" element={<ResourceDetail />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<WelcomePage />} />
-        </Routes>
+        <Suspense fallback={<DelayedLoading />}>
+          <Routes>
+            <Route path="/" element={<Today />} />
+            <Route path="/tasks/:taskId" element={<TaskPage />} />
+            <Route path="/plan" element={<Timetable />} />
+            <Route path="/notifications" element={<NotificationCenter />} />
+            <Route path="/goals/*" element={<Hierarchy />} />
+            <Route path="/goals/:goalId" element={<GoalDetail />} />
+            <Route path="/resources" element={<ResourceLibrary />} />
+            <Route path="/resources/:resourceId" element={<ResourceDetail />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Today />} />
+          </Routes>
+        </Suspense>
+        <Suspense fallback={null}>
+          <CommandPalette />
+        </Suspense>
       </Shell>
     </DataProvider>
   );

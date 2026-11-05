@@ -13,11 +13,18 @@ let csrfToken = "";
 export class ApiIssue extends Error {
   code: string;
   details?: unknown;
-  constructor(message: string, code = "REQUEST_FAILED", details?: unknown) {
+  status?: number;
+  constructor(
+    message: string,
+    code = "REQUEST_FAILED",
+    details?: unknown,
+    status?: number,
+  ) {
     super(message);
     this.name = "ApiIssue";
     this.code = code;
     this.details = details;
+    this.status = status;
   }
 }
 
@@ -66,6 +73,13 @@ async function request<T>(
   headers.set("Accept", "application/json");
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", csrfToken);
+  if (
+    body &&
+    typeof body === "object" &&
+    "clientEventId" in body &&
+    typeof body.clientEventId === "string"
+  )
+    headers.set("Idempotency-Key", body.clientEventId);
   let response: Response;
   try {
     response = await fetch(`/api/v1${path}`, {
@@ -99,6 +113,7 @@ async function request<T>(
         "Could not save. Your changes remain in this form.",
       error.error?.code || "REQUEST_FAILED",
       error.error?.details,
+      response.status,
     );
   }
   if (

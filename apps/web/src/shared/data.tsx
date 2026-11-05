@@ -39,6 +39,11 @@ export function useRefresh() {
       client.invalidateQueries({ queryKey: ["hierarchy"] }),
       client.invalidateQueries({ queryKey: ["goals"] }),
       client.invalidateQueries({ queryKey: ["resources"] }),
+      client.invalidateQueries({ queryKey: ["today"] }),
+      client.invalidateQueries({ queryKey: ["tasks"] }),
+      client.invalidateQueries({ queryKey: ["timetable"] }),
+      client.invalidateQueries({ queryKey: ["reminders"] }),
+      client.invalidateQueries({ queryKey: ["notifications"] }),
     ]);
 }
 export function useOnline() {

@@ -127,9 +127,17 @@ function placements(
 export function ResourceLibrary() {
   const data = useData();
   const online = useOnline();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const goal = data.goals.find((item) => item.id === params.get("goalId"));
   const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (params.get("add") === "resource") {
+      setEditing(true);
+      const next = new URLSearchParams(params);
+      next.delete("add");
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams]);
   const [showArchived, setShowArchived] = useState(false);
   const resources = useQuery({
     queryKey: ["resources", "list", showArchived],

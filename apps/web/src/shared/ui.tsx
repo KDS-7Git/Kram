@@ -5,8 +5,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { Button, IconButton } from "../components/ui/kit";
+import { errorMessage } from "./api";
 
 interface Toast {
   message: string;
@@ -23,7 +25,27 @@ interface UI {
 const UIContext = createContext<UI>({ toast: () => undefined });
 export function UIProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Toast | null>(null);
-  const [announcement, setAnnouncement] = useState("");
+  const [toastHost, setToastHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    const updateHost = () =>
+      setToastHost(
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '[role="dialog"][data-state="open"]',
+          ),
+        ].at(-1) || document.body,
+      );
+    updateHost();
+    const observer = new MutationObserver(updateHost);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+    });
+    return () => observer.disconnect();
+  }, [current]);
   useEffect(() => {
     if (!current) return;
     const timer = setTimeout(
@@ -38,45 +60,62 @@ export function UIProvider({ children }: { children: ReactNode }) {
     tone?: "success" | "error",
   ) => {
     setCurrent({ message, undo, tone });
-    setAnnouncement(message);
+    setToastHost(
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '[role="dialog"][data-state="open"]',
+        ),
+      ].at(-1) || document.body,
+    );
   };
   return (
     <UIContext.Provider value={{ toast }}>
       {children}
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {announcement}
-      </div>
-      {current && (
-        <div className="toast-region">
+      {current &&
+        toastHost &&
+        createPortal(
           <div
-            className={current.tone === "error" ? "toast toast-error" : "toast"}
+            className="toast-region"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
           >
-            {current.tone === "error" ? (
-              <AlertCircle size={20} strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <CheckCircle2 size={20} strokeWidth={1.5} aria-hidden="true" />
-            )}
-            <span>{current.message}</span>
-            {current.undo && (
-              <Button
-                variant="text"
-                onClick={async () => {
-                  await current.undo?.();
-                  setCurrent(null);
-                }}
-              >
-                Undo
-              </Button>
-            )}
-            <IconButton
-              label="Dismiss message"
-              onClick={() => setCurrent(null)}
+            <div
+              className={
+                current.tone === "error" ? "toast toast-error" : "toast"
+              }
             >
-              <X size={18} strokeWidth={1.5} />
-            </IconButton>
-          </div>
-        </div>
-      )}
+              {current.tone === "error" ? (
+                <AlertCircle size={20} strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <CheckCircle2 size={20} strokeWidth={1.5} aria-hidden="true" />
+              )}
+              <span>{current.message}</span>
+              {current.undo && (
+                <Button
+                  variant="text"
+                  onClick={async () => {
+                    try {
+                      await current.undo?.();
+                      setCurrent(null);
+                    } catch (error) {
+                      toast(errorMessage(error), undefined, "error");
+                    }
+                  }}
+                >
+                  Undo
+                </Button>
+              )}
+              <IconButton
+                label="Dismiss message"
+                onClick={() => setCurrent(null)}
+              >
+                <X size={18} strokeWidth={1.5} />
+              </IconButton>
+            </div>
+          </div>,
+          toastHost,
+        )}
     </UIContext.Provider>
   );
 }

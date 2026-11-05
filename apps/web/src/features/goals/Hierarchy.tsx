@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,8 +42,8 @@ import {
   weekdays,
 } from "../../shared/format";
 import { useUI } from "../../shared/ui";
-import { Link } from "react-router-dom";
-import { SkillGoals } from "./Goals";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { GoalEditor, SkillGoals } from "./Goals";
 
 const colors = [
   "teal",
@@ -65,8 +65,34 @@ export function Hierarchy() {
   const refresh = useRefresh();
   const { toast } = useUI();
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [newGoal, setNewGoal] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  useEffect(() => {
+    if (params.get("add") === "goal") {
+      setNewGoal(true);
+      const next = new URLSearchParams(params);
+      next.delete("add");
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams]);
   const [showArchived, setShowArchived] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.slice(1);
+      const skill = data.skills.find((skill) => skill.id === id);
+      if (skill)
+        setCollapsed((previous) => {
+          const next = new Set(previous);
+          next.delete(skill.profileId);
+          return next;
+        });
+      requestAnimationFrame(() =>
+        document.getElementById(id)?.scrollIntoView({ block: "center" }),
+      );
+    }
+  }, [location.key]);
   const [archive, setArchive] = useState<{
     kind: "profile" | "skill";
     id: string;
@@ -133,14 +159,23 @@ export function Hierarchy() {
         eyebrow="Profiles and skills"
         description="Group the parts of your life, then name the skills you want to grow."
         action={
-          <Button
-            variant="primary"
-            onClick={() => setEditor({ kind: "profile" })}
-            disabled={!online}
-          >
-            <Plus size={18} strokeWidth={1.5} />
-            New profile
-          </Button>
+          <div className="row">
+            <Button
+              variant="primary"
+              disabled={!online || !data.skills.length}
+              onClick={() => setNewGoal(true)}
+            >
+              <Plus size={18} strokeWidth={1.5} />
+              New goal
+            </Button>
+            <Button
+              onClick={() => setEditor({ kind: "profile" })}
+              disabled={!online}
+            >
+              <Plus size={18} strokeWidth={1.5} />
+              New profile
+            </Button>
+          </div>
         }
       />
       <div className="row between" style={{ marginBottom: "1.25rem" }}>
@@ -215,6 +250,7 @@ export function Hierarchy() {
             return (
               <Card
                 key={profile.id}
+                id={profile.id}
                 className={profile.archivedAt ? "archived-card" : undefined}
               >
                 <div className="profile-heading">
@@ -294,7 +330,11 @@ export function Hierarchy() {
                   <div className="profile-skills">
                     {skills.length ? (
                       skills.map((skill, skillIndex) => (
-                        <div className="skill-group" key={skill.id}>
+                        <div
+                          className="skill-group"
+                          key={skill.id}
+                          id={skill.id}
+                        >
                           <div className="skill-row">
                             <div className="skill-label">
                               <span
@@ -396,6 +436,37 @@ export function Hierarchy() {
           })}
         </div>
       )}
+      <Sheet
+        open={newGoal}
+        onOpenChange={setNewGoal}
+        title="A measurable goal"
+        description="Choose a skill and what progress means for this goal."
+      >
+        {newGoal &&
+          (data.skills.length ? (
+            <GoalEditor onDone={() => setNewGoal(false)} />
+          ) : (
+            <EmptyState
+              title="Give this goal a skill first"
+              icon={<BookOpen strokeWidth={1} />}
+              action={
+                <Button
+                  onClick={() => {
+                    setNewGoal(false);
+                    const profile = data.profiles[0];
+                    if (profile)
+                      setEditor({ kind: "skill", profileId: profile.id });
+                    else setEditor({ kind: "profile" });
+                  }}
+                >
+                  Add a skill
+                </Button>
+              }
+            >
+              A skill gives the goal a place and a sustainable time target.
+            </EmptyState>
+          ))}
+      </Sheet>
       <Sheet
         open={!!editor}
         onOpenChange={(open) => {

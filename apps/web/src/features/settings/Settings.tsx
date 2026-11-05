@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { settingsSchema, type Settings } from "@kram/shared";
@@ -303,6 +304,16 @@ export function SettingsPage() {
                 />
               </Field>
             </div>
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                {...form.register("notificationsEnabled")}
+              />
+              Allow notifications
+            </label>
+            <Link className="button button-text" to="/notifications">
+              Reminders and delivery history
+            </Link>
             <label className="toggle-label">
               <input
                 type="checkbox"
