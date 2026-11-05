@@ -83,72 +83,81 @@ export async function createOwner(input: unknown, ip?: string) {
 export async function verifyOwnerCredentials(input: unknown, ip: string) {
   const data = loginSchema.parse(input),
     email = data.email.toLowerCase();
-  const keys = [`account:${email}`, `ip:${ip}:${email}`].map((value) =>
-    createHash("sha256").update(value).digest("hex"),
-  );
-  const locks = await db.authLockout.findMany({ where: { key: { in: keys } } });
-  const until = locks.reduce(
-    (value, lock) => Math.max(value, lock.lockedUntil?.getTime() ?? 0),
-    0,
-  );
-  if (until > Date.now())
-    throw new ApiError(
-      "RATE_LIMITED",
-      "Wait a moment before trying to sign in again.",
-      429,
-      { retryAfterSeconds: Math.ceil((until - Date.now()) / 1000) },
+  return cryptoJob(async () => {
+    const keys = [`account:${email}`, `ip:${ip}:${email}`].map((value) =>
+      createHash("sha256").update(value).digest("hex"),
     );
-  const user = await db.user.findFirst({ where: { email, isOwner: true } });
-  const valid = await cryptoJob(async () => {
+    const locks = await db.authLockout.findMany({
+      where: { key: { in: keys } },
+    });
+    const until = locks.reduce(
+      (value, lock) => Math.max(value, lock.lockedUntil?.getTime() ?? 0),
+      0,
+    );
+    if (until > Date.now())
+      throw new ApiError(
+        "RATE_LIMITED",
+        "Wait a moment before trying to sign in again.",
+        429,
+        { retryAfterSeconds: Math.ceil((until - Date.now()) / 1000) },
+      );
+    const user = await db.user.findFirst({ where: { email, isOwner: true } });
     if (!dummyHash && !user)
       dummyHash = argon2.hash(randomBytes(32).toString("hex"), passwordOptions);
-    return argon2.verify(
+    const valid = await argon2.verify(
       user?.passwordHash ?? (await dummyHash!),
       data.password,
     );
-  });
-  if (!user || !valid) {
-    for (const key of keys) {
-      const previous = locks.find((lock) => lock.key === key);
-      const count =
-        previous && Date.now() - previous.lastFailure.getTime() < 900000
-          ? previous.failures + 1
-          : 1;
-      await db.authLockout.upsert({
-        where: { key },
-        create: {
-          key,
-          failures: count,
-          lastFailure: new Date(),
-          lockedUntil:
-            count >= 3
-              ? new Date(Date.now() + Math.min(900000, 1000 * 2 ** (count - 3)))
-              : null,
-        },
-        update: {
-          failures: count,
-          lastFailure: new Date(),
-          lockedUntil:
-            count >= 3
-              ? new Date(Date.now() + Math.min(900000, 1000 * 2 ** (count - 3)))
-              : null,
-        },
+    if (!user || !valid) {
+      await db.$transaction(async (tx) => {
+        for (const key of keys) {
+          // Serialize counters in PostgreSQL too, so parallel API processes cannot
+          // overwrite a failure count from an earlier snapshot.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+          const previous = await tx.authLockout.findUnique({ where: { key } });
+          const count =
+            previous && Date.now() - previous.lastFailure.getTime() < 900000
+              ? previous.failures + 1
+              : 1;
+          await tx.authLockout.upsert({
+            where: { key },
+            create: {
+              key,
+              failures: count,
+              lastFailure: new Date(),
+              lockedUntil:
+                count >= 3
+                  ? new Date(
+                      Date.now() + Math.min(900000, 1000 * 2 ** (count - 3)),
+                    )
+                  : null,
+            },
+            update: {
+              failures: count,
+              lastFailure: new Date(),
+              lockedUntil:
+                count >= 3
+                  ? new Date(
+                      Date.now() + Math.min(900000, 1000 * 2 ** (count - 3)),
+                    )
+                  : null,
+            },
+          });
+        }
       });
+      throw new ApiError(
+        "UNAUTHENTICATED",
+        "Email or password did not match.",
+        401,
+      );
     }
-    throw new ApiError(
-      "UNAUTHENTICATED",
-      "Email or password did not match.",
-      401,
-    );
-  }
-  await db.authLockout.deleteMany({ where: { key: { in: keys } } });
-  if (argon2.needsRehash(user.passwordHash, passwordOptions)) {
-    const passwordHash = await cryptoJob(() =>
-      argon2.hash(data.password, passwordOptions),
-    );
-    await db.user.update({ where: { id: user.id }, data: { passwordHash } });
-    await audit(user.id, "password_rehashed", {}, ip);
-  }
-  await audit(user.id, "login", {}, ip);
-  return getUser(user.id);
+    await db.authLockout.deleteMany({ where: { key: { in: keys } } });
+    if (argon2.needsRehash(user.passwordHash, passwordOptions)) {
+      const passwordHash = await argon2.hash(data.password, passwordOptions);
+      await db.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await audit(user.id, "password_rehashed", {}, ip);
+    }
+    await audit(user.id, "login", {}, ip);
+    return getUser(user.id);
+  });
 }
