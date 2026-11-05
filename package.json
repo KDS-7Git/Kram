@@ -16,6 +16,7 @@
     "dev:api": "tsx watch apps/api/src/index.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
     "dev:worker": "tsx apps/worker/src/index.ts",
+    "dev:e2e": "tsx scripts/e2e-server.ts",
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "build:server": "tsup --config tsup.config.ts",
