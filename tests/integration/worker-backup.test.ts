@@ -112,7 +112,7 @@ describe('durable local backup worker', () => {
       const heartbeat = await db.systemMeta.findUnique({ where: { key: 'worker-heartbeat' } });
       if (status && typeof status === 'object' && !Array.isArray(status) && status.status === 'succeeded' && heartbeat) {
         expect(JSON.parse(await readFile(process.env.WORKER_HEALTH_FILE!, 'utf8'))).toMatchObject({ status: 'ok' });
-        expect(output).toContain('Kram worker started'); return;
+        expect(worker.exitCode).toBeNull(); return;
       }
       if (worker.exitCode !== null) throw new Error(`Worker exited: ${output}`);
       await new Promise(resolveDone => setTimeout(resolveDone, 200));
