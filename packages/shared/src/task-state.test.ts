@@ -27,6 +27,7 @@ describe('task progress and state replay', () => {
     expect(fold([event('pages', 'progress', { minutes: 45, qty: 2 })])).toMatchObject({ actualMinutes: 45, completedQty: 2, remainingMinutes: 48 });
     expect(foldTaskEvents({ ...seed, estMinutes: 61 }, [event('fraction', 'progress', { qty: 1 })], context).remainingMinutes).toBe(55);
     expect(fold([event('excess', 'progress', { minutes: 1000, qty: 50 })]).remainingMinutes).toBe(0);
+    expect(foldTaskEvents({ ...seed, quantityBased: false }, [event('fractional-time', 'progress', { minutes: 0.5, qty: 0.5 })], context).remainingMinutes).toBe(59.5);
   });
 
   it('adds progress and completion amounts as deltas and closes explicitly', () => {

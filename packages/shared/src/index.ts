@@ -1,4 +1,18 @@
 import { z } from "zod";
+export {
+  TaskEventError,
+  resolveTaskEvents,
+  foldTaskEvents,
+  assertTaskEventAllowed,
+  undoCompletionReference,
+} from "./task-state";
+export type {
+  TaskFoldStatus,
+  TaskStateEvent,
+  TaskFoldSeed,
+  TaskFoldContext,
+  TaskFoldState,
+} from "./task-state";
 
 export const dateSchema = z.iso.date();
 export const idSchema = z.uuid();
@@ -256,6 +270,7 @@ export const taskSchema = z
     dueDate: dateSchema.nullable().default(null),
     supportsSplit: z.boolean().default(true),
     itemId: idSchema.nullable().default(null),
+    dependsOn: z.array(idSchema).max(200).default([]),
     sortOrder: z.number().int().min(0).default(0),
   })
   .refine((v) => !v.dueDate || v.dueDate >= v.earliestDate, {
@@ -267,7 +282,7 @@ export const progressInputSchema = z
     clientEventId: idSchema,
     kind: z.enum(eventKinds),
     occurredAt: z.iso.datetime({ offset: true }),
-    minutes: z.number().nonnegative().max(1440).default(0),
+    minutes: z.number().nonnegative().max(1000000).default(0),
     qty: z.number().nonnegative().max(1000000).default(0),
     note: z.string().max(4000).default(""),
     toDate: dateSchema.optional(),
@@ -275,6 +290,8 @@ export const progressInputSchema = z
     explicitCorrection: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
+    if (v.kind !== 'completed' && v.minutes > 1440)
+      ctx.addIssue({ code: 'custom', message: 'Log at most 1440 additional minutes in one event.', path: ['minutes'] });
     if (v.kind === "deferred" && !v.toDate)
       ctx.addIssue({
         code: "custom",
@@ -331,6 +348,9 @@ export type Task = Entity &
     completedQty: number;
     actualMinutes: number;
     timerStartedAt: string | null;
+    timerAccumulatedMinutes: number;
+    timerElapsedMinutes: number;
+    deferredToDate: string | null;
     periodKey: string;
     overdue?: boolean;
     unverified?: boolean;
@@ -349,6 +369,8 @@ export type ProgressEvent = {
   referenceEventId: string | null;
   toDate: string | null;
   createdAt: string;
+  timezone?: string;
+  ruleVersionId?: string | null;
 };
 export type GoalRuleVersion = {
   id: string;
@@ -465,4 +487,40 @@ export type ApiError = {
     details?: unknown;
     requestId: string;
   };
+};
+
+export const reminderOwnerTypes = ["task", "goal", "slot", "global"] as const;
+export const reminderRuleSchema = z
+  .object({
+    ownerType: z.enum(reminderOwnerTypes),
+    ownerId: idSchema.nullable().default(null),
+    type: z.enum(notificationTypes).default("task_reminder"),
+    atLocal: clockMinuteSchema.nullable().default(null),
+    offsetMin: z.number().int().min(-10080).max(10080).nullable().default(null),
+    repeatPolicy: z.enum(["once", "until_completed"]).default("once"),
+    enabled: z.boolean().default(true),
+    channel: z.literal("ntfy").default("ntfy"),
+  })
+  .superRefine((value, ctx) => {
+    if (value.ownerType !== "global" && !value.ownerId)
+      ctx.addIssue({
+        code: "custom",
+        message: "Choose the task, goal or slot for this reminder.",
+        path: ["ownerId"],
+      });
+    if ((value.atLocal === null) === (value.offsetMin === null))
+      ctx.addIssue({
+        code: "custom",
+        message: "Choose either a local reminder time or an offset.",
+        path: ["atLocal"],
+      });
+  });
+export type ReminderRule = Entity & z.infer<typeof reminderRuleSchema>;
+export type TodayResponse = {
+  studyDate: string;
+  tasks: Task[];
+  slots: TimeSlot[];
+  goals: Goal[];
+  weekly: { minutes: number; bySkill: { skillId: string; minutes: number }[] };
+  notifications: Notification[];
 };

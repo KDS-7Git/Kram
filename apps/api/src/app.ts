@@ -13,6 +13,10 @@ import { authRouter } from "./modules/auth/router";
 import { hierarchyRouter } from "./modules/hierarchy/router";
 import { goalsRouter } from "./modules/goals/router";
 import { resourcesRouter } from "./modules/resources/router";
+import { timetableRouter } from "./modules/timetable/router";
+import { notificationsRouter } from "./modules/notifications/router";
+import { tasksRouter } from "./modules/tasks/router";
+import { closeJobProducer } from "./jobs";
 
 export function createApp() {
   const app = express();
@@ -84,9 +88,15 @@ export function createApp() {
     res.json({ name: "Kram", version: "0.1.0" }),
   );
   attachSessions(app);
+  const closeSessions = app.locals.closeSessions;
+  app.locals.closeSessions = async () => {
+    await closeJobProducer();
+    await closeSessions();
+  };
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1", requireAuth, csrf, hierarchyRouter);
   app.use("/api/v1", goalsRouter, resourcesRouter);
+  app.use("/api/v1", tasksRouter, timetableRouter, notificationsRouter);
   app.use("/api", (_req, res) =>
     res.status(404).json({
       error: {

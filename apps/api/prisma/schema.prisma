@@ -31,6 +31,15 @@ model User {
   resourceItems ResourceItem[]
   goalResources GoalResource[]
   itemDependencies ItemDependency[]
+  tasks Task[]
+  progressEvents ProgressEvent[]
+  goalProgressCaches GoalProgressCache[]
+  timeSlots TimeSlot[]
+  taskDependencies TaskDependency[]
+  reminderRules ReminderRule[]
+  notifications Notification[]
+  notificationAttempts NotificationAttempt[]
+  jobRuns JobRun[]
   @@map("app_user")
 }
 
@@ -47,6 +56,7 @@ model Profile {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   skills Skill[]
+  timeSlots TimeSlot[]
   @@unique([id,userId])
   @@index([userId,sortOrder,id])
   @@map("profile")
@@ -73,6 +83,7 @@ model Skill {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   goals Goal[]
   resources Resource[]
+  timeSlots TimeSlot[]
   @@unique([id,userId])
   @@index([userId,profileId,sortOrder,id])
   @@map("skill")
@@ -106,6 +117,10 @@ model Goal {
   rules GoalRuleVersion[]
   resources GoalResource[]
   primaryResources Resource[]
+  tasks Task[]
+  progressEvents ProgressEvent[]
+  progressCache GoalProgressCache?
+  timeSlots TimeSlot[]
   @@unique([id,userId])
   @@index([userId,skillId,status,sortOrder,id])
   @@map("goal")
@@ -122,6 +137,8 @@ model GoalRuleVersion {
   rules Json
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  progressEvents ProgressEvent[]
+  @@unique([id,userId])
   @@unique([goalId,version])
   @@index([userId,goalId,effectiveFrom,version])
   @@map("goal_rule_version")
@@ -189,6 +206,7 @@ model ResourceItem {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   dependencies ItemDependency[] @relation("ItemDepends")
   dependants ItemDependency[] @relation("ItemRequired")
+  tasks Task[]
   @@unique([id,userId])
   @@unique([id,resourceId,userId])
   @@index([userId,resourceId,parentItemId,ordinal,id])
@@ -209,6 +227,227 @@ model ItemDependency {
   @@unique([itemId,dependsOnItemId])
   @@index([userId,resourceId])
   @@map("item_dependency")
+}
+
+model Task {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  goalId String @db.Uuid
+  goal Goal @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  itemId String? @db.Uuid
+  item ResourceItem? @relation(fields:[itemId,userId],references:[id,userId],onDelete:Restrict)
+  title String
+  estMinutes Int
+  remainingMinutes Float
+  qty Float @default(1)
+  completedQty Float @default(0)
+  actualMinutes Float @default(0)
+  status String @default("pending")
+  earliestDate DateTime @db.Date
+  dueDate DateTime? @db.Date
+  supportsSplit Boolean @default(true)
+  sortOrder Int @default(0)
+  periodKey String
+  materializationKey String @unique
+  timerStartedAt DateTime? @db.Timestamptz(3)
+  timerAccumulatedMinutes Float @default(0)
+  deferredToDate DateTime? @db.Date
+  unverified Boolean @default(false)
+  eventVersion Int @default(0)
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  events ProgressEvent[]
+  slots TimeSlot[]
+  dependencies TaskDependency[] @relation("TaskDepends")
+  dependants TaskDependency[] @relation("TaskRequired")
+  notifications Notification[]
+  @@unique([id,userId])
+  @@unique([goalId,itemId,periodKey])
+  @@index([userId,goalId,status,dueDate])
+  @@index([userId,earliestDate,status,id])
+  @@map("task")
+}
+
+model TaskDependency {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  taskId String @db.Uuid
+  task Task @relation("TaskDepends",fields:[taskId,userId],references:[id,userId],onDelete:Restrict)
+  dependsOnTaskId String @db.Uuid
+  prerequisite Task @relation("TaskRequired",fields:[dependsOnTaskId,userId],references:[id,userId],onDelete:Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([taskId,dependsOnTaskId])
+  @@index([userId,taskId])
+  @@map("task_dependency")
+}
+
+model ProgressEvent {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  taskId String? @db.Uuid
+  task Task? @relation(fields:[taskId,userId],references:[id,userId],onDelete:Restrict)
+  goalId String @db.Uuid
+  goal Goal @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  ruleVersionId String? @db.Uuid
+  ruleVersion GoalRuleVersion? @relation(fields:[ruleVersionId,userId],references:[id,userId],onDelete:Restrict)
+  kind String
+  sequence Int @default(0)
+  minutes Float @default(0)
+  qty Float @default(0)
+  occurredAt DateTime @db.Timestamptz(3)
+  localDate DateTime @db.Date
+  timezone String
+  clientEventId String @unique @db.Uuid
+  requestHash String @default("")
+  note String @default("")
+  referenceEventId String? @db.Uuid
+  reference ProgressEvent? @relation("EventCorrections",fields:[referenceEventId,userId],references:[id,userId],onDelete:Restrict)
+  corrections ProgressEvent[] @relation("EventCorrections")
+  toDate DateTime? @db.Date
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([id,userId])
+  @@unique([taskId,sequence])
+  @@index([userId,taskId,createdAt,id])
+  @@index([userId,goalId,localDate])
+  @@map("progress_event")
+}
+
+model GoalProgressCache {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  goalId String @unique @db.Uuid
+  goal Goal @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  minutes Float @default(0)
+  qty Float @default(0)
+  completions Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([goalId,userId])
+  @@map("goal_progress_cache")
+}
+
+model TimeSlot {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  date DateTime @db.Date
+  startMin Int
+  endMin Int
+  layer String @default("flexible")
+  title String
+  profileId String? @db.Uuid
+  profile Profile? @relation(fields:[profileId,userId],references:[id,userId],onDelete:Restrict)
+  skillId String? @db.Uuid
+  skill Skill? @relation(fields:[skillId,userId],references:[id,userId],onDelete:Restrict)
+  goalId String? @db.Uuid
+  goal Goal? @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  taskId String? @db.Uuid
+  task Task? @relation(fields:[taskId,userId],references:[id,userId],onDelete:Restrict)
+  pinned Boolean @default(false)
+  version Int @default(1)
+  templateId String? @db.Uuid
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([id,userId])
+  @@index([userId,date,layer,startMin])
+  @@map("time_slot")
+}
+
+model ReminderRule {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  ownerType String
+  ownerId String? @db.Uuid
+  type String @default("task_reminder")
+  atLocal Int?
+  offsetMin Int?
+  repeatPolicy String @default("once")
+  enabled Boolean @default(true)
+  channel String @default("ntfy")
+  archivedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  notifications Notification[]
+  @@unique([id,userId])
+  @@index([userId,ownerType,ownerId])
+  @@map("reminder_rule")
+}
+
+model Notification {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  channel String @default("ntfy")
+  type String
+  title String
+  body String
+  scheduledFor DateTime @db.Timestamptz(3)
+  status String @default("pending")
+  dedupeKey String
+  ownerType String @default("global")
+  ownerId String? @db.Uuid
+  reminderRuleId String? @db.Uuid
+  reminderRule ReminderRule? @relation(fields:[reminderRuleId,userId],references:[id,userId],onDelete:Restrict)
+  taskId String? @db.Uuid
+  task Task? @relation(fields:[taskId,userId],references:[id,userId],onDelete:Restrict)
+  isTest Boolean @default(false)
+  nextAttemptAt DateTime? @db.Timestamptz(3)
+  attemptCount Int @default(0)
+  leaseId String? @db.Uuid
+  leaseUntil DateTime? @db.Timestamptz(3)
+  sentAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  attempts NotificationAttempt[]
+  @@unique([id,userId])
+  @@unique([userId,dedupeKey])
+  @@index([status,nextAttemptAt,scheduledFor])
+  @@map("notification")
+}
+
+model NotificationAttempt {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  notificationId String @db.Uuid
+  notification Notification @relation(fields:[notificationId,userId],references:[id,userId],onDelete:Restrict)
+  attemptedAt DateTime @default(now()) @db.Timestamptz(3)
+  outcome String
+  httpStatus Int?
+  errorCode String?
+  leaseId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([notificationId,leaseId])
+  @@index([userId,notificationId,attemptedAt])
+  @@map("notification_attempt")
+}
+
+model JobRun {
+  id String @id @db.Uuid
+  userId String? @db.Uuid
+  user User? @relation(fields:[userId],references:[id],onDelete:Restrict)
+  jobName String
+  periodKey String
+  startedAt DateTime @db.Timestamptz(3)
+  finishedAt DateTime @db.Timestamptz(3)
+  status String @default("succeeded")
+  detail Json @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([jobName,periodKey])
+  @@map("job_run")
 }
 
 model AuditLog {

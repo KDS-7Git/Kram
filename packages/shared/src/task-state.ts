@@ -11,6 +11,8 @@ export interface TaskFoldSeed {
   goalId: string;
   estMinutes: number;
   qty: number;
+  /** Minute-unit tasks use actual minutes directly; other units use quantity ratios. */
+  quantityBased?: boolean;
   earliestDate: string;
   dueDate?: string | null;
 }
@@ -133,7 +135,7 @@ export function foldTaskEvents(seed: TaskFoldSeed, events: readonly TaskStateEve
     }
   }
   if (status === 'deferred' && deferredToDate && context.today >= deferredToDate) { status = 'pending'; deferredToDate = null; }
-  const remainingMinutes = status === 'completed' ? 0 : completedQty > 0
+  const remainingMinutes = status === 'completed' ? 0 : seed.quantityBased !== false && completedQty > 0
     ? Math.ceil(seed.estMinutes * Math.max(0, 1 - completedQty / seed.qty))
     : Math.max(0, seed.estMinutes - actualMinutes);
   if (!Number.isFinite(actualMinutes) || !Number.isFinite(completedQty) || !Number.isFinite(timerAccumulatedMinutes)) fail('INVALID_AMOUNT', 'Accumulated work is outside the supported numeric range.');

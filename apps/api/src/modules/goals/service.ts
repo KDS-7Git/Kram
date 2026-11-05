@@ -1,5 +1,5 @@
 import { goalSchema, dateSchema } from "@kram/shared";
-import type { Goal } from "@prisma/client";
+import type { Goal,GoalProgressCache } from "@prisma/client";
 import { validateRRule } from "@kram/recurrence";
 import { db } from "../../db";
 import { ApiError } from "../../errors";
@@ -13,13 +13,14 @@ import {
 } from "../../repository";
 import { skills, profiles } from "../hierarchy/service";
 import { calendarDate, calendarString, currentStudyDate } from "../../calendar";
+import { materializeTasks } from '../tasks/materialization';
 
-export const goalDto = (row: Goal) => ({
+export const goalDto = (row: Goal & {progressCache?:GoalProgressCache|null}) => ({
   ...row,
   startDate: calendarString(row.startDate),
   dueDate: row.dueDate ? calendarString(row.dueDate) : null,
-  progressQty: 0,
-  progressMinutes: 0,
+  progressQty: row.progressCache?.qty??0,
+  progressMinutes: row.progressCache?.minutes??0,
 });
 export async function activeSkill(
   userId: string,
@@ -62,11 +63,12 @@ export const goals = {
             }),
       },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      include:{progressCache:true},
     });
   },
   async get(userId: string, id: string, c: Connection = db) {
     return notFound(
-      await c.goal.findFirst({ where: { id, ...ownerWhere(userId) } }),
+      await c.goal.findFirst({ where: { id, ...ownerWhere(userId) },include:{progressCache:true} }),
       "goal",
     );
   },
@@ -95,6 +97,7 @@ export const goals = {
           rules: json(data),
         },
       });
+      await materializeTasks(userId, undefined, tx);
       return goalDto(row);
     });
   },
@@ -121,6 +124,8 @@ export const goals = {
       // Display metadata changes immediately without importing a scheduled future target.
       const data = goalSchema.parse({ ...before, title: current.title, sortOrder: current.sortOrder, ...input });
       data.rrule = validateRule(data.rrule);
+      if ('unit' in input && data.unit.toLowerCase() !== current.unit.toLowerCase() && await tx.task.count({ where: { userId, goalId: id } }))
+        throw new ApiError('UNIT_HISTORY_PROTECTED', 'Create a new goal to use another unit after tasks exist; recorded quantities keep their original unit.', 409);
       if (data.skillId !== current.skillId) {
         await activeSkill(userId, data.skillId, tx);
         if (await tx.goalResource.count({ where: { goalId: id, userId } }))
@@ -159,6 +164,7 @@ export const goals = {
           dueDate: latestData.dueDate ? calendarDate(latestData.dueDate) : null,
         },
       });
+      await materializeTasks(userId, undefined, tx);
       return goalDto(row);
     });
   },
@@ -176,10 +182,12 @@ export const goals = {
           "This goal is archived. Create a new goal to plan new work.",
           409,
         );
-      return goalDto(await tx.goal.update({
+      const row = await tx.goal.update({
         where: { id, userId },
-        data: { status, ...(status === "archived" ? { archivedAt: current.archivedAt ?? new Date() } : {}) },
-      }));
+        data: { status, ...(status === "archived" ? { archivedAt: current.archivedAt ?? new Date() } : {}) },include:{progressCache:true},
+      });
+      await materializeTasks(userId, undefined, tx);
+      return goalDto(row);
     });
   },
   async rulesForDate(userId: string, id: string, date: string, c: Connection = db) {

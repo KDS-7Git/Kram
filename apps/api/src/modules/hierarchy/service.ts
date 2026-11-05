@@ -10,6 +10,8 @@ import { ApiError } from "../../errors";
 import { goals, goalDto } from "../goals/service";
 import { resources, resourceDto } from "../resources/service";
 import { currentStudyDate } from "../../calendar";
+import { materializeTasks } from '../tasks/materialization';
+import { refreshReminders } from '../notifications/service';
 import {
   ownerWhere,
   newId,
@@ -55,10 +57,12 @@ export const profiles = {
     return db.$transaction(async (tx) => {
       await lockOwner(tx, userId);
       await this.get(userId, id, tx);
-      return tx.profile.update({
+      const row = await tx.profile.update({
         where: { id, userId },
         data: { archivedAt: new Date() },
       });
+      await refreshReminders(userId, tx);
+      return row;
     });
   },
 };
@@ -123,10 +127,12 @@ export const skills = {
     return db.$transaction(async (tx) => {
       await lockOwner(tx, userId);
       await this.get(userId, id, tx);
-      return tx.skill.update({
+      const row = await tx.skill.update({
         where: { id, userId },
         data: { archivedAt: new Date() },
       });
+      await refreshReminders(userId, tx);
+      return row;
     });
   },
 };
@@ -170,10 +176,14 @@ export async function setSettings(userId: string, input: unknown) {
       undefined,
       tx,
     );
+    await materializeTasks(userId, undefined, tx);
     return next;
   });
 }
 export async function hierarchyBootstrap(userId: string) {
+  const [{ tasks, taskDto }, { listNotifications }] = await Promise.all([
+    import('../tasks/service'), import('../notifications/service'),
+  ]);
   const [
     user,
     profileList,
@@ -191,18 +201,23 @@ export async function hierarchyBootstrap(userId: string) {
     resources.allItems(userId),
     currentStudyDate(userId),
   ]);
+  const [taskRows, slotRows, notificationRows, context] = await Promise.all([
+    tasks.list(userId),
+    db.timeSlot.findMany({ where: { userId, archivedAt: null }, orderBy: [{ date: 'asc' }, { startMin: 'asc' }, { id: 'asc' }] }),
+    listNotifications(userId), tasks.context(userId),
+  ]);
   return {
     user,
     profiles: iso(profileList),
     skills: iso(skillList),
     goals: iso(goalList.map(goalDto)),
-    tasks: [],
+    tasks: iso(taskRows.map((row) => taskDto(row, context.now, studyDate))),
     resources: iso(resourceList.map(resourceDto)),
     resourceItems: iso(items),
-    slots: [],
+    slots: iso(slotRows.map((row) => ({ ...row, date: row.date.toISOString().slice(0, 10) }))),
     plans: [],
     streaks: [],
-    notifications: [],
+    notifications: iso(notificationRows),
     reviews: [],
     studyDate,
   };
