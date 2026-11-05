@@ -176,6 +176,11 @@ export async function dispatchNotifications(now = new Date(), limit = 10) {
       }
       const until = !row.isTest && !(settings.allowUrgentDuringQuiet && row.type === 'deadline') ? quietUntil(now, settings) : null;
       if (until) { await recordDecision(row, tx, now, 'suppressed_quiet_hours', 'suppressed_quiet_hours', until); deferred++; return null; }
+      // A batch may wait behind earlier HTTP requests. Renew immediately before
+      // publishing and abandon any claim a different dispatcher already took.
+      const renewed = await tx.notification.updateMany({ where: { id: row.id, leaseId: row.leaseId, status: { in: pending } },
+        data: { leaseUntil: new Date(Math.max(now.getTime(), Date.now()) + 120000) } });
+      if (!renewed.count) return null;
       return { row, settings };
     });
     if (!ready) continue;

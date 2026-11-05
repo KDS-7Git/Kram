@@ -121,6 +121,24 @@ describe('rolling task source projection', () => {
     await tasks.event(userId, task.id, { clientEventId: uuid(), kind: 'skipped', occurredAt: '2026-11-06T12:00:00.000Z' });
     await materialize(userId, '2026-11-13'); expect(await db.task.count({ where: { goalId: g.id } })).toBe(1); expect((await db.task.findUniqueOrThrow({ where: { id: task.id } })).status).toBe('skipped');
   });
+  it('materializes configuration created after the daily durable period already completed', async () => {
+    const { MATERIALIZE_QUEUE } = await import('../../apps/api/src/jobs'); const { goals } = await import('../../apps/api/src/modules/goals/service');
+    await db.jobRun.create({ data: { id: uuid(), userId, jobName: MATERIALIZE_QUEUE, periodKey: `${userId}:2026-11-06`, status: 'succeeded', startedAt: new Date(), finishedAt: new Date() } });
+    const created = await goals.create(userId, { skillId, type: 'daily', title: 'Synthetic late-day configuration', targetQty: 15, startDate: '2026-11-06', availableDays: [1, 2, 3, 4, 5, 6, 7] });
+    expect(await db.task.count({ where: { goalId: created.id, archivedAt: null } })).toBe(14);
+    expect(created).toMatchObject({ progressQty: 0, progressMinutes: 0 });
+    const row = await db.task.findFirstOrThrow({ where: { goalId: created.id } }); expect(row).toMatchObject({ qty: 15, remainingMinutes: 15 });
+  });
+  it('projects and cancels reminders atomically when notification settings change', async () => {
+    const { setSettings } = await import('../../apps/api/src/modules/hierarchy/service');
+    const rule = await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'global', atLocal: 720 } });
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id } })).toBe(0);
+    await setSettings(userId, { notificationsEnabled: true });
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id, status: 'pending' } })).toBeGreaterThan(0);
+    await setSettings(userId, { notificationsEnabled: false });
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id, status: 'pending' } })).toBe(0);
+    expect(await db.notification.count({ where: { reminderRuleId: rule.id, status: 'cancelled' } })).toBeGreaterThan(0);
+  });
   it('rolls back task creation when reminder projection fails in the shared transaction', async () => {
     const g = await goal(); await db.user.update({ where: { id: userId }, data: { settings: { ...settings, notificationsEnabled: true } } });
     await db.reminderRule.create({ data: { id: uuid(), userId, ownerType: 'global', atLocal: 720 } });
