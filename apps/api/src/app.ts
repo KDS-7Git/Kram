@@ -11,6 +11,8 @@ import { errorHandler } from "./errors";
 import { attachSessions, requireAuth, csrf } from "./session";
 import { authRouter } from "./modules/auth/router";
 import { hierarchyRouter } from "./modules/hierarchy/router";
+import { goalsRouter } from "./modules/goals/router";
+import { resourcesRouter } from "./modules/resources/router";
 
 export function createApp() {
   const app = express();
@@ -84,16 +86,15 @@ export function createApp() {
   attachSessions(app);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1", requireAuth, csrf, hierarchyRouter);
+  app.use("/api/v1", goalsRouter, resourcesRouter);
   app.use("/api", (_req, res) =>
-    res
-      .status(404)
-      .json({
-        error: {
-          code: "NOT_FOUND",
-          message: "This endpoint does not exist.",
-          requestId: res.locals.requestId,
-        },
-      }),
+    res.status(404).json({
+      error: {
+        code: "NOT_FOUND",
+        message: "This endpoint does not exist.",
+        requestId: res.locals.requestId,
+      },
+    }),
   );
   if (html) {
     app.use(express.static(webDir, { maxAge: config.production ? "1h" : 0 }));
