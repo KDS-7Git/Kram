@@ -5,6 +5,7 @@ import PgBoss from 'pg-boss';
 import request from 'supertest';
 import type { PrismaClient } from '@prisma/client';
 import type { Express } from 'express';
+import { v7 } from 'uuid';
 
 let container:StartedTestContainer,db:PrismaClient,app:Express,url:string;
 beforeAll(async()=>{
@@ -14,11 +15,12 @@ beforeAll(async()=>{
   execFileSync(process.execPath,['node_modules/prisma/build/index.js','migrate','deploy','--schema','apps/api/prisma/schema.prisma'],{env:{...process.env,DATABASE_URL:url},stdio:'pipe'});
   ({db}=await import('../../apps/api/src/db'));const {createApp}=await import('../../apps/api/src/app');app=createApp();
 },120000);
-afterAll(async()=>{await db?.$disconnect();await container?.stop();});
+afterAll(async()=>{if(app?.locals.closeSessions)await app.locals.closeSessions();await db?.$disconnect();await container?.stop();});
 
 describe('foundation runtime',()=>{
   it('boots API after forward-only migrations on clean PostgreSQL',async()=>{const result=await request(app).get('/api/v1/health');expect(result.status).toBe(200);expect(result.body).toMatchObject({status:'ok',database:'connected'});});
   it('returns a stable error envelope with request IDs for malformed or oversized JSON',async()=>{const malformed=await request(app).post('/api/v1/foundation').set('Content-Type','application/json').send('{');expect(malformed.status).toBe(400);expect(malformed.body.error.code).toBe('VALIDATION_FAILED');expect(malformed.body.error.requestId).toBe(malformed.headers['x-request-id']);const oversized=await request(app).post('/api/v1/foundation').send({text:'x'.repeat(270000)});expect(oversized.status).toBe(413);expect(oversized.body.error.code).toBe('REQUEST_TOO_LARGE');});
+  it('enforces single owner, ownership foreign keys and immutable audit history in PostgreSQL',async()=>{const first=await db.user.create({data:{id:v7(),email:'schema-owner@kram.test',passwordHash:'fixture-only',settings:{},isOwner:true}});const second=await db.user.create({data:{id:v7(),email:'schema-foreign@kram.test',passwordHash:'fixture-only',settings:{},isOwner:false}});await expect(db.user.create({data:{id:v7(),email:'schema-duplicate@kram.test',passwordHash:'fixture-only',settings:{},isOwner:true}})).rejects.toThrow();const profile=await db.profile.create({data:{id:v7(),userId:first.id,name:'Owner profile'}});await expect(db.skill.create({data:{id:v7(),userId:second.id,profileId:profile.id,name:'Cross owner'}})).rejects.toThrow();const event=await db.auditLog.create({data:{id:v7(),userId:first.id,action:'schema_test'}});await expect(db.auditLog.update({where:{id:event.id},data:{action:'changed'}})).rejects.toThrow('Append-only history');await expect(db.auditLog.delete({where:{id:event.id}})).rejects.toThrow('Append-only history');});
   it('retains a queued job across queue process restart',async()=>{
     const first=new PgBoss(url);await first.start();await first.createQueue('foundation-restart-spike');const id=await first.send('foundation-restart-spike',{marker:'restart'});await first.stop();
     const second=new PgBoss(url);await second.start();const jobs=await second.fetch<{marker:string}>('foundation-restart-spike');expect(jobs).toHaveLength(1);expect(jobs[0]?.id).toBe(id);expect(jobs[0]?.data.marker).toBe('restart');await second.complete('foundation-restart-spike',id!);await second.stop();

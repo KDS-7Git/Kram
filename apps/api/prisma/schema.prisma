@@ -11,3 +11,91 @@ model SystemMeta {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   @@map("system_meta")
 }
+
+model User {
+  id String @id @db.Uuid
+  email String @unique
+  passwordHash String
+  isOwner Boolean @default(true)
+  timezone String @default("Asia/Kolkata")
+  dayRollover Int @default(240)
+  settings Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  profiles Profile[]
+  skills Skill[]
+  auditLogs AuditLog[]
+  @@map("app_user")
+}
+
+model Profile {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  name String
+  icon String @default("BookOpen")
+  color String @default("teal")
+  sortOrder Int @default(0)
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  skills Skill[]
+  @@unique([id,userId])
+  @@index([userId,sortOrder,id])
+  @@map("profile")
+}
+
+model Skill {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  profileId String @db.Uuid
+  profile Profile @relation(fields:[profileId,userId],references:[id,userId],onDelete:Restrict)
+  name String
+  priority Int?
+  usePriority String @default("inherit")
+  dailyTargetMin Int @default(30)
+  weeklyTargetMin Int @default(150)
+  maxDailyMin Int @default(180)
+  availableDays Int[] @default([1,2,3,4,5,6])
+  windows Json @default("[]")
+  sortOrder Int @default(0)
+  archivedAt DateTime? @db.Timestamptz(3)
+  isDemo Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([id,userId])
+  @@index([userId,profileId,sortOrder,id])
+  @@map("skill")
+}
+
+model AuditLog {
+  id String @id @db.Uuid
+  userId String? @db.Uuid
+  user User? @relation(fields:[userId],references:[id],onDelete:Restrict)
+  action String
+  ip String?
+  detail Json @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([userId,createdAt])
+  @@map("audit_log")
+}
+
+model AuthLockout {
+  key String @id
+  failures Int @default(0)
+  lockedUntil DateTime? @db.Timestamptz(3)
+  lastFailure DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@map("auth_lockout")
+}
+
+model Session {
+  sid String @id @db.VarChar(255)
+  sess Json
+  expire DateTime @db.Timestamptz(6)
+  @@index([expire])
+  @@map("session")
+}
