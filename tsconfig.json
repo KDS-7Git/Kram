@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@kram/shared": ["packages/shared/src/index.ts"],
+      "@kram/time": ["packages/engine-time/src/index.ts"],
+      "@kram/recurrence": ["packages/engine-recurrence/src/index.ts"],
+      "@kram/timetable": ["packages/engine-timetable/src/index.ts"],
+      "@kram/scheduler": ["packages/engine-scheduler/src/index.ts"],
+      "@kram/streaks": ["packages/engine-streaks/src/index.ts"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "tests/**/*.ts", "*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

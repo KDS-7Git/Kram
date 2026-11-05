@@ -1,0 +1,14 @@
+{
+  "name": "@kram/recurrence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@kram/time": "0.1.0",
+    "rrule": "^2.8.1",
+    "luxon": "^3.7.2"
+  }
+}

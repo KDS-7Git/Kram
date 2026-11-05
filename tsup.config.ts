@@ -1,0 +1,2 @@
+import { defineConfig } from 'tsup';
+export default defineConfig({ entry: { api: 'apps/api/src/index.ts', worker: 'apps/worker/src/index.ts', cli: 'apps/api/src/cli.ts' }, format: ['esm'], target: 'node22', outDir: 'dist/server', sourcemap: true, clean: true, shims: true, external: ['@prisma/client', 'argon2', 'pg-boss', 'pg', 'pino', 'pino-http', 'express', 'express-session', 'connect-pg-simple', 'dotenv'] });

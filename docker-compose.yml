@@ -1,0 +1,175 @@
+name: kram
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  image: ${KRAM_IMAGE:-kram:local}
+  build:
+    context: .
+    target: runtime
+  restart: unless-stopped
+  init: true
+  user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+  environment: &app-env
+    NODE_ENV: production
+    HOST: 0.0.0.0
+    PORT: "8420"
+    DATABASE_HOST: postgres
+    DATABASE_PORT: "5432"
+    DATABASE_NAME: kram
+    DATABASE_USER: kram
+    POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    SESSION_SECRET_FILE: /run/secrets/session_secret
+    ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+    APP_URL: ${APP_URL:-http://localhost:8420}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    TRUST_PROXY: ${TRUST_PROXY:-0}
+    DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Kolkata}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    NTFY_BASE_URL: http://ntfy:80
+    BACKUP_DIR: /app/backups
+  secrets:
+    - postgres_password
+    - session_secret
+    - encryption_key
+  networks:
+    - private
+    - database
+  logging: *logging
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kram
+      POSTGRES_USER: kram
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - ${POSTGRES_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kram -d kram"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 400m
+    shm_size: 128m
+    logging: *logging
+
+  app:
+    <<: *app
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8420}:8420"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "infra/app-health.mjs"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    mem_limit: 250m
+
+  worker:
+    <<: *app
+    command: ["node", "dist/server/worker.js"]
+    environment:
+      <<: *app-env
+      WORKER_HEALTH_FILE: /tmp/kram-worker-health.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/app/backups
+    healthcheck:
+      test: ["CMD", "node", "infra/worker-health.mjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 70s
+    mem_limit: 150m
+
+  ntfy:
+    image: binwiederhier/ntfy:v2.14.0
+    profiles: ["notifications"]
+    command: ["serve"]
+    restart: unless-stopped
+    volumes:
+      - ./infra/ntfy/server.yml:/etc/ntfy/server.yml:ro
+      - ntfy-cache:/var/cache/ntfy
+      - ntfy-auth:/var/lib/ntfy
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 50m
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    ports:
+      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:443:443"
+      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - private
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 50m
+    logging: *logging
+
+networks:
+  private:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true
+
+volumes:
+  ntfy-cache:
+  ntfy-auth:
+  caddy-data:
+  caddy-config:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  session_secret:
+    file: ./secrets/session_secret
+  encryption_key:
+    file: ./secrets/encryption_key

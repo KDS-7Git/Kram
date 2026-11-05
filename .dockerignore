@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+.npmrc
+node_modules
+dist
+data
+secrets
+backups
+coverage
+playwright-report
+test-results
+*.log

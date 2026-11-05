@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F7F4EE;
+  --surface: #FCFAF6;
+  --surface-2: #EFEAE0;
+  --surface-3: #E7E1D4;
+  --border: #E3DDD0;
+  --control-border: #8A8170;
+  --text-1: #1F1C17;
+  --text-2: #5A5448;
+  --text-3: #6F685A;
+  --accent: #2B4EA2;
+  --accent-hover: #223F85;
+  --accent-press: #1B3270;
+  --on-accent: #FFFFFF;
+  --accent-soft: #E4EAF8;
+  --partial: #8F5E00;
+  --done: #1B7556;
+  --overdue: #B3261E;
+  --profile-teal: #1B7F79;
+  --profile-violet: #7552B5;
+  --profile-rose: #B23F67;
+  --profile-ochre: #8C6A00;
+  --profile-olive: #4E8A2E;
+  --profile-slate: #55697A;
+  --profile-sky: #1B76A3;
+  --profile-clay: #A5532F;
+  --heat-0: #EAE5DA;
+  --heat-1: #CBD6F0;
+  --heat-2: #9FB3E3;
+  --heat-3: #5F7FC6;
+  --heat-4: #2B4EA2;
+  --scrim: rgb(31 28 23 / 40%);
+  --shadow-card: 0 1px 1px rgb(31 28 23 / 4%);
+  --shadow-popover: 0 8px 24px rgb(31 28 23 / 12%);
+  --shadow-modal: 0 16px 48px rgb(31 28 23 / 18%);
+  --font-body: 'Source Sans 3 Variable', 'Noto Sans Devanagari', 'Noto Sans', sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  --body-weight: 400;
+  --radius-control: .625rem;
+  --radius-card: 1rem;
+  --dur-instant: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 280ms;
+  --dur-ritual: 400ms;
+  --ease-enter: cubic-bezier(.2,.8,.2,1);
+  --ease-exit: cubic-bezier(.4,0,1,1);
+  --ease-move: cubic-bezier(.4,0,.2,1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151310;
+  --surface: #1D1A16;
+  --surface-2: #26221D;
+  --surface-3: #2F2A24;
+  --border: #3A342C;
+  --control-border: #7A7060;
+  --text-1: #F2EEE6;
+  --text-2: #B8B0A2;
+  --text-3: #9B9385;
+  --accent: #93AAEA;
+  --accent-hover: #A9BCF0;
+  --accent-press: #7F98E0;
+  --on-accent: #0E1633;
+  --accent-soft: #1F2842;
+  --partial: #E3B24E;
+  --done: #62C29C;
+  --overdue: #F28B82;
+  --profile-teal: #5CC2BA;
+  --profile-violet: #B79BEB;
+  --profile-rose: #E58AA8;
+  --profile-ochre: #E0BC55;
+  --profile-olive: #96CB6D;
+  --profile-slate: #9DB2C4;
+  --profile-sky: #74C0E8;
+  --profile-clay: #E3A07C;
+  --heat-0: #26221D;
+  --heat-1: #26355F;
+  --heat-2: #3A5099;
+  --heat-3: #6580D0;
+  --heat-4: #93AAEA;
+  --scrim: rgb(0 0 0 / 55%);
+  --shadow-card: none;
+  --shadow-popover: none;
+  --shadow-modal: none;
+  --body-weight: 380;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-card: var(--surface);
+  --color-muted: var(--surface-2);
+  --color-foreground: var(--text-1);
+  --color-muted-foreground: var(--text-2);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+  --color-border: var(--border);
+  --color-ring: var(--accent);
+  --font-sans: var(--font-body);
+}
+
+@media (prefers-contrast: more) {
+  :root { --border: var(--control-border); --text-3: var(--text-2); }
+}
+@media (forced-colors: active) {
+  :root { --bg: Canvas; --surface: Canvas; --surface-2: Canvas; --surface-3: Canvas; --text-1: CanvasText; --text-2: CanvasText; --text-3: CanvasText; --border: CanvasText; --control-border: ButtonText; --accent: Highlight; --on-accent: HighlightText; }
+}

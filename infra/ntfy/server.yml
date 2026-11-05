@@ -1,0 +1,10 @@
+# No external ntfy services are contacted by this configuration.
+listen-http: ":80"
+cache-file: "/var/cache/ntfy/cache.db"
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "deny-all"
+enable-login: true
+behind-proxy: true
+attachment-cache-dir: "/var/cache/ntfy/attachments"
+attachment-total-size-limit: "20M"
+cache-duration: "24h"
