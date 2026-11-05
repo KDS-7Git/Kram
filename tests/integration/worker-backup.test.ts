@@ -38,7 +38,10 @@ beforeAll(async () => {
   data = scheduling.dueBackup(new Date('2026-11-06T12:00:00Z'), 'Asia/Kolkata')!;
   const user = await db.user.create({ data: { id: v7(), email: 'backup-owner@kram.test', passwordHash: 'fixture-only', settings: {}, isOwner: true } });
   const profile = await db.profile.create({ data: { id: v7(), userId: user.id, name: 'Populated backup profile' } });
-  await db.skill.create({ data: { id: v7(), userId: user.id, profileId: profile.id, name: 'Backup verification skill' } });
+  const skill = await db.skill.create({ data: { id: v7(), userId: user.id, profileId: profile.id, name: 'Backup verification skill' } });
+  const goal = await db.goal.create({ data: { id: v7(), userId: user.id, skillId: skill.id, type: 'milestone', title: 'Synthetic completed backup goal', targetQty: 60, startDate: new Date('2026-11-05T00:00:00Z'), status: 'archived' } });
+  const task = await db.task.create({ data: { id: v7(), userId: user.id, goalId: goal.id, title: 'Synthetic completed backup task', estMinutes: 60, remainingMinutes: 0, qty: 60, completedQty: 60, actualMinutes: 60, status: 'completed', earliestDate: goal.startDate, periodKey: 'manual:backup-fixture', materializationKey: `manual:backup-fixture:${v7()}`, manualOverride: true, eventVersion: 1 } });
+  await db.progressEvent.create({ data: { id: v7(), userId: user.id, goalId: goal.id, taskId: task.id, kind: 'completed', sequence: 1, minutes: 60, qty: 60, reportedTotalMinutes: 60, reportedTotalQty: 60, occurredAt: new Date('2026-11-05T12:00:00Z'), localDate: goal.startDate, timezone: 'UTC', clientEventId: v7() } });
   await db.auditLog.create({ data: { id: v7(), userId: user.id, action: 'backup_verification_fixture', detail: { synthetic: true } } });
 }, 120000);
 
@@ -86,6 +89,7 @@ describe('durable local backup worker', () => {
     expect(persisted.tables).toEqual(expect.arrayContaining([
       { schema: 'public', table: 'app_user', count: 1 }, { schema: 'public', table: 'profile', count: 1 },
       { schema: 'public', table: 'skill', count: 1 }, { schema: 'public', table: 'audit_log', count: 1 },
+      { schema: 'public', table: 'task', count: 1 }, { schema: 'public', table: 'progress_event', count: 1 },
     ]));
     expect((await performBackup('retry-fixture', data, 3)).sha256).toBe(manifest.sha256);
     const client = new pg.Client({ connectionString: url }); await client.connect();
