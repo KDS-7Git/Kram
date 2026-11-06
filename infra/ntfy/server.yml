@@ -5,6 +5,5 @@ auth-file: "/var/lib/ntfy/user.db"
 auth-default-access: "deny-all"
 enable-login: true
 behind-proxy: true
-attachment-cache-dir: "/var/cache/ntfy/attachments"
-attachment-total-size-limit: "20M"
+# Kram sends text reminders. Attachment storage requires a reachable base-url.
 cache-duration: "24h"

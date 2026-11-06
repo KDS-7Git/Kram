@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 
 const imageName = process.env.KRAM_RUNTIME_IMAGE || 'kram:runtime-check';
@@ -10,21 +11,30 @@ catch { throw new Error(`Build the reviewed runtime image first: docker build --
 const password = `runtime-fixture-${randomBytes(24).toString('hex')}`;
 const origin = 'http://runtime-fixture.test';
 const backupVolume = `kram-runtime-fixture-${randomUUID()}`;
-let network, postgres, app, worker;
+let network, postgres, ntfy, app, worker;
 try {
   execFileSync('docker', ['volume', 'create', backupVolume], { stdio: 'ignore' });
   network = await new Network().start();
+  // Boot the bundled provider config too; a stub cannot catch invalid ntfy settings.
+  ntfy = await new GenericContainer('binwiederhier/ntfy:v2.14.0').withNetwork(network).withCommand(['serve'])
+    .withCopyFilesToContainer([{ source: resolve('infra/ntfy/server.yml'), target: '/etc/ntfy/server.yml' }])
+    .withTmpFs({ '/var/lib/ntfy': 'rw', '/var/cache/ntfy': 'rw' })
+    .withHealthCheck({ test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/v1/health'], interval: 1000, timeout: 3000, retries: 30, startPeriod: 1000 }).withWaitStrategy(Wait.forHealthCheck()).start();
+  const ntfyUsers = await ntfy.exec(['ntfy', 'user', 'list']); assert.equal(ntfyUsers.exitCode, 0);
   postgres = await new GenericContainer('postgres:16-bookworm').withNetwork(network).withNetworkAliases('runtime-db')
     .withEnvironment({ POSTGRES_USER: 'kram', POSTGRES_PASSWORD: password, POSTGRES_DB: 'kram' })
     .withHealthCheck({ test: ['CMD-SHELL', 'pg_isready -U kram -d kram'], interval: 1000, timeout: 3000, retries: 30, startPeriod: 1000 }).withWaitStrategy(Wait.forHealthCheck()).start();
-  const environment = { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '8420', DATABASE_URL: `postgresql://kram:${password}@runtime-db:5432/kram`,
+  // Match Compose: the entrypoint derives DATABASE_URL from a file secret.
+  // Docker exec must invoke that entrypoint again for its own process.
+  const databaseSecret = { content: `${password}\n`, target: '/tmp/kram-runtime-postgres-password', mode: 0o444 };
+  const environment = { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '8420', DATABASE_HOST: 'runtime-db', DATABASE_PORT: '5432', DATABASE_NAME: 'kram', DATABASE_USER: 'kram', POSTGRES_PASSWORD_FILE: databaseSecret.target,
     SESSION_SECRET: randomBytes(32).toString('hex'), ENCRYPTION_KEY: randomBytes(32).toString('hex'), APP_URL: origin, COOKIE_SECURE: 'false', LOG_LEVEL: 'silent',
     NTFY_BASE_URL: '', NTFY_TOPIC: '', NTFY_TOKEN: '', NTFY_TOKEN_FILE: '', BACKUP_DIR: '/app/backups', WORKER_HEALTH_FILE: '/tmp/kram-runtime-health.json' };
-  app = await new GenericContainer(imageName).withNetwork(network).withEnvironment(environment).withExposedPorts(8420)
+  app = await new GenericContainer(imageName).withNetwork(network).withEnvironment(environment).withCopyContentToContainer([databaseSecret]).withExposedPorts(8420)
     .withHealthCheck({ test: ['CMD', 'node', 'infra/app-health.mjs'], interval: 1000, timeout: 5000, retries: 30, startPeriod: 1000 }).withWaitStrategy(Wait.forHealthCheck()).start();
   const base = `http://${app.getHost()}:${app.getMappedPort(8420)}`;
   const shell = await fetch(base); assert.equal(shell.status, 200); assert.match(await shell.text(), /Kram/); assert.match(shell.headers.get('content-security-policy') || '', /script-src/);
-  execFileSync('docker', ['exec', '-i', app.getId(), 'node', 'dist/server/cli.js', 'create-owner', '--email=runtime-owner@kram.test', '--password-stdin'], { input: `${password}\n`, stdio: ['pipe', 'pipe', 'pipe'] });
+  execFileSync('docker', ['exec', '-i', app.getId(), '/app/infra/entrypoint.sh', 'node', 'dist/server/cli.js', 'create-owner', '--email=runtime-owner@kram.test', '--password-stdin'], { input: `${password}\n`, stdio: ['pipe', 'pipe', 'pipe'] });
   let cookie = '', csrf = '';
   const call = async (path, method = 'GET', body) => {
     const response = await fetch(`${base}/api/v1${path}`, { method, headers: { Origin: origin, ...(cookie ? { Cookie: cookie } : {}), ...(method !== 'GET' ? { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
@@ -46,11 +56,11 @@ try {
   assert.equal(correctedPartial.task.actualMinutes, 60);
   await call(`/tasks/${task.id}/events`, 'POST', { clientEventId: randomUUID(), kind: 'correction', referenceEventId: correctedPartial.event.id, occurredAt: new Date().toISOString() });
   assert.equal((await call(`/goals/${goal.id}`)).progressMinutes, 60); assert.equal((await call('/notifications/status')).configured, false);
-  const startWorker = () => new GenericContainer(imageName).withNetwork(network).withEnvironment(environment).withCommand(['node', 'dist/server/worker.js'])
+  const startWorker = () => new GenericContainer(imageName).withNetwork(network).withEnvironment(environment).withCopyContentToContainer([databaseSecret]).withCommand(['node', 'dist/server/worker.js'])
     .withBindMounts([{ source: backupVolume, target: '/app/backups' }]).withHealthCheck({ test: ['CMD', 'node', '--input-type=module', '-e', 'import {access} from "node:fs/promises";await access(process.env.WORKER_HEALTH_FILE);await import("./infra/worker-health.mjs");'], interval: 1000, timeout: 5000, retries: 40, startPeriod: 1000 }).withWaitStrategy(Wait.forHealthCheck()).start();
   worker = await startWorker();
   const readJobs = async () => {
-    const result = await worker.exec(['node', '--input-type=module', '-e', 'import {PrismaClient} from "@prisma/client";const db=new PrismaClient();console.log(JSON.stringify({jobs:(await db.jobRun.findMany()).map(r=>r.jobName),tasks:await db.task.count(),backup:(await db.systemMeta.findUnique({where:{key:"backup-status"}}))?.value?.status}));await db.$disconnect();']);
+    const result = await worker.exec(['/app/infra/entrypoint.sh', 'node', '--input-type=module', '-e', 'import {PrismaClient} from "@prisma/client";const db=new PrismaClient();console.log(JSON.stringify({jobs:(await db.jobRun.findMany()).map(r=>r.jobName),tasks:await db.task.count(),backup:(await db.systemMeta.findUnique({where:{key:"backup-status"}}))?.value?.status}));await db.$disconnect();']);
     assert.equal(result.exitCode, 0); return JSON.parse(result.output);
   };
   let state; const deadline = Date.now() + 30000;
@@ -61,9 +71,9 @@ try {
   assert.ok(state?.jobs.includes('materialize-tasks')); assert.equal(state?.backup, 'succeeded');
   const beforeRestart = state.tasks; await worker.stop(); worker = undefined; worker = await startWorker();
   const restarted = await readJobs(); assert.equal(restarted.tasks, beforeRestart);
-  const integrity = await app.exec(['node', 'dist/server/cli.js', 'integrity']); assert.equal(integrity.exitCode, 0);
-  process.stdout.write(`${JSON.stringify({ image: imageName, api: 'healthy', worker: 'healthy', completionMinutes: done.task.actualMinutes, storedCompletionContribution: done.event.minutes, restartTaskCount: beforeRestart, backup: state.backup, jobs: [...new Set(state.jobs)].sort() }, null, 2)}\n`);
+  const integrity = await app.exec(['/app/infra/entrypoint.sh', 'node', 'dist/server/cli.js', 'integrity']); assert.equal(integrity.exitCode, 0);
+  process.stdout.write(`${JSON.stringify({ image: imageName, databaseConfiguration: 'file-secret', ntfy: 'healthy', api: 'healthy', worker: 'healthy', completionMinutes: done.task.actualMinutes, storedCompletionContribution: done.event.minutes, restartTaskCount: beforeRestart, backup: state.backup, jobs: [...new Set(state.jobs)].sort() }, null, 2)}\n`);
 } finally {
-  for (const resource of [worker, app, postgres, network]) if (resource) await resource.stop().catch(() => undefined);
+  for (const resource of [worker, app, ntfy, postgres, network]) if (resource) await resource.stop().catch(() => undefined);
   try { execFileSync('docker', ['volume', 'rm', backupVolume], { stdio: 'ignore' }); } catch { /* Already removed by fixture cleanup. */ }
 }
