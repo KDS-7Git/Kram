@@ -27,10 +27,15 @@ export interface ProgressEvent {
   localDate: string;
   unit?: string;
   occurredAt?: string;
+  createdAt?: string;
+  sequence?: number;
+  reportedTotalMinutes?: number | null;
+  reportedTotalQty?: number | null;
   correctsEventId?: string | null;
   unverified?: boolean;
 }
 export interface Period { start: string; end: string; kind: 'day' | 'week' }
+export interface RunSummary { current: number; best: number; met: number; missed: number; grace: number; provisional: number }
 export interface EvaluatePeriodInput {
   rule: StreakRule;
   period: Period;
@@ -42,7 +47,7 @@ export interface EvaluatePeriodInput {
 }
 export interface PeriodEvaluation { result: StreakResult; reason: string; value: number; provisional?: boolean }
 export interface StreakRecord extends PeriodEvaluation { periodStart: string; periodEnd: string; ruleVersion: number }
-export interface RuleVersion { effectiveFrom: string; rule: StreakRule }
+export interface RuleVersion { effectiveFrom: string; rule: StreakRule; pausedRanges?: DateRange[]; restDays?: Set<string>; weekStart?: 1 | 7 }
 export interface EvaluateHistoryInput {
   from: string;
   to: string;
