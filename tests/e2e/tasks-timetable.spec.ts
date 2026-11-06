@@ -195,7 +195,7 @@ test("partial minutes, total completion, undo and scoped goal history remain acc
     dialog.getByRole("button", { name: "Undo completion", exact: true }),
   ).toBeVisible();
   await expect(
-    dialog.getByText("55.5 min logged", { exact: false }),
+    dialog.getByText("Timer stopped · 55.5 min logged", { exact: true }),
   ).toBeVisible();
   expect(await savedTask(page, task.id)).toMatchObject({
     actualMinutes: 55.5,
@@ -284,7 +284,7 @@ test("a persisted timer survives pause, resume and reload without crediting unlo
   await assertAccessible(page);
 });
 
-test("an uncertain response retries the same event and adds progress once", async ({
+test("a lost response queues and replays the same event with progress credited once", async ({
   page,
 }) => {
   await seed(page);
@@ -310,19 +310,8 @@ test("an uncertain response retries the same event and adds progress once", asyn
   await dialog
     .getByRole("button", { name: "Save progress", exact: true })
     .click();
-  await expect(
-    dialog.getByRole("button", { name: "Retry same event", exact: true }),
-  ).toBeVisible();
-  await expect(
-    dialog.getByRole("button", { name: "Done", exact: true }),
-  ).toBeDisabled();
-  await dialog
-    .getByRole("button", { name: "Retry same event", exact: true })
-    .click();
-  await expect(
-    dialog.getByText("20 min estimated remaining", { exact: true }),
-  ).toBeVisible();
-  expect(ids).toHaveLength(2);
+  await expect(dialog.getByText("20 min estimated remaining", { exact: true })).toBeVisible();
+  await expect.poll(() => ids.length).toBe(2);
   expect(ids[0]).toBe(ids[1]);
   const events: ProgressEvent[] = await (
     await page.request.get("/api/v1/tasks/" + task.id + "/events")
@@ -801,4 +790,9 @@ test("complete paginated history restores an undone completion by append order",
   await expect
     .poll(async () => (await savedTask(page, task.id)).status)
     .toBe("in_progress");
+  // Wait for the paginated UI refresh as well as the committed server event.
+  // Closing the context while route.fetch is still reading pages disposes it.
+  await expect(page.locator(".task-history > li")).toHaveCount(56);
+  await expect(page.getByRole("button", { name: "Done", exact: true })).toBeEnabled();
+  await page.unrouteAll({ behavior: "wait" });
 });

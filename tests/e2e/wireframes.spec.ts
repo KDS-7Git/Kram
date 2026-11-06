@@ -51,6 +51,17 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   const panel = page.getByRole('dialog');
   await panel.getByRole('button', { name: '25%', exact: true }).click();
   await expect(panel.getByText('45 min estimated remaining', { exact: true })).toBeVisible();
+  for (const theme of ['light', 'dark']) {
+    if (await page.locator('html').getAttribute('data-theme') !== theme) {
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();
+      await page.getByRole('button', { name: `Open task ${task.title}`, exact: true }).click();
+    }
+    await accessible(page); await page.screenshot({ path: info.outputPath(`task-inspector-${theme}.png`), animations: 'disabled' });
+  }
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();
+  await page.getByRole('button', { name: `Open task ${task.title}`, exact: true }).click();
   await panel.getByRole('button', { name: '50%', exact: true }).click();
   await expect(panel.getByText('30 min estimated remaining', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -60,7 +71,6 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   await panel.getByRole('button', { name: 'Save progress', exact: true }).click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/tasks/${task.id}`)).json()).actualMinutes).toBe(95);
   await accessible(page);
-  await page.screenshot({ path: info.outputPath('task-inspector-light.png'), animations: 'disabled' });
   await page.keyboard.press('Escape');
   for (const theme of ['light', 'dark']) {
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();

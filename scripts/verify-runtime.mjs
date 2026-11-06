@@ -5,7 +5,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 
-const imageName = process.env.KRAM_RUNTIME_IMAGE || 'kram:runtime-check';
+const imageName = process.env.KRAM_RUNTIME_IMAGE || 'kram:v1-check';
 try { execFileSync('docker', ['image', 'inspect', imageName], { stdio: 'ignore' }); }
 catch { throw new Error(`Build the reviewed runtime image first: docker build --target runtime -t ${imageName} .`); }
 const password = `runtime-fixture-${randomBytes(24).toString('hex')}`;
@@ -68,6 +68,16 @@ try {
   const application = { anchor: advance(bootstrap.studyDate, 30) }, etag = { 'If-Match': `"${template.version}"` };
   assert.equal((await call(`/timetable/templates/${template.id}/apply`, 'POST', application, etag)).reused, false);
   assert.equal((await call(`/timetable/templates/${template.id}/apply`, 'POST', application, etag)).reused, true);
+  const proposal=await call('/planning/generate','POST',{reason:'Production image acceptance smoke'});
+  assert.equal(proposal.plan.state,'proposed');
+  const planning=await call('/planning');
+  await call(`/planning/versions/${proposal.plan.id}/accept`,'POST',{}, {'If-Match':`"${planning.version}"`});
+  assert.equal((await call('/planning')).activeVersionId,proposal.plan.id);
+  const streak=await call('/streaks','POST',{title:'Synthetic runtime streak',scope:'global',startDate:advance(bootstrap.studyDate,-2),rule:{measure:'minutes',threshold:30,period:'day',restWeekdays:[]}});
+  assert.ok(streak.id);assert.ok(Array.isArray(await call('/streaks')));
+  assert.equal((await call('/analytics/overview')).totalMinutes,60);
+  const portable=await call('/export','POST',{format:'json'});assert.equal(portable.format,'kram-portable');
+  assert.ok((await call('/data/health')).databaseBytes>0);
   const startWorker = () => new GenericContainer(imageName).withNetwork(network).withEnvironment(environment).withCopyContentToContainer([databaseSecret]).withCommand(['node', 'dist/server/worker.js'])
     .withBindMounts([{ source: backupVolume, target: '/app/backups' }]).withHealthCheck({ test: ['CMD', 'node', '--input-type=module', '-e', 'import {access} from "node:fs/promises";await access(process.env.WORKER_HEALTH_FILE);await import("./infra/worker-health.mjs");'], interval: 1000, timeout: 5000, retries: 40, startPeriod: 1000 }).withWaitStrategy(Wait.forHealthCheck()).start();
   worker = await startWorker();

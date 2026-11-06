@@ -82,11 +82,13 @@ app.post("/api/v1/__test/reset", async (req, res, next) => {
 });
 app.use(productionApp);
 const api = app.listen(8422, "127.0.0.1");
-const web = await createServer({
-  configFile: "apps/web/vite.config.ts",
-  server: { port: 5174, host: "127.0.0.1", strictPort: true },
-});
-await web.listen();
+const web = process.env.E2E_SERVE_BUILD === '1' ? await (async () => {
+  const server=app.listen(5174,'127.0.0.1');
+  return {close:()=>new Promise<void>(resolve=>server.close(()=>resolve()))};
+})() : await (async () => {
+  const server=await createServer({configFile:'apps/web/vite.config.ts',server:{port:5174,host:'127.0.0.1',strictPort:true}});
+  await server.listen();return server;
+})();
 process.stdout.write(
   "Isolated Kram browser fixture ready: http://127.0.0.1:5174 (API8422)\n",
 );
