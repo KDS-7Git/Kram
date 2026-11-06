@@ -173,7 +173,7 @@ function Shell({
             onClick={() => window.dispatchEvent(new Event("kram-command"))}
           >
             <Plus size={18} strokeWidth={1.5} />
-            Add or search
+            <span>Add or search</span>
           </Button>
         )}
         <nav className="nav-list" aria-label="Main navigation">

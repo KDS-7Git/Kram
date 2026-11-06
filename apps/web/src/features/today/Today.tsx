@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { weekday } from "@kram/time";
-import { Clock3, Plus, Target } from "lucide-react";
-import type { Task, TodayResponse } from "@kram/shared";
+import { Clock3, Plus, Target, Pause, Play, Check } from "lucide-react";
+import type { Task, TodayResponse, TimeSlot } from "@kram/shared";
 import {
   Banner,
   Button,
@@ -15,6 +15,7 @@ import {
   Sheet,
   StatusPill,
 } from "../../components/ui/kit";
+import { TimerDigits } from "../../components/ui/TimerDigits";
 import { api, errorMessage } from "../../shared/api";
 import { useData, useOnline } from "../../shared/data";
 import { useWallClock } from "../../shared/clock";
@@ -25,7 +26,10 @@ import {
   duration,
   timerClock,
 } from "../../shared/format";
-import { TaskEditor, TaskPanel, type TaskAction } from "../tasks/Tasks";
+import type { TaskAction } from "../tasks/Tasks";
+const TaskEditor = lazy(() => import('../tasks/Tasks').then(module => ({ default: module.TaskEditor })));
+const TaskPanel = lazy(() => import('../tasks/Tasks').then(module => ({ default: module.TaskPanel })));
+import { blockLanes, layerLabels } from "../timetable/layout";
 import { useTaskEvents } from "../tasks/events";
 
 const closed = new Set(["completed", "cancelled", "skipped"]);
@@ -94,7 +98,7 @@ export function Today() {
       <>
         <PageHeader title="Today" eyebrow="A little room to focus" />
         {query.isPending ? (
-          <div className="today-grid">
+      <div className="today-grid">
             <DelayedSkeleton height={240} />
             <DelayedSkeleton height={180} />
             <DelayedSkeleton height={240} />
@@ -118,12 +122,7 @@ export function Today() {
   const slots = [...today.slots].sort(
     (a, b) => a.date.localeCompare(b.date) || a.startMin - b.startMin,
   );
-  const currentSlot = slots.find(
-    (slot) =>
-      slot.date === civilDate &&
-      slot.startMin <= minute &&
-      slot.endMin > minute,
-  );
+  const currentSlot = slots.filter(slot => slot.date === civilDate && slot.startMin <= minute && slot.endMin > minute).sort((a, b) => Number(!!b.taskId) - Number(!!a.taskId) || Number(a.layer === 'reserved') - Number(b.layer === 'reserved'))[0];
   const nextSlot = slots.find(
     (slot) =>
       slot.date > civilDate! ||
@@ -152,6 +151,9 @@ export function Today() {
     )
     .sort(
       (a, b) =>
+        (slots.find(slot => slot.taskId === a.id)?.date ?? '9999').localeCompare(slots.find(slot => slot.taskId === b.id)?.date ?? '9999') ||
+        (slots.find(slot => slot.taskId === a.id)?.startMin ?? 1440) -
+          (slots.find(slot => slot.taskId === b.id)?.startMin ?? 1440) ||
         Number(closed.has(a.status)) - Number(closed.has(b.status)) ||
         (a.dueDate || "9999").localeCompare(b.dueDate || "9999") ||
         a.sortOrder - b.sortOrder,
@@ -171,7 +173,7 @@ export function Today() {
         description={
           rest
             ? "A planned rest day. Keep the day gentle."
-            : "What is happening now, what comes next, and a little progress at your pace."
+            : undefined
         }
         action={
           <Button
@@ -204,101 +206,9 @@ export function Today() {
           . Late-night progress stays with this day.
         </Banner>
       )}
-      <div className="today-grid">
-        <Card className={`today-now${running ? " today-now-running" : ""}`}>
-          <p className="eyebrow">Now</p>
-          {nowTask ? (
-            <>
-              <h2>{nowTask.title}</h2>
-              <StatusPill status={nowTask.status} />
-              {running && (
-                <p className="now-timer">
-                  {timerClock(
-                    running.timerAccumulatedMinutes +
-                      Math.max(
-                        0,
-                        (now - Date.parse(running.timerStartedAt!)) / 60000,
-                      ),
-                  )}
-                </p>
-              )}
-              <p className="muted">
-                {duration(nowTask.remainingMinutes)} estimated remaining
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => setSelected({ id: nowTask.id })}
-              >
-                Open task
-              </Button>
-            </>
-          ) : currentSlot ? (
-            <>
-              <h2>{currentSlot.title}</h2>
-              <p className="muted">
-                {clockLabel(
-                  currentSlot.startMin,
-                  data.user.settings.clockFormat,
-                )}
-                –
-                {clockLabel(currentSlot.endMin, data.user.settings.clockFormat)}{" "}
-                · {currentSlot.layer}
-              </p>
-              <Link className="button button-primary" to="/plan">
-                See the day
-              </Link>
-            </>
-          ) : (
-            <>
-              <h2>{rest ? "Room to rest" : "A little open space"}</h2>
-              <p className="muted">
-                {nextSlot
-                  ? `Free until ${clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}.`
-                  : "No block is happening now."}
-              </p>
-              <Link className="button button-text" to="/plan">
-                Choose a time for something
-              </Link>
-            </>
-          )}
-        </Card>
-        <Card>
-          <p className="eyebrow">Next</p>
-          {nextSlot ? (
-            <>
-              <h2>{nextSlot.title}</h2>
-              <p className="muted">
-                {nextSlot.date !== civilDate &&
-                  `${calendarDate(nextSlot.date)} · `}
-                {clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}{" "}
-                · {duration(nextSlot.endMin - nextSlot.startMin)}
-              </p>
-              {nextSlot.taskId ? (
-                <Button
-                  variant="text"
-                  onClick={() => setSelected({ id: nextSlot.taskId! })}
-                >
-                  Open next task
-                </Button>
-              ) : (
-                <Link className="button button-text" to="/plan">
-                  Open timetable
-                </Link>
-              )}
-            </>
-          ) : (
-            <>
-              <h2>No next block</h2>
-              <p className="muted">The next stretch is yours to shape.</p>
-              <Link className="button button-text" to="/plan">
-                Plan a time block
-              </Link>
-            </>
-          )}
-        </Card>
-        <Card className="day-ribbon-card">
+            <Card className="day-ribbon-card">
           <div className="row between">
-            <h2>Your day at a glance</h2>
+            <h2 className="sr-only">Your day at a glance</h2>
             <span className="caption">
               {duration(free)} free between waking and sleep
               {rest ? " · Rest day" : ""}
@@ -349,6 +259,93 @@ export function Today() {
             <time>{clockLabel(sleep, data.user.settings.clockFormat)}</time>
           </div>
         </Card>
+      <div className="today-grid">
+        <Card className={`today-now${running ? " today-now-running" : ""}`}>
+          <p className="eyebrow">Now</p>
+          {nowTask ? (
+            <>
+              <button type="button" className="now-task-title" aria-label={`Open focused task ${nowTask.title}`} onClick={() => setSelected({ id: nowTask.id })}><h2>{nowTask.title}</h2></button>
+              <StatusPill status={nowTask.status} />
+              {running && (
+                <p className="now-timer">
+                  <TimerDigits value={timerClock(
+                    running.timerAccumulatedMinutes +
+                      Math.max(
+                        0,
+                        (now - Date.parse(running.timerStartedAt!)) / 60000,
+                      ),
+                  )} />
+                </p>
+              )}
+              <p className="muted">
+                {duration(nowTask.remainingMinutes)} estimated remaining
+              </p>
+              <NowActions task={nowTask} onOpen={action => setSelected({ id: nowTask.id, action })} />
+            </>
+          ) : currentSlot ? (
+            <>
+              <h2>{currentSlot.title}</h2>
+              <p className="muted">
+                {clockLabel(
+                  currentSlot.startMin,
+                  data.user.settings.clockFormat,
+                )}
+                –
+                {clockLabel(currentSlot.endMin, data.user.settings.clockFormat)}{" "}
+                · {currentSlot.layer}
+              </p>
+              <Link className="button button-primary" to="/plan">
+                See the day
+              </Link>
+            </>
+          ) : (
+            <>
+              <h2>{rest ? "Room to rest" : "A little open space"}</h2>
+              <p className="muted">
+                {nextSlot
+                  ? `Free until ${clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}.`
+                  : "No block is happening now."}
+              </p>
+              <Link className="button button-text" to="/plan">
+                Choose a time for something
+              </Link>
+            </>
+          )}
+        </Card>
+        <Card className="today-next">
+          <p className="eyebrow">Next</p>
+          {nextSlot ? (
+            <>
+              <h2>{nextSlot.title}</h2>
+              <p className="muted">
+                {nextSlot.date !== civilDate &&
+                  `${calendarDate(nextSlot.date)} · `}
+                {clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}{" "}
+                · {duration(nextSlot.endMin - nextSlot.startMin)}
+              </p>
+              {nextSlot.taskId ? (
+                <Button
+                  variant="text"
+                  onClick={() => setSelected({ id: nextSlot.taskId! })}
+                >
+                  Open next task
+                </Button>
+              ) : (
+                <Link className="button button-text" to="/plan">
+                  Open timetable
+                </Link>
+              )}
+            </>
+          ) : (
+            <>
+              <h2>No next block</h2>
+              <p className="muted">The next stretch is yours to shape.</p>
+              <Link className="button button-text" to="/plan">
+                Plan a time block
+              </Link>
+            </>
+          )}
+        </Card>
         <Card className="today-tasks">
           <div className="card-header">
             <h2>Your tasks</h2>
@@ -377,6 +374,7 @@ export function Today() {
                 <TaskRow
                   key={task.id}
                   task={task}
+                  slot={slots.find(slot => slot.taskId === task.id)}
                   onOpen={(action) => setSelected({ id: task.id, action })}
                 />
               ))}
@@ -407,11 +405,11 @@ export function Today() {
             </EmptyState>
           )}
           <p className="caption task-keyboard-help">
-            Open a task for its timer and notes. On desktop: J and K move, D
-            completes, S controls the timer, E defers, X skips.
+            Open a task for its timer and notes.<span className="desktop-shortcuts"> On desktop: J and K move, D completes, S controls the timer, E defers, X skips.</span>
           </p>
         </Card>
-        <div className="stack-lg today-aside">
+        <div className="today-aside">
+          <TodayTimeline slots={ribbonSlots} wake={wake} sleep={sleep} minute={sameDate ? minute : -1} />
           <Card>
             <p className="eyebrow">This week</p>
             <h2>{duration(today.weekly.minutes)} logged</h2>
@@ -478,10 +476,10 @@ export function Today() {
         description="Choose the goal, estimate the time and give it an earliest date."
       >
         {adding && (
-          <TaskEditor
+          <Suspense fallback={<DelayedSkeleton height={240} />}><TaskEditor
             goalId={params.get("goalId") || undefined}
             onDone={() => setAdding(false)}
-          />
+          /></Suspense>
         )}
       </Sheet>
       <Sheet
@@ -493,11 +491,11 @@ export function Today() {
         description="Control the timer, record additional progress, or choose a later date."
       >
         {selected && (
-          <TaskPanel
+          <Suspense fallback={<DelayedSkeleton height={240} />}><TaskPanel
             key={`${selected.id}:${selected.action || "details"}`}
             taskId={selected.id}
             initialAction={selected.action}
-          />
+          /></Suspense>
         )}
       </Sheet>
     </>
@@ -506,9 +504,11 @@ export function Today() {
 
 function TaskRow({
   task,
+  slot,
   onOpen,
 }: {
   task: Task;
+  slot?: TimeSlot;
   onOpen: (action?: TaskAction) => void;
 }) {
   const data = useData();
@@ -567,6 +567,7 @@ function TaskRow({
         const point = event.touches[0];
         if (point) touch.current = { x: point.clientX, y: point.clientY };
       }}
+      onTouchCancel={() => { touch.current = null; }}
       onTouchEnd={(event) => {
         const point = event.changedTouches[0];
         if (!point || !touch.current || !online || finished) return;
@@ -577,8 +578,10 @@ function TaskRow({
           vertical < 40 &&
           Math.abs(delta) > 72 &&
           (delta > 0 || task.status !== "deferred")
-        )
+        ) {
+          event.preventDefault();
           onOpen(delta > 0 ? "completed" : "deferred");
+        }
       }}
     >
       <button
@@ -620,7 +623,7 @@ function TaskRow({
       </button>
       <span className="task-row-time">
         <Clock3 size={15} strokeWidth={1.5} aria-hidden="true" />
-        {duration(finished ? task.actualMinutes : task.remainingMinutes)}
+        {slot ? <><time>{clockLabel(slot.startMin, data.user.settings.clockFormat)}</time><span className="caption">{slot.date !== data.studyDate ? `${calendarDate(slot.date)} · ` : ''}{duration(finished ? task.actualMinutes : task.remainingMinutes)}</span></> : duration(finished ? task.actualMinutes : task.remainingMinutes)}
         <span className="sr-only">
           {finished ? " logged" : " estimated remaining"}
         </span>
@@ -641,4 +644,42 @@ function TaskRow({
       )}
     </li>
   );
+}
+
+
+function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction) => void }) {
+  const online = useOnline();
+  const writer = useTaskEvents(task.id);
+  const editable = online && !writer.uncertain && !writer.mutation.isPending;
+  return <>
+    <div className="task-primary-actions">
+      <Button variant="primary" disabled={!editable || task.status === 'deferred'} loading={writer.mutation.isPending} onClick={() => void writer.post(task.timerStartedAt ? 'paused' : task.status === 'in_progress' ? 'resumed' : 'started').catch(() => undefined)}>
+        {task.timerStartedAt ? <Pause size={18} strokeWidth={1.5} /> : <Play size={18} strokeWidth={1.5} />}{task.timerStartedAt ? 'Pause' : task.status === 'in_progress' ? 'Resume' : 'Start'}
+      </Button>
+      <Button disabled={!editable} onClick={() => onOpen('completed')}><Check size={18} strokeWidth={1.5} />Done</Button>
+    </div>
+    {writer.uncertain && <Banner tone="error">This timer action may already be saved. <Button disabled={!online} onClick={() => void writer.retry().catch(() => undefined)}>Retry same event</Button></Banner>}
+    {!online && <p className="caption">Reconnect to save timer actions and completion.</p>}
+  </>;
+}
+
+function TodayTimeline({ slots, wake, sleep, minute }: { slots: TimeSlot[]; wake: number; sleep: number; minute: number }) {
+  const data = useData();
+  const span = sleep - wake, scale = 32 / 60, height = span * scale + 28, lanes = blockLanes(slots);
+  return <Card className="today-live">
+    <h2>Timeline</h2>
+    <Link to="/plan" className="today-timeline-link" aria-label="Open today's live timetable">
+      <svg viewBox={`0 0 260 ${height}`} className="today-timeline-svg" aria-hidden="true">
+        {Array.from({ length: Math.ceil(span / 120) }, (_, i) => wake + i * 120).map(value => <g key={value}><text x="0" y={(value - wake) * scale + 16}>{clockLabel(value, data.user.settings.clockFormat)}</text><line x1="52" x2="258" y1={(value - wake) * scale + 12} y2={(value - wake) * scale + 12} className="live-hour" /></g>)}
+        {slots.filter(slot => slot.startMin < sleep && slot.endMin > wake).map(slot => {
+          const lane = lanes.get(slot.id)!, x = 54 + lane.lane / lane.count * 204, width = 200 / lane.count;
+          const top = (Math.max(wake, slot.startMin) - wake) * scale + 12, size = Math.max(14, (Math.min(sleep, slot.endMin) - Math.max(wake, slot.startMin)) * scale);
+          const current = slot.startMin <= minute && slot.endMin > minute;
+          return <g key={slot.id} className={`live-block live-${slot.layer}${current ? ' live-current' : ''}`}><rect x={x} y={top} width={width} height={size} rx="5" /><text x={x + 6} y={top + 13}>{slot.title.slice(0, Math.max(5, Math.floor(width / 7)))}{['fixed', 'unavailable'].includes(slot.layer) && size > 28 ? ' · fixed' : ''}</text></g>;
+        })}
+        {minute >= wake && minute <= sleep && <g className="live-now"><line x1="52" x2="258" y1={(minute - wake) * scale + 12} y2={(minute - wake) * scale + 12} /><circle cx="52" cy={(minute - wake) * scale + 12} r="3" /></g>}
+      </svg>
+    </Link>
+    <details className="disclosure"><summary>Times and block details</summary>{slots.length ? <ul className="calendar-work">{slots.map(slot => <li key={slot.id}><Link to={`/plan?date=${slot.date}`}>{slot.title}</Link><span className="caption">{clockLabel(slot.startMin, data.user.settings.clockFormat)}–{clockLabel(slot.endMin, data.user.settings.clockFormat)} · {layerLabels[slot.layer]}</span></li>)}</ul> : <p className="caption">No blocks planned today.</p>}</details>
+  </Card>;
 }

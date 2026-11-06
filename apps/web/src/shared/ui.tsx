@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +15,7 @@ interface Toast {
   message: string;
   undo?: () => void | Promise<void>;
   tone?: "success" | "error";
+  id: number;
 }
 interface UI {
   toast: (
@@ -24,6 +26,11 @@ interface UI {
 }
 const UIContext = createContext<UI>({ toast: () => undefined });
 export function UIProvider({ children }: { children: ReactNode }) {
+  const [paused, setPaused] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+  const remaining = useRef(5000);
+  const sequence = useRef(0);
+  const countdownId = useRef(0);
   const [current, setCurrent] = useState<Toast | null>(null);
   const [toastHost, setToastHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -47,19 +54,20 @@ export function UIProvider({ children }: { children: ReactNode }) {
     return () => observer.disconnect();
   }, [current]);
   useEffect(() => {
-    if (!current) return;
-    const timer = setTimeout(
-      () => setCurrent(null),
-      current.undo ? 10000 : 5000,
-    );
-    return () => clearTimeout(timer);
-  }, [current]);
+    if (!current || paused || undoing) return;
+    if (countdownId.current !== current.id) { remaining.current = 5000; countdownId.current = current.id; }
+    const started = performance.now();
+    const timer = setTimeout(() => setCurrent(null), remaining.current);
+    return () => { clearTimeout(timer); remaining.current = Math.max(0, remaining.current - (performance.now() - started)); };
+  }, [current, paused, undoing]);
   const toast = (
     message: string,
     undo?: () => void | Promise<void>,
     tone?: "success" | "error",
   ) => {
-    setCurrent({ message, undo, tone });
+    remaining.current = 5000;
+    setPaused(false);
+    setCurrent({ message, undo, tone, id: ++sequence.current });
     setToastHost(
       [
         ...document.querySelectorAll<HTMLElement>(
@@ -81,6 +89,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
             aria-atomic="true"
           >
             <div
+              key={current.id}
+              onMouseEnter={() => setPaused(true)}
+              onMouseLeave={() => setPaused(false)}
+              onFocusCapture={() => setPaused(true)}
+              onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}
               className={
                 current.tone === "error" ? "toast toast-error" : "toast"
               }
@@ -94,18 +107,21 @@ export function UIProvider({ children }: { children: ReactNode }) {
               {current.undo && (
                 <Button
                   variant="text"
+                  disabled={undoing}
                   onClick={async () => {
+                    setUndoing(true);
                     try {
                       await current.undo?.();
-                      setCurrent(null);
+                      setCurrent(active => active?.id === current.id ? null : active);
                     } catch (error) {
                       toast(errorMessage(error), undefined, "error");
-                    }
+                    } finally { setUndoing(false); }
                   }}
                 >
                   Undo
                 </Button>
               )}
+              {current.undo && <i className={`toast-window${paused || undoing ? ' toast-window-paused' : ''}`} aria-hidden="true" />}
               <IconButton
                 label="Dismiss message"
                 onClick={() => setCurrent(null)}

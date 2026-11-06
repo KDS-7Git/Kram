@@ -34,11 +34,13 @@ import {
   Card,
   ConfirmDialog,
   DelayedSkeleton,
+  DurationStepper,
   Field,
   PageHeader,
   Sheet,
   StatusPill,
 } from "../../components/ui/kit";
+import { TimerDigits } from "../../components/ui/TimerDigits";
 import { api, apiList, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
 import { useWallClock } from "../../shared/clock";
@@ -424,6 +426,9 @@ export function TaskPanel({
     );
   const goal = data.goals.find((goal) => goal.id === task.goalId);
   const unit = goal?.unit || "units";
+  const skill = data.skills.find(row => row.id === goal?.skillId);
+  const profile = data.profiles.find(row => row.id === skill?.profileId);
+  const progress = unit.toLowerCase() === "minutes" ? task.actualMinutes / task.estMinutes : task.completedQty / task.qty;
   const open = !closedStatuses.has(task.status);
   const deferred = task.status === "deferred";
   const completionId = resolvedHistory.activeEvents
@@ -443,7 +448,7 @@ export function TaskPanel({
   return (
     <div className="stack-lg task-panel">
       <header className="task-panel-heading">
-        <p className="eyebrow">{goal?.title || "Task"}</p>
+        <p className="eyebrow">{[profile?.name, skill?.name, goal?.title || "Task"].filter(Boolean).join(" › ")}</p>
         <h2>{task.title}</h2>
         <div className="row">
           <StatusPill status={task.status} />
@@ -463,15 +468,14 @@ export function TaskPanel({
           className="timer-number"
           aria-label={`Measured timer ${timerClock(measured)}`}
         >
-          {timerClock(measured)}
+          <TimerDigits value={timerClock(measured)} />
         </p>
         <p className="caption">
           {task.timerStartedAt ? "Timer running" : "Timer stopped"} ·{" "}
           {duration(task.actualMinutes)} logged
         </p>
-        <p className="field-hint">
-          The timer measures time. Logging progress adds it to your record.
-        </p>
+        <progress className="time-progress" value={Math.min(1, progress)} max={1} aria-label="Recorded task progress" />
+        <p className="caption">Estimated {duration(task.estMinutes)} · timer time is logged separately.</p>
       </div>
       <div className="task-remaining">
         <strong>{duration(task.remainingMinutes)} estimated remaining</strong>
@@ -484,7 +488,7 @@ export function TaskPanel({
       {open && (
         <div className="task-primary-actions">
           <Button
-            variant={task.timerStartedAt ? "secondary" : "primary"}
+            variant="primary"
             disabled={!editable || deferred}
             loading={
               writer.mutation.isPending &&
@@ -516,7 +520,7 @@ export function TaskPanel({
                 : "Start timer"}
           </Button>
           <Button
-            variant={task.timerStartedAt ? "primary" : "secondary"}
+            variant="secondary"
             disabled={!editable}
             onClick={() => setComposer("completed")}
           >
@@ -547,6 +551,14 @@ export function TaskPanel({
             : "Undo completion"}
         </Button>
       )}
+      {open && <div className="task-quick-progress">
+        <h3>Log progress</h3>
+        <p className="caption" id="partial-help">One tap logs work up to that share of the estimate. Already recorded work is kept. Undo is available.</p>
+        <div className="progress-chips" role="group" aria-label="Quick partial progress">
+          {[25, 50, 75].map(percent => <Button key={percent} aria-describedby="partial-help" disabled={!editable || deferred || progress >= percent / 100} onClick={() => void writer.post('progress', { minutes: Math.max(0, (task.estMinutes * percent / 100) - task.actualMinutes), qty: unit.toLowerCase() === 'minutes' ? Math.max(0, (task.estMinutes * percent / 100) - task.actualMinutes) : Math.max(0, task.qty * percent / 100 - task.completedQty) }).catch(() => undefined)}>{percent}%</Button>)}
+          <Button disabled={!editable || deferred} onClick={() => setComposer('progress')}>Other</Button>
+        </div>
+      </div>}
       {open && (
         <div className="row task-quiet-actions">
           <Button
@@ -947,20 +959,12 @@ function ProgressEditor({
               }
               hint={
                 action === "completed"
-                  ? "The estimate is a starting point. Adjust it to the work you actually did."
-                  : undefined
+                  ? "Adjust to the work you did. Type minutes or a duration such as 1h20."
+                  : "Type minutes or a duration such as 1h20. Use the buttons to adjust by 5 minutes."
               }
               error={errors.minutes?.message}
             >
-              <input
-                className="input"
-                id="progress-minutes"
-                type="number"
-                min={action === "completed" ? task.actualMinutes : 0}
-                max="1440"
-                step="any"
-                {...form.register("minutes", { valueAsNumber: true })}
-              />
+              <DurationStepper id="progress-minutes" label={action === 'completed' ? 'Total actual minutes' : 'Additional minutes'} value={values.minutes ?? 0} min={action === 'completed' ? task.actualMinutes : 0} disabled={disabled} invalid={!!errors.minutes} describedBy={`progress-minutes-hint${errors.minutes ? ' progress-minutes-error' : ''}`} onChange={value => form.setValue('minutes', value, { shouldValidate: true })} />
             </Field>
             {unit.toLowerCase() !== "minutes" && (
               <Field

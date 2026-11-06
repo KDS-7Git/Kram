@@ -13,7 +13,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { DateTime } from "luxon";
-import { addDays } from "@kram/time";
+import { addDays, weekday } from "@kram/time";
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,8 +52,9 @@ import {
   timeMinute,
 } from "../../shared/format";
 import { useUI } from "../../shared/ui";
+import { useCompactLayout, useDayCalendar } from "../../shared/media";
 
-import { CalendarRange, calendarWindow, occurrenceLink, RecurringWork, layerLabels, type CalendarView } from "./CalendarViews";
+import { CalendarRange, WeekStrip, blockLanes, calendarWindow, occurrenceLink, RecurringWork, layerLabels, type CalendarView } from "./CalendarViews";
 
 const pixelsPerMinute = 176 / 60;
 const timelineSize = (minutes: number) =>
@@ -61,6 +62,8 @@ const timelineSize = (minutes: number) =>
 type SlotDraft = {
   slot?: TimeSlot;
   startMin?: number;
+  endMin?: number;
+  skillId?: string;
   task?: Task;
   pinned?: boolean;
 };
@@ -101,6 +104,8 @@ function ConflictingBlocks({ error }: { error: unknown }) {
 export function Timetable() {
   const data = useData();
   const navigate = useNavigate();
+  const compact = useCompactLayout();
+  const dayCalendar = useDayCalendar();
   const online = useOnline();
   const refresh = useRefresh();
   const { toast } = useUI();
@@ -126,13 +131,14 @@ export function Timetable() {
     refetchInterval: 15000,
   });
   const occurrences = useQuery({ queryKey: ['recurrence', 'calendar', range.from, range.to], queryFn: ({ signal }) => apiList<Occurrence>(`/recurrence/occurrences?from=${range.from}&to=${range.to}`, signal), refetchInterval: 15000 });
-  const free = useQuery({ queryKey: ['timetable', 'free', date], queryFn: () => apiList<{ startMin: number; endMin: number; skillId?: string }>(`/timetable/free/${date}`), enabled: view === 'day' });
+  const free = useQuery({ queryKey: ['timetable', 'free', date], queryFn: () => apiList<{ startMin: number; endMin: number; skillId?: string }>(`/timetable/free/${date}`), enabled: view === 'day' || (dayCalendar && view === 'week') });
   const visibleOccurrences = (occurrences.data || []).filter(item => matches(item.series));
   const blocked = visibleOccurrences.filter(item => item.status === 'conflict');
   const editSlot = (slot: TimeSlot) => slot.virtual ? navigate(occurrenceLink(slot)) : setEditor({ slot });
   useEffect(() => {
     if (params.has("add") || params.has("taskId")) {
       setEditor({
+        startMin: params.has("startMin") ? Number(params.get("startMin")) : undefined,
         task: data.tasks.find((task) => task.id === params.get("taskId")),
         pinned: params.get("pin") === "true",
       });
@@ -140,9 +146,15 @@ export function Timetable() {
       next.delete("add");
       next.delete("taskId");
       next.delete("pin");
+      next.delete("startMin");
       setParams(next, { replace: true });
     }
   }, [params, setParams, data.tasks]);
+  useEffect(() => {
+    const requestedDate = params.get('date'), requestedView = params.get('view');
+    if (requestedDate && DateTime.fromISO(requestedDate).isValid) setDate(requestedDate);
+    if (requestedView && ['day', 'week', 'month', 'agenda'].includes(requestedView)) setView(requestedView as CalendarView);
+  }, [params]);
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
       if (
@@ -169,14 +181,15 @@ export function Timetable() {
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
   }, [data.studyDate, view]);
-  const ordered = [...(slots.data || []).filter(matches)].sort(
+  const allDaySlots = (slots.data || []).filter(slot => slot.date === date);
+  const ordered = [...(slots.data || []).filter(slot => matches(slot) && (view !== 'day' && !(dayCalendar && view === 'week') || slot.date === date))].sort(
     (a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id),
   );
   const start =
     Math.floor(
       Math.min(
         data.user.settings.wakingMin,
-        ...ordered.map((slot) => slot.startMin),
+        ...allDaySlots.map((slot) => slot.startMin),
       ) / 60,
     ) * 60;
   const end = Math.min(
@@ -184,7 +197,7 @@ export function Timetable() {
     Math.ceil(
       Math.max(
         data.user.settings.sleepingMin,
-        ...ordered.map((slot) => slot.endMin),
+        ...allDaySlots.map((slot) => slot.endMin),
       ) / 60,
     ) * 60,
   );
@@ -193,15 +206,15 @@ export function Timetable() {
   const visibleNow =
     current.toISODate() === date && nowMin >= start && nowMin <= end;
   const move = useMutation({
-    mutationFn: ({ slot, startMin }: { slot: TimeSlot; startMin: number }) =>
+    mutationFn: ({ slot, startMin, endMin }: { slot: TimeSlot; startMin: number; endMin?: number }) =>
       api<TimeSlot>(`/timetable/slots/${slot.id}`, {
         method: "PATCH",
         headers: { "If-Match": `"${slot.version}"` },
-        body: { startMin, endMin: startMin + (slot.endMin - slot.startMin) },
+        body: { startMin, endMin: endMin ?? startMin + (slot.endMin - slot.startMin) },
       }),
     onSuccess: async () => {
       await refresh();
-      toast("Time block moved.");
+      toast("Time block updated.");
     },
     onError: (error) => toast(errorMessage(error), undefined, "error"),
   });
@@ -214,6 +227,7 @@ export function Timetable() {
     onSuccess: async () => {
       await refresh();
       setRemove(null);
+      setEditor(null);
       toast("Time block removed.");
     },
   });
@@ -247,6 +261,10 @@ export function Timetable() {
     setLastAttempt({ ...slot, startMin, endMin: startMin + length });
     move.mutate({ slot, startMin });
   };
+  const filtered = profileFilter !== 'all' || skillFilter !== 'all' || goalFilter !== 'all';
+  const filterNames = [data.profiles.find(row => row.id === profileFilter)?.name, data.skills.find(row => row.id === skillFilter)?.name, data.goals.find(row => row.id === goalFilter)?.title].filter(Boolean);
+  const lanes = blockLanes(ordered);
+  const rest = data.user.settings.restDays.includes(weekday(date));
   const conflictIds = new Set([
     ...editorConflicts,
     ...conflictDetails(move.error).map((slot) => slot.id),
@@ -254,7 +272,7 @@ export function Timetable() {
   return (
     <>
       <PageHeader
-        title="A little space for your day"
+        title="Your timetable"
         eyebrow={`Plan · ${view} timetable`}
         description="Give tasks a time, keep fixed commitments in place, and leave room between them."
         action={
@@ -274,6 +292,7 @@ export function Timetable() {
         <Field id="plan-skill" label="Skill filter"><select className="input" id="plan-skill" value={skillFilter} onChange={event => { setSkillFilter(event.target.value); setGoalFilter('all'); }}><option value="all">All skills</option>{data.skills.filter(skill => profileFilter === 'all' || skill.profileId === profileFilter).map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
         <Field id="plan-goal" label="Goal filter"><select className="input" id="plan-goal" value={goalFilter} onChange={event => setGoalFilter(event.target.value)}><option value="all">All goals</option>{data.goals.filter(goal => (skillFilter === 'all' || goal.skillId === skillFilter) && (profileFilter === 'all' || data.skills.find(skill => skill.id === goal.skillId)?.profileId === profileFilter)).map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></Field>
       </div>
+      {filtered && <div className="calendar-filter-banner"><Banner tone="info" action={<Button variant="text" onClick={() => { setProfileFilter('all'); setSkillFilter('all'); setGoalFilter('all'); }}>Clear filters</Button>}><strong>Showing {filterNames.join(' / ')} only</strong> · schedule unchanged. Hidden commitments still occupy their times.</Banner></div>}
       <div className="row day-navigation">
         <IconButton
           label={`Previous ${view === "day" ? "day" : view === "month" ? "month" : view === "week" ? "week" : "range"}`}
@@ -303,6 +322,7 @@ export function Timetable() {
         </Button>
         <span className="caption">{data.user.settings.timezone}</span>
       </div>
+      {(compact || (dayCalendar && view === 'week')) && (view === 'day' || view === 'week') && <WeekStrip date={date} onDate={setDate} />}
       {blocked.length > 0 && <Banner tone="warning"><strong>{blocked.length} repeating occurrences need another time.</strong><ul className="conflict-list">{blocked.map(item => <li key={item.id}><Link to={`/schedules?seriesId=${item.seriesId}&date=${item.originalDate}`}>{item.fields.title} · {calendarDate(item.localDate)}</Link></li>)}</ul></Banner>}
       {occurrences.isError && <Banner tone="error">{errorMessage(occurrences.error)} <Button variant="text" onClick={() => void occurrences.refetch()}>Retry recurring schedules</Button></Banner>}
       {move.isError && (
@@ -341,14 +361,14 @@ export function Timetable() {
       )}
       {slots.isPending ? (
         <DelayedSkeleton height={320} />
-      ) : view !== 'day' ? <CalendarRange view={view} date={date} from={range.from} to={range.to} slots={ordered} occurrences={visibleOccurrences} goals={data.goals.filter(goal => matches({ goalId: goal.id }))} onDate={value => { setDate(value); setView('day'); }} onEdit={editSlot} /> : (
+      ) : view !== 'day' && !(dayCalendar && view === 'week') ? <CalendarRange view={view} date={date} from={range.from} to={range.to} slots={ordered} allSlots={slots.data || []} now={now} occurrences={visibleOccurrences} goals={data.goals.filter(goal => matches({ goalId: goal.id }))} onDate={value => { setDate(value); setView('day'); }} onEdit={editSlot} /> : (
         <>
           <Card className="day-summary">
             <CalendarDays size={24} strokeWidth={1.5} aria-hidden="true" />
             <div>
               <h2>{calendarDate(date)}</h2>
               <p className="caption">
-                {ordered.length} blocks · {duration(allocatedMinutes(ordered))}{" "}
+                {allDaySlots.length} blocks · {duration(allocatedMinutes(allDaySlots))}{" "}
                 allocated
               </p>
             </div>
@@ -369,9 +389,11 @@ export function Timetable() {
               </Button>
             )}
           </Card>
+          {rest && <Banner tone="info">Rest day · a planned pause.</Banner>}
+          {free.isError && <Banner tone="error">Available times could not load. <Button variant="text" onClick={() => void free.refetch()}>Retry available times</Button></Banner>}
           {free.isSuccess && <p className="caption calendar-capacity">{duration(free.data.reduce((sum, slot) => sum + slot.endMin - slot.startMin, 0))} available for additional work after breaks, free-time reserve and your daily limit.</p>}
-          {allocatedMinutes((slots.data || []).filter(slot => !['reserved', 'unavailable'].includes(slot.layer))) > data.user.settings.maxDailyMin && <Banner tone="warning">Planned work exceeds your {duration(data.user.settings.maxDailyMin)} daily limit. Shorten or move a block to leave more room.</Banner>}
-          <RecurringWork items={visibleOccurrences.filter(item => item.series.kind === 'goal' && item.status === 'scheduled')} />
+          {allocatedMinutes(allDaySlots.filter(slot => !['reserved', 'unavailable'].includes(slot.layer))) > data.user.settings.maxDailyMin && <Banner tone="warning">Planned work exceeds your {duration(data.user.settings.maxDailyMin)} daily limit. Shorten or move a block to leave more room.</Banner>}
+          <RecurringWork items={visibleOccurrences.filter(item => item.localDate === date && item.series.kind === 'goal' && item.status === 'scheduled')} />
           {!ordered.length && (
             <div style={{ marginBottom: "1.5rem" }}>
               <Card>
@@ -407,7 +429,7 @@ export function Timetable() {
             }}
           >
             <div
-              className="day-timeline"
+              className={`day-timeline${rest ? " day-timeline-rest" : ""}`}
               style={{ height: timelineSize(end - start) }}
               aria-label={`Timetable for ${calendarDate(date)}`}
             >
@@ -426,39 +448,30 @@ export function Timetable() {
                   <span />
                 </div>
               ))}
-              {Array.from(
-                { length: (end - start) / 15 },
-                (_, index) => start + index * 15,
-              )
-                .filter(
-                  (minute) =>
-                    !ordered.some(
-                      (slot) =>
-                        slot.startMin < minute + 15 && slot.endMin > minute,
-                    ),
-                )
-                .map((minute) => (
-                  <button
-                    type="button"
-                    className="timeline-free"
-                    tabIndex={-1}
-                    key={minute}
-                    style={{
-                      top: timelineSize(minute - start),
-                      height: timelineSize(15),
-                    }}
-                    aria-label={`Add block at ${clockLabel(minute, data.user.settings.clockFormat)}`}
-                    disabled={!online}
-                    onClick={() => setEditor({ startMin: minute })}
-                  />
-                ))}
+              {(free.data || []).map((gap) => (
+                <button type="button" className="timeline-free" key={`${gap.startMin}:${gap.skillId || 'open'}`} style={{ top: timelineSize(gap.startMin - start), height: timelineSize(gap.endMin - gap.startMin) }} aria-label={`Add block at ${clockLabel(gap.startMin, data.user.settings.clockFormat)}, available until ${clockLabel(gap.endMin, data.user.settings.clockFormat)}${gap.skillId ? ', reserved skill time' : ''}`} disabled={!online} onClick={() => setEditor({ startMin: gap.startMin, endMin: Math.min(gap.endMin, gap.startMin + 30), skillId: gap.skillId })}>
+                  <Plus size={16} strokeWidth={1.5} aria-hidden="true" /><span>Free · tap to add</span><span className="caption">{clockLabel(gap.startMin, data.user.settings.clockFormat)}–{clockLabel(gap.endMin, data.user.settings.clockFormat)}</span>
+                </button>
+              ))}
               {ordered.map((slot) => (
                 <TimelineBlock
                   key={slot.id}
                   slot={slot}
                   start={start}
+                  lane={lanes.get(slot.id)!}
+                  current={visibleNow && nowMin >= slot.startMin && nowMin < slot.endMin}
                   editable={online && !move.isPending}
                   conflict={conflictIds.has(slot.id)}
+                  onTimeKey={(event) => {
+                    if (!online || move.isPending || slot.virtual || ['fixed', 'unavailable'].includes(slot.layer)) return;
+                    if ((event.altKey || event.shiftKey) && ['ArrowUp', 'ArrowDown'].includes(event.key)) {
+                      event.preventDefault(); event.stopPropagation();
+                      const delta = event.key === 'ArrowUp' ? -15 : 15;
+                      const startMin = event.shiftKey ? slot.startMin : slot.startMin + delta;
+                      const endMin = slot.endMin + delta;
+                      if (startMin >= 0 && endMin <= 1440 && endMin > startMin) move.mutate({ slot, startMin, endMin });
+                    } else if (event.key.toLowerCase() === 'm') { event.preventDefault(); editSlot(slot); }
+                  }}
                   onEdit={() => editSlot(slot)}
                   onRemove={() => slot.virtual ? navigate(occurrenceLink(slot)) : setRemove(slot)}
                 />
@@ -479,7 +492,7 @@ export function Timetable() {
           </DndContext>
           <p className="caption" style={{ marginTop: "1rem" }}>
             Fixed and unavailable blocks stay in place. Flexible and pinned
-            blocks move in 15-minute steps.
+            blocks move in 15-minute steps. Focus a block: Alt + ↑/↓ moves it, Shift + ↑/↓ resizes it, M opens typed times.
           </p>
         </>
       )}
@@ -501,6 +514,7 @@ export function Timetable() {
             draft={editor}
             onDone={() => setEditor(null)}
             onConflicts={setEditorConflicts}
+            onRemove={editor.slot ? () => setRemove(editor.slot!) : undefined}
           />
         )}
       </Sheet>
@@ -536,6 +550,9 @@ export function Timetable() {
 function TimelineBlock({
   slot,
   start,
+  lane,
+  current,
+  onTimeKey,
   editable,
   conflict,
   onEdit,
@@ -543,6 +560,9 @@ function TimelineBlock({
 }: {
   slot: TimeSlot;
   start: number;
+  lane: { lane: number; count: number };
+  current: boolean;
+  onTimeKey: (event: React.KeyboardEvent) => void;
   editable: boolean;
   conflict: boolean;
   onEdit: () => void;
@@ -558,8 +578,11 @@ function TimelineBlock({
   return (
     <article
       ref={setNodeRef}
-      className={`timeline-block timeline-${slot.layer}${isDragging ? " timeline-dragging" : ""}${conflict ? " timeline-conflict" : ""}`}
+      className={`timeline-block timeline-${slot.layer}${isDragging ? " timeline-dragging" : ""}${conflict ? " timeline-conflict" : ""}${current ? " block-current" : ""}${lane.count > 1 ? " timeline-block-overlap" : ""}`}
+      onKeyDown={onTimeKey}
       style={{
+        insetInlineStart: `calc(72px + (100% - 72px) * ${lane.lane / lane.count})`,
+        width: `calc((100% - 72px) / ${lane.count})`,
         top: timelineSize(slot.startMin - start),
         height: timelineSize(Math.max(15, slot.endMin - slot.startMin)),
         transform: transform ? `translateY(${transform.y}px)` : undefined,
@@ -571,7 +594,7 @@ function TimelineBlock({
       <div className="timeline-block-heading">
         {fixed ? (
           <LockKeyhole size={18} strokeWidth={1.5} aria-hidden="true" />
-        ) : (
+        ) : lane.count === 1 ? (
           <button
             type="button"
             className="button button-icon button-text timeline-handle"
@@ -582,31 +605,33 @@ function TimelineBlock({
           >
             <GripVertical size={18} strokeWidth={1.5} />
           </button>
-        )}
+        ) : null}
         <button
           type="button"
           className="timeline-title"
           onClick={onEdit}
           aria-label={`Edit block ${slot.title}`}
+          aria-describedby={`slot-description-${slot.id}`}
           disabled={!editable}
         >
           <strong>{slot.title}</strong>
-          <span className="caption">
+          <span className={lane.count > 1 ? "sr-only" : "caption"} id={`slot-description-${slot.id}`}>
             {clockLabel(slot.startMin, data.user.settings.clockFormat)}–
             {clockLabel(slot.endMin, data.user.settings.clockFormat)} ·{" "}
-            {layerLabels[slot.layer]}{slot.recurrenceSeriesId ? " · repeats" : ""}
+            {layerLabels[slot.layer]}{current ? " · current" : ""}{slot.taskId ? ` · ${data.tasks.find(task => task.id === slot.taskId)?.status.replaceAll("_", " ") || "task"}` : ""}{slot.recurrenceSeriesId ? " · repeats" : ""}
           </span>
+          {lane.count > 1 && <span className="caption timeline-compact-time" aria-hidden="true">{clockLabel(slot.startMin, data.user.settings.clockFormat)}</span>}
         </button>
         {slot.layer === "pinned" && (
           <Pin size={16} strokeWidth={1.5} aria-hidden="true" />
         )}
-        <IconButton
+        {lane.count === 1 && <IconButton
           label={slot.virtual ? `Manage repeating block ${slot.title}` : `Remove block ${slot.title}`}
           disabled={!editable}
           onClick={onRemove}
         >
           <Trash2 size={17} strokeWidth={1.5} />
-        </IconButton>
+        </IconButton>}
       </div>
       {slot.taskId && slot.endMin - slot.startMin > 15 && (
         <Link className="timeline-task-link" to={`/tasks/${slot.taskId}`}>
@@ -622,11 +647,13 @@ function SlotEditor({
   draft,
   onDone,
   onConflicts,
+  onRemove,
 }: {
   date: string;
   draft: SlotDraft;
   onDone: () => void;
   onConflicts: (ids: string[]) => void;
+  onRemove?: () => void;
 }) {
   const data = useData();
   const online = useOnline();
@@ -651,11 +678,11 @@ function SlotEditor({
     defaultValues: slot || {
       date,
       startMin: first,
-      endMin: Math.min(1440, first + (task?.remainingMinutes || 30)),
+      endMin: draft.endMin ?? Math.min(1440, first + (task?.remainingMinutes || 30)),
       layer: draft.pinned ? "pinned" : "flexible",
       title: task?.title || "",
-      profileId: skill?.profileId || null,
-      skillId: skill?.id || null,
+      profileId: skill?.profileId || data.skills.find(row => row.id === draft.skillId)?.profileId || null,
+      skillId: skill?.id || draft.skillId || null,
       goalId: goal?.id || null,
       taskId: task?.id || null,
       pinned: draft.pinned || false,
@@ -952,6 +979,7 @@ function SlotEditor({
       >
         {slot ? "Save time block" : "Place time block"}
       </Button>
+      {onRemove && <Button variant="destructive" disabled={!online} onClick={onRemove}>Remove time block</Button>}
       <ConfirmDialog
         open={!!fixedReview}
         onOpenChange={(open) => {

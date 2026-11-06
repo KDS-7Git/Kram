@@ -1,15 +1,19 @@
 import {
   Children,
+  createContext,
+  useContext,
   cloneElement,
   forwardRef,
   isValidElement,
   useEffect,
   useState,
+  useRef,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactElement,
   type ReactNode,
 } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   AlertCircle,
@@ -18,9 +22,13 @@ import {
   FastForward,
   HelpCircle,
   Play,
+  Minus,
+  Plus,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+
+const DialogDismissContext = createContext<(() => void) | null>(null);
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "text" | "destructive";
@@ -40,7 +48,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         {...props}
       >
-        {loading ? "Saving…" : children}
+        <span className={clsx("button-label", loading && "button-label-loading")}>{children}</span>
+        {loading && <span className="button-loading-dots" aria-hidden="true"><i /><i /><i /></span>}
       </button>
     );
   },
@@ -50,7 +59,9 @@ export const IconButton = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { label: string }
 >(function IconButton({ label, className, children, ...props }, ref) {
+  const dismissDialog = useContext(DialogDismissContext);
   return (
+    <TooltipPrimitive.Provider delayDuration={400}><TooltipPrimitive.Root><TooltipPrimitive.Trigger asChild>
     <button
       ref={ref}
       type="button"
@@ -61,6 +72,7 @@ export const IconButton = forwardRef<
     >
       {children}
     </button>
+    </TooltipPrimitive.Trigger><TooltipPrimitive.Portal><TooltipPrimitive.Content className="kit-tooltip" sideOffset={6} onEscapeKeyDown={event => { if (dismissDialog) { event.preventDefault(); dismissDialog(); } }}>{label}</TooltipPrimitive.Content></TooltipPrimitive.Portal></TooltipPrimitive.Root></TooltipPrimitive.Provider>
   );
 });
 
@@ -351,11 +363,11 @@ export function Sheet({
   modal?: boolean;
 }) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
+    <DialogDismissContext.Provider value={() => onOpenChange(false)}><DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content className="dialog-content sheet-content">
-          <div className="sheet-grab" />
+          <button type="button" className="sheet-grab" aria-label="Dismiss panel" onClick={() => onOpenChange(false)} onPointerDown={event => { event.currentTarget.dataset.startY = String(event.clientY); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerUp={event => { if (event.clientY - Number(event.currentTarget.dataset.startY) > 70) onOpenChange(false); }}><span /></button>
           <DialogPrimitive.Title className="dialog-title">
             {title}
           </DialogPrimitive.Title>
@@ -370,7 +382,7 @@ export function Sheet({
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </DialogPrimitive.Root></DialogDismissContext.Provider>
   );
 }
 export function ConfirmDialog({
@@ -387,7 +399,7 @@ export function ConfirmDialog({
   children: ReactNode;
 }) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogDismissContext.Provider value={() => onOpenChange(false)}><DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content className="dialog-content">
@@ -400,6 +412,41 @@ export function ConfirmDialog({
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </DialogPrimitive.Root></DialogDismissContext.Provider>
   );
+}
+
+
+export function Toggle({ label, checked, onChange, disabled = false }: { label: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
+  return <label className="kit-toggle"><input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} /><span className="toggle-track" aria-hidden="true"><i /></span><span>{label}</span><span className="caption">{checked ? 'On' : 'Off'}</span></label>;
+}
+export function ProfileChip({ label, color, selected, onClick }: { label: string; color: string; selected: boolean; onClick: () => void }) {
+  return <button type="button" className="profile-chip" aria-pressed={selected} onClick={onClick}><i className="profile-dot" style={{ background: `var(--profile-${color})` }} aria-hidden="true" />{label}</button>;
+}
+export function parseDuration(value: string) {
+  const input = value.trim().toLowerCase();
+  if (/^\d+(?:\.\d+)?$/.test(input)) return Number(input);
+  const hours = /^(\d+)\s*h(?:\s*(\d+)(?:\s*m(?:in)?)?)?$/.exec(input);
+  if (hours) return Number(hours[1]) * 60 + Number(hours[2] || 0);
+  const minutes = /^(\d+(?:\.\d+)?)\s*m(?:in)?$/.exec(input);
+  return minutes ? Number(minutes[1]) : NaN;
+}
+export function DurationStepper({ id, label, value, onChange, min = 0, max = 1440, disabled = false, describedBy, invalid }: { id: string; label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; disabled?: boolean; describedBy?: string; invalid?: boolean }) {
+  const [draft, setDraft] = useState(String(value));
+  const timers = useRef<{ delay?: ReturnType<typeof setTimeout>; repeat?: ReturnType<typeof setInterval>; repeated: boolean }>({ repeated: false });
+  const latest = useRef({ value, onChange }); latest.current = { value, onChange };
+  const stop = () => { clearTimeout(timers.current.delay); clearInterval(timers.current.repeat); };
+  useEffect(() => () => stop(), []);
+  useEffect(() => { if (Number.isFinite(value)) setDraft(current => parseDuration(current) === value ? current : String(value)); }, [value]);
+  const step = (delta: number) => latest.current.onChange(Math.min(max, Math.max(min, (Number.isFinite(latest.current.value) ? latest.current.value : min) + delta)));
+  const controls = (delta: number) => ({
+    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => { timers.current.repeated = false; event.currentTarget.setPointerCapture(event.pointerId); timers.current.delay = setTimeout(() => { timers.current.repeated = true; step(delta); timers.current.repeat = setInterval(() => step(delta), 100); }, 400); },
+    onPointerUp: stop, onPointerCancel: stop, onBlur: stop,
+    onClick: () => { if (!timers.current.repeated) step(delta); timers.current.repeated = false; },
+  });
+  return <div className="duration-stepper">
+    <IconButton label={`Decrease ${label.toLowerCase()}`} disabled={disabled || value <= min} {...controls(-5)}><Minus size={18} strokeWidth={1.5} /></IconButton>
+    <input id={id} className="input" inputMode="decimal" value={draft} disabled={disabled} aria-invalid={invalid || undefined} aria-describedby={describedBy} onChange={event => { setDraft(event.target.value); onChange(parseDuration(event.target.value)); }} onKeyDown={event => { if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); step(event.key === 'ArrowUp' ? 5 : -5); } }} />
+    <IconButton label={`Increase ${label.toLowerCase()}`} disabled={disabled || value >= max} {...controls(5)}><Plus size={18} strokeWidth={1.5} /></IconButton>
+  </div>;
 }

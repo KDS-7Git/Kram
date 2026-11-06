@@ -458,7 +458,7 @@ test("timetable names conflicts, protects fixed changes and recovers a stale dra
     .getByRole("dialog", { name: "Change Breakfast?", exact: true })
     .getByRole("button", { name: "Apply fixed change", exact: true })
     .click();
-  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const slots: TimeSlot[] = (await bootstrap(page)).slots;
   const reading = slots.find((slot) => slot.title === "Focused reading")!;
   await page

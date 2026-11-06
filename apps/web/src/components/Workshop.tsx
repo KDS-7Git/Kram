@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { BookOpen, Check, SlidersHorizontal } from "lucide-react";
+import { BookOpen, Check, SlidersHorizontal, Plus } from "lucide-react";
 import {
   Banner,
   Button,
+  IconButton,
+  ConfirmDialog,
+  DurationStepper,
+  Toggle,
+  ProfileChip,
   Card,
   EmptyState,
   Field,
@@ -13,9 +18,16 @@ import {
   StatusPill,
 } from "./ui/kit";
 
+import { useUI } from "../shared/ui";
+
 export function Workshop() {
   const [view, setView] = useState<"day" | "week">("day");
   const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [profile, setProfile] = useState('academic');
+  const [minutes, setMinutes] = useState(30);
+  const { toast } = useUI();
   return (
     <>
       <PageHeader
@@ -49,6 +61,29 @@ export function Workshop() {
           >
             Unavailable controls explain what is needed before continuing.
           </p>
+        </Card>
+        <Card>
+          <h2>Buttons · five types, six states</h2>
+          <p className="caption" id="matrix-help">Preview controls. Disabled needs a connection; loading keeps its original width and label. Hover, pressed and focus samples display those states for inspection.</p>
+          <div className="button-state-matrix">
+            {(['primary', 'secondary', 'text', 'destructive', 'icon'] as const).map(variant => <section key={variant} aria-label={`${variant} button states`}><h3>{variant}</h3><div className="button-state-row">{(['default', 'hover', 'pressed', 'focus', 'disabled', 'loading'] as const).map(state => <div key={state} className="button-state-example"><span className="caption">{state}</span><Button variant={variant === 'icon' ? 'text' : variant} className={variant === 'icon' ? 'button-icon' : undefined} data-demo-state={state} disabled={state === 'disabled'} loading={state === 'loading'} aria-label={variant === 'icon' ? `Add item · ${state}` : undefined} aria-describedby="matrix-help" onClick={() => variant === 'destructive' ? setConfirm(true) : toast('Example action acknowledged.')}>{variant === 'icon' ? <Plus size={18} strokeWidth={1.5} /> : variant === 'destructive' ? 'Delete' : variant === 'text' ? 'Defer' : variant === 'secondary' ? 'Done' : 'Start'}</Button></div>)}</div></section>)}
+          </div>
+        </Card>
+        <Card>
+          <h2>Controls · shape, state and touch</h2>
+          <div className="stack" style={{ marginBlockStart: '1rem' }}>
+            <Toggle label="Example setting" checked={enabled} onChange={setEnabled} />
+            <div className="row wrap"><ProfileChip label="Academic" color="slate" selected={profile === 'academic'} onClick={() => setProfile('academic')} /><ProfileChip label="Development" color="sky" selected={profile === 'development'} onClick={() => setProfile('development')} /></div>
+            <Field id="kit-minutes" label="Minutes" hint="Type minutes or 1h20; hold plus or minus to repeat."><DurationStepper id="kit-minutes" label="Minutes" value={minutes} onChange={setMinutes} describedBy="kit-minutes-hint" /></Field>
+            <Field id="kit-time" label="Local time"><input className="input" id="kit-time" type="time" step="300" defaultValue="18:00" /></Field>
+            <div className="row wrap" role="group" aria-label="Task check shapes">{['pending', 'completed', 'partial'].map(status => <button type="button" key={status} className="button button-text" onClick={() => toast(`Example ${status === 'pending' ? 'to do' : status === 'completed' ? 'done' : 'partial'} state.`)}><StatusPill status={status} /></button>)}</div>
+          </div>
+        </Card>
+        <Card>
+          <h2>Feedback</h2>
+          <p className="muted">Undo stays available for 5 seconds and pauses while hovered or focused.</p>
+          <div className="row wrap"><Button onClick={() => toast('Marked done · example.', () => { toast('Example undone.'); })}>Preview Undo toast</Button><IconButton label="Preview feedback" onClick={() => toast('Example feedback.') }><Check size={18} strokeWidth={1.5} /></IconButton></div>
+          <Banner>Offline example · reconnect to save progress and planning.</Banner>
         </Card>
         <div className="grid-2">
           <Card>
@@ -144,6 +179,7 @@ export function Workshop() {
           </Card>
         </div>
       </div>
+      <ConfirmDialog open={confirm} onOpenChange={setConfirm} title="Delete this example?" description="This is a component preview. No planner data is affected."><div className="row between"><Button onClick={() => setConfirm(false)}>Keep example</Button><Button variant="destructive" onClick={() => { setConfirm(false); toast('Example deletion confirmed.'); }}>Delete example</Button></div></ConfirmDialog>
       <Sheet
         open={open}
         onOpenChange={setOpen}

@@ -30,18 +30,16 @@ export function useTaskEvents(taskId: string) {
       pending.current = null;
       client.setQueryData(["tasks", taskId], result.task);
       await refresh();
-      if (input.kind === "completed")
-        toast("Task completed.", async () => {
+      if (input.kind === "completed" || input.kind === "progress")
+        toast(input.kind === "completed" ? "Task completed." : "Progress saved.", async () => {
           await post("correction", {
             referenceEventId: result.event.id,
-            note: "Undo completion",
+            note: input.kind === "completed" ? "Undo completion" : "Undo progress",
           });
         });
       else
         toast(
-          input.kind === "progress"
-            ? "Progress saved."
-            : input.kind === "paused"
+          input.kind === "paused"
               ? "Timer paused."
               : input.kind === "started" || input.kind === "resumed"
                 ? "Timer running."
