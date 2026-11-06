@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { idSchema } from '@kram/shared';
+import { iso } from '../repository';
+import { paginate } from '../pagination';
+import { streaks } from './service';
+export const streaksRouter = Router();
+const owner = (res: { locals: Record<string, unknown> }) => String(res.locals.userId);
+streaksRouter.get('/streaks', async (req, res) => res.json(iso(paginate(await streaks.list(owner(res)), req.query, res))));
+streaksRouter.post('/streaks', async (req, res) => res.status(201).json(iso(await streaks.create(owner(res), req.body))));
+streaksRouter.get('/streaks/:id/records', async (req, res) => res.json(iso(paginate(await streaks.records(owner(res), idSchema.parse(req.params.id)), req.query, res))));
+streaksRouter.get('/streaks/:id', async (req, res) => res.json(iso(await streaks.get(owner(res), idSchema.parse(req.params.id)))));
+streaksRouter.patch('/streaks/:id', async (req, res) => res.json(iso(await streaks.edit(owner(res), idSchema.parse(req.params.id), req.body))));

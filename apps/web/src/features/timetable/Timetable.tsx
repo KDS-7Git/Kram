@@ -286,7 +286,7 @@ export function Timetable() {
           </Button>
         }
       />
-      <div className="row between wrap calendar-toolbar"><Segments label="Timetable view" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]} /><Link className="button" to="/schedules">Schedules and templates</Link></div>
+      <div className="row between wrap calendar-toolbar"><Segments label="Timetable view" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]} /><div className="row wrap"><Link className="button" to="/planning">Proposals and plan history</Link><Link className="button" to="/schedules">Schedules and templates</Link></div></div>
       <div className="calendar-filters">
         <Field id="plan-profile" label="Profile filter"><select className="input" id="plan-profile" value={profileFilter} onChange={event => { setProfileFilter(event.target.value); setSkillFilter('all'); setGoalFilter('all'); }}><option value="all">All profiles</option>{data.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></Field>
         <Field id="plan-skill" label="Skill filter"><select className="input" id="plan-skill" value={skillFilter} onChange={event => { setSkillFilter(event.target.value); setGoalFilter('all'); }}><option value="all">All skills</option>{data.skills.filter(skill => profileFilter === 'all' || skill.profileId === profileFilter).map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>

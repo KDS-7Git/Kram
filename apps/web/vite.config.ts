@@ -2,10 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import { pwaAssetsPlugin } from "./pwa-assets-plugin";
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), pwaAssetsPlugin()],
   resolve: {
     alias: {
       "@kram/shared": fileURLToPath(

@@ -1,0 +1,12 @@
+# Add after encrypted.compose.yml. Configure the remote outside the application.
+services:
+  worker:
+    environment:
+      BACKUP_OFFSITE_DIR: ""
+      BACKUP_OFFSITE_REMOTE: ${BACKUP_OFFSITE_REMOTE:?Set BACKUP_OFFSITE_REMOTE to remote:bucket/kram}
+      RCLONE_CONFIG: /run/secrets/backup_rclone_config
+    secrets:
+      - backup_rclone_config
+secrets:
+  backup_rclone_config:
+    file: ${BACKUP_RCLONE_CONFIG_HOST_FILE:-./secrets/backup_rclone_config}

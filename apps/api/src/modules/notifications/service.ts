@@ -67,7 +67,7 @@ export async function refreshReminders(userId: string, c: Connection = db, now =
   }
   const today = studyDate(now.getTime(), settings.timezone, settings.dayRollover);
   const rules = await c.reminderRule.findMany({ where: { userId, enabled: true, archivedAt: null } });
-  const tasks = await c.task.findMany({ where: { userId, archivedAt: null, status: { notIn: terminal }, goal: { status: 'active', archivedAt: null, skill: { archivedAt: null, profile: { archivedAt: null } } } } });
+  const tasks = await c.task.findMany({ where: { userId, isDemo: false, archivedAt: null, status: { notIn: terminal }, goal: { status: 'active', archivedAt: null, skill: { archivedAt: null, profile: { archivedAt: null } } } } });
   const slots = await c.timeSlot.findMany({ where: { userId, archivedAt: null }, orderBy: [{ date: 'asc' }, { startMin: 'asc' }, { id: 'asc' }] });
   const taskMap = new Map(tasks.map(task => [task.id, task]));
   const desired = new Map<string, Prisma.NotificationCreateManyInput>(); let unresolved = 0;

@@ -465,6 +465,7 @@ export function NotificationCenter() {
         eyebrow="Notifications"
         description="Control reminders and see whether the channel accepted each message."
       />
+      <Link className="button" to="/channels">Channels and reminder routing</Link>
       <div className="stack-lg">
         <Card>
           <div className="card-header">

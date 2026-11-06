@@ -16,6 +16,8 @@ import {
   Bell,
   CalendarClock,
   Plus,
+  ChartNoAxesColumn,
+  CalendarCheck,
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
@@ -83,6 +85,13 @@ const Timetable = lazy(() =>
     default: module.Timetable,
   })),
 );
+const Channels = lazy(() => import('./features/streaks/Channels').then(m => ({ default:m.ChannelSettings })));
+const Streaks = lazy(() => import('./features/streaks/Streaks').then(m => ({ default:m.Streaks })));
+const Analytics = lazy(() => import('./features/analytics/Analytics').then(m => ({ default:m.Analytics })));
+const DataRecovery = lazy(() => import('./features/data/DataRecovery').then(m => ({ default:m.DataRecovery })));
+const OfflineStatus = lazy(() => import('./features/data/OfflineStatus').then(m => ({ default:m.OfflineStatus })));
+const Planning = lazy(() => import('./features/planning/Planning').then(m => ({ default: m.Planning })));
+const Review = lazy(() => import('./features/planning/Review').then(m => ({ default: m.Review })));
 const Schedules = lazy(() => import('./features/timetable/Schedules').then(module => ({ default: module.Schedules })));
 const NotificationCenter = lazy(() =>
   import("./features/tasks/reminders").then((module) => ({
@@ -94,8 +103,10 @@ const CommandPalette = lazy(() =>
     default: module.CommandPalette,
   })),
 );
+import { FeatureGate } from "./shared/features";
 import { useAppearance } from "./shared/theme";
-import { api, errorMessage, type AuthMe } from "./shared/api";
+import { offline, listQueued, subscribeOffline, replayProgress, registerOfflineShell } from "./shared/offline";
+import { api, ApiIssue, errorMessage, type AuthMe } from "./shared/api";
 import { DataProvider, useBootstrap, useOnline } from "./shared/data";
 import { UIProvider, useUI } from "./shared/ui";
 
@@ -131,6 +142,22 @@ function Shell({
   const navigate = useNavigate();
   const client = useQueryClient();
   const pending = useIsMutating();
+  const [queued,setQueued]=useState(0),[cachedPage,setCachedPage]=useState(false);
+  useEffect(()=>{let active=true;const read=()=>{void listQueued().then(rows=>{if(active)setQueued(rows.length);}).catch(()=>undefined);};read();const off=subscribeOffline(read);const cached=(event:Event)=>setCachedPage(Boolean((event as CustomEvent).detail.cached));window.addEventListener('kram-cache-status',cached);return()=>{active=false;off();window.removeEventListener('kram-cache-status',cached);};},[]);
+  useEffect(()=>{
+    if(!user||!online||pending>0||queued===0)return;
+    let stopped=false;
+    void (async()=>{
+      const auth=await api<AuthMe>('/auth/me');
+      if(!auth.user||auth.user.id!==user.id||stopped)return;
+      const result=await replayProgress((taskId,input,accountId)=>{
+        if(stopped||offline.currentAccount()!==accountId||accountId!==auth.user!.id)throw new ApiIssue('Sign in again before syncing.','UNAUTHENTICATED',undefined,401);
+        return api(`/tasks/${taskId}/events`,{method:'POST',body:input,skipOfflineQueue:true});
+      });
+      if(result.sent&&!stopped)await client.invalidateQueries({predicate:q=>q.queryKey[0]!=='auth'});
+    })().catch(()=>undefined);
+    return()=>{stopped=true;};
+  },[online,user?.id,client,queued,pending]);
   const { toast } = useUI();
   const toggleTheme = () =>
     setAppearance({
@@ -155,8 +182,9 @@ function Shell({
       ]
     : [
         { to: "/", label: "Today", icon: CalendarDays },
-        { to: "/plan", label: "Plan", icon: CalendarClock },
+        ...(user?.settings.featurePreset === "simple" ? [] : [{ to: "/plan", label: "Plan", icon: CalendarClock }]),
         { to: "/goals", label: "Goals", icon: Target },
+        ...(user?.settings.featurePreset === "simple" ? [] : [{ to: "/progress", label: "Progress", icon: ChartNoAxesColumn }]),
       ];
   return (
     <div className="app-shell">
@@ -189,6 +217,7 @@ function Shell({
             </NavLink>
           ))}
         </nav>
+        {user && user.settings.featurePreset!=="simple" && <NavLink className="nav-link" to="/review"><CalendarCheck size={20} strokeWidth={1.5}/><span>Review</span></NavLink>}
         <div className="sidebar-footer">
           {user && (
             <>
@@ -240,7 +269,7 @@ function Shell({
                 ) : (
                   <Check size={14} strokeWidth={1.5} aria-hidden="true" />
                 )}
-                {!online ? "Offline" : pending ? "Syncing" : "Saved"}
+                {!online ? "Offline" : queued ? "Waiting to sync" : cachedPage ? "Saved copy" : pending ? "Syncing" : "Saved"}
               </span>
             ) : (
               "A planner of your own"
@@ -281,6 +310,7 @@ function Shell({
                           Notifications
                         </NavLink>
                       </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild><NavLink to="/data" className="dropdown-item">Backup and export</NavLink></DropdownMenu.Item>
                       <DropdownMenu.Item asChild>
                         <NavLink to="/settings" className="dropdown-item">
                           <Settings2 size={18} strokeWidth={1.5} />
@@ -312,15 +342,16 @@ function Shell({
           {!online && (
             <div style={{ marginBottom: "1.25rem" }}>
               <Banner>
-                You are offline. Reconnect to save planning or settings changes.
+                You are offline. Progress saves on this device. Reconnect for planning or settings changes.
               </Banner>
             </div>
           )}
+          {user && <Suspense fallback={null}><OfflineStatus compact/></Suspense>}
           {children}
         </main>
       </div>
       <nav
-        className={user ? "mobile-nav mobile-nav-owner" : "mobile-nav"}
+        className={user ? `mobile-nav mobile-nav-owner${user.settings.featurePreset==='simple'?' mobile-nav-simple':''}` : "mobile-nav"}
         aria-label="Mobile navigation"
       >
         {links.map((link) => (
@@ -410,8 +441,15 @@ function SignedIn({ user }: { user: User }) {
           <Routes>
             <Route path="/" element={<Today />} />
             <Route path="/tasks/:taskId" element={<TaskPage />} />
-            <Route path="/plan" element={<Timetable />} />
-            <Route path="/schedules" element={<Schedules />} />
+            <Route path="/plan" element={<FeatureGate><Timetable /></FeatureGate>} />
+            <Route path="/planning" element={<FeatureGate><Planning /></FeatureGate>} />
+            <Route path="/progress" element={<FeatureGate><Analytics /></FeatureGate>} />
+            <Route path="/progress/streaks" element={<FeatureGate level="full"><Streaks /></FeatureGate>} />
+            <Route path="/streaks" element={<FeatureGate level="full"><Streaks /></FeatureGate>} />
+            <Route path="/channels" element={<FeatureGate level="full"><PageHeader title="Reminders where you need them" eyebrow="Notifications"/><Channels/></FeatureGate>} />
+            <Route path="/data" element={<DataRecovery />} />
+            <Route path="/review" element={<FeatureGate><Review /></FeatureGate>} />
+            <Route path="/schedules" element={<FeatureGate><Schedules /></FeatureGate>} />
             <Route path="/notifications" element={<NotificationCenter />} />
             <Route path="/goals/*" element={<Hierarchy />} />
             <Route path="/goals/:goalId" element={<GoalDetail />} />
@@ -464,6 +502,7 @@ function AuthBoundary() {
 }
 
 export function App() {
+  useEffect(()=>{void registerOfflineShell().catch(()=>undefined);},[]);
   return (
     <UIProvider>
       <Suspense

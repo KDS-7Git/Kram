@@ -36,6 +36,11 @@ x-app: &app
     NTFY_TOKEN: ${NTFY_TOKEN:-}
     NTFY_TOKEN_FILE: /run/secrets/ntfy_token
     BACKUP_DIR: /app/backups
+    BACKUP_MODE: ${BACKUP_MODE:-local}
+    BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+    BACKUP_AGE_IDENTITY_FILE: ${BACKUP_AGE_IDENTITY_FILE:-}
+    BACKUP_OFFSITE_DIR: ${BACKUP_OFFSITE_DIR:-}
+    BACKUP_OFFSITE_REMOTE: ${BACKUP_OFFSITE_REMOTE:-}
   secrets:
     - postgres_password
     - session_secret

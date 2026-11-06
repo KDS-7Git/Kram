@@ -6,17 +6,18 @@ import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/app.css";
 import { App } from "./App";
+import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30000, retry: 1, refetchOnWindowFocus: true },
+    queries: { networkMode: "always", staleTime: 30000, retry: 1, refetchOnWindowFocus: true },
   },
 });
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <ScreenErrorBoundary><App /></ScreenErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

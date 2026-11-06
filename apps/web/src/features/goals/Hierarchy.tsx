@@ -696,6 +696,7 @@ function SkillEditor({
       <Field
         id="skill-name"
         label="Skill name"
+        hint="A skill can stay ongoing. Use goals for concrete outcomes and choose your practice budgets below."
         error={form.formState.errors.name?.message}
       >
         <input
@@ -713,6 +714,7 @@ function SkillEditor({
         <Field
           id="skill-daily"
           label="Daily target (min)"
+          hint="Your preferred daily practice time. Automatic planning uses the weekly target and daily limit below."
           error={form.formState.errors.dailyTargetMin?.message}
         >
           <input
@@ -726,6 +728,7 @@ function SkillEditor({
         <Field
           id="skill-weekly"
           label="Weekly target (min)"
+          hint="Time you want to invest each week. This guides how the planner shares time between your skills."
           error={form.formState.errors.weeklyTargetMin?.message}
         >
           <input
@@ -740,7 +743,7 @@ function SkillEditor({
       <Field
         id="skill-max"
         label="Daily limit (min)"
-        hint="The planner keeps this skill within this limit."
+        hint="Maximum time the planner can schedule for this skill in one day."
         error={form.formState.errors.maxDailyMin?.message}
       >
         <input

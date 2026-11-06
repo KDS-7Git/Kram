@@ -172,7 +172,8 @@ function Setup({ auth }: { auth: AuthMe }) {
   const setup = useMutation({
     mutationFn: (values: z.output<typeof setupSchema>) =>
       api("/auth/setup", { method: "POST", body: values }),
-    onSuccess: async () => {
+    onSuccess: async (_result,values) => {
+      if(values.demo)await api("/demo/load",{method:"POST",body:{}});
       await client.invalidateQueries({ queryKey: ["auth"] });
     },
   });
@@ -414,6 +415,7 @@ function Setup({ auth }: { auth: AuthMe }) {
               ))}
             </fieldset>
             <p className="caption">Hiding a feature never deletes its data.</p>
+            <label className="toggle-label"><input type="checkbox" {...form.register("demo")}/>Load a labelled, removable sample week</label>
           </div>
         )}
         {setup.isError && (

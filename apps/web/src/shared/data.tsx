@@ -47,6 +47,10 @@ export function useRefresh() {
       client.invalidateQueries({ queryKey: ["recurrence"] }),
       client.invalidateQueries({ queryKey: ["templates"] }),
       client.invalidateQueries({ queryKey: ["holidays"] }),
+      client.invalidateQueries({ queryKey: ["planning"] }),
+      client.invalidateQueries({ queryKey: ["reviews"] }),
+      client.invalidateQueries({ queryKey: ["streaks"] }),
+      client.invalidateQueries({ queryKey: ["analytics"] }),
     ]);
 }
 export function useOnline() {

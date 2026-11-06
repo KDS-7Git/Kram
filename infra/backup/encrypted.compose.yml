@@ -1,0 +1,14 @@
+# Add after docker-compose.yml. The owner must create this identity file first.
+services:
+  app:
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/app/backups:ro
+  worker:
+    environment:
+      BACKUP_MODE: encrypted
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/backup_age_identity
+    secrets:
+      - backup_age_identity
+secrets:
+  backup_age_identity:
+    file: ${BACKUP_AGE_IDENTITY_HOST_FILE:-./secrets/backup_age_identity}

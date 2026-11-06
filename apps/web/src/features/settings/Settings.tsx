@@ -1,3 +1,4 @@
+import { OfflineStatus } from "../data/OfflineStatus";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,6 +41,7 @@ export function SettingsPage() {
       form.reset(input);
     },
   });
+  const sample = useMutation({mutationFn:(remove:boolean)=>api(remove?'/demo/remove':'/demo/load',{method:'POST',body:{}}),onSuccess:async()=>{await refresh();toast('Sample week updated.');}});
   const appearanceChange = (patch: Partial<Settings>) => {
     if (patch.theme) setAppearance({ theme: patch.theme });
     if (patch.density) setAppearance({ density: patch.density });
@@ -57,6 +59,7 @@ export function SettingsPage() {
         eyebrow="Settings"
         description="Choose how Kram looks and where your study day begins."
       />
+      <OfflineStatus/>
       <form
         className="stack-lg"
         onSubmit={form.handleSubmit((input) => save.mutate(input))}
@@ -262,6 +265,8 @@ export function SettingsPage() {
             </p>
           </div>
         </Card>
+        <Card id="features"><h2>Features</h2><div className="stack"><Field id="settings-features" label="Feature preset"><select id="settings-features" className="input" {...form.register('featurePreset')}><option value="simple">Simple · Today, goals, tasks and reminders</option><option value="planner">Planner · timetable, reviews and proposals</option><option value="full">Full · streak rules, calibration and channels</option></select></Field><p className="caption">Hiding a feature preserves its data. Save below to apply this preset.</p></div></Card>
+        {data.user.settings.featurePreset!=='simple'&&<Card><h2>Planning</h2><div className="stack-lg">{data.user.settings.featurePreset==='full'&&<><Field id="settings-planning" label="Planning mode"><select id="settings-planning" className="input" {...form.register('planningMode')}><option value="directed">Directed · approve every change</option><option value="adaptive">Adaptive</option><option value="balanced">Balanced · steady practice</option><option value="deadline">Deadline · sooner work first</option></select></Field><p className="caption">Directed is the starting mode. All modes preserve dependencies, capacity and the approval window.</p><label className="toggle-label"><input type="checkbox" {...form.register('usePriority')}/>Use priority scores (off uses deadlines and your manual order)</label></>}<div className="grid-2"><Field id="settings-dailycap" label="Daily study limit (min)"><input id="settings-dailycap" className="input" type="number" min={15} max={960} {...form.register('maxDailyMin',{valueAsNumber:true})}/></Field><Field id="settings-weeklycap" label="Weekly study limit (min)"><input id="settings-weeklycap" className="input" type="number" min={15} max={6720} {...form.register('maxWeeklyMin',{valueAsNumber:true})}/></Field></div><Link className="button button-text" to="/planning">Proposals, history and breaks</Link></div></Card>}
         <Card>
           <div className="card-header">
             <h2>Quiet hours</h2>
@@ -331,6 +336,8 @@ export function SettingsPage() {
             </div>
           </div>
         </Card>
+        <Card><h2>Explore a sample week</h2><p className="muted">Clearly labelled demo goals and time blocks help you try the planner. Removing the sample preserves recorded history and any real work you added.</p><div className="row wrap"><Button disabled={!online} loading={sample.isPending} onClick={()=>sample.mutate(false)}>Load sample week</Button><Button disabled={!online} loading={sample.isPending} onClick={()=>sample.mutate(true)}>Remove sample week</Button></div>{sample.isError&&<Banner tone="error">{errorMessage(sample.error)}</Banner>}</Card>
+        <Link className="button" to="/data">Backup, health and export</Link>
         {save.isError && (
           <Banner tone="error">{errorMessage(save.error)}</Banner>
         )}

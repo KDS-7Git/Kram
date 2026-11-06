@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { idSchema } from '@kram/shared';
+import { iso } from '../repository';
+import { channelStatus, linkTelegram, listRoutes, patchChannel, saveRoute, testChannel, unlinkChannel } from './channel-service';
+import { refreshFullReminders } from './full-notifications';
+export const fullNotificationsRouter = Router();
+const owner = (res: { locals: Record<string, unknown> }) => String(res.locals.userId), channel = z.enum(['ntfy', 'telegram']);
+fullNotificationsRouter.get('/channels', async (req, res) => res.json(iso(await channelStatus(owner(res), idSchema.optional().parse(req.query.profileId)))));
+fullNotificationsRouter.post('/channels/telegram/link-code', async (req, res) => res.status(201).json(iso(await linkTelegram(owner(res), req.body))));
+fullNotificationsRouter.patch('/channels/:id', async (req, res) => { const value = await patchChannel(owner(res), channel.parse(req.params.id), req.body); await refreshFullReminders(owner(res)); res.json(iso(value)); });
+fullNotificationsRouter.delete('/channels/:id', async (req, res) => { await unlinkChannel(owner(res), channel.parse(req.params.id)); res.status(204).end(); });
+fullNotificationsRouter.post('/channels/:id/test', async (req, res) => { z.object({}).strict().parse(req.body ?? {}); res.status(202).json(iso({ queued: true, notification: await testChannel(owner(res), channel.parse(req.params.id)) })); });
+fullNotificationsRouter.get('/notification-routes', async (_req, res) => res.json(iso(await listRoutes(owner(res)))));
+fullNotificationsRouter.put('/notification-routes', async (req, res) => { const value = await saveRoute(owner(res), req.body); await refreshFullReminders(owner(res)); res.json(iso(value)); });

@@ -1,0 +1,12 @@
+# Add after encrypted.compose.yml. The source must be an already mounted off-device filesystem.
+services:
+  worker:
+    environment:
+      BACKUP_OFFSITE_DIR: /backup-offsite
+      BACKUP_OFFSITE_REMOTE: ""
+    volumes:
+      - type: bind
+        source: ${BACKUP_OFFSITE_HOST_DIR:?Set BACKUP_OFFSITE_HOST_DIR to an existing NAS or other-machine mount}
+        target: /backup-offsite
+        bind:
+          create_host_path: false

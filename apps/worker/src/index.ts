@@ -1,4 +1,7 @@
 import PgBoss from 'pg-boss';
+import { recordHealthReport } from '../../api/src/data/operations';
+import { registerStreakJobs, reconcileStreakJobs } from './streaks';
+import { registerPlanningJobs, reconcilePlanningJobs } from './planning';
 import { db } from '../../api/src/db';
 import { config } from '../../api/src/config';
 import { logger } from '../../api/src/logger';
@@ -11,6 +14,8 @@ const boss = new PgBoss(config.databaseUrl);
 boss.on('error',error=>logger.error({error:error.message},'job queue error'));
 await boss.start();
 await registerDomainJobs(boss);
+await registerPlanningJobs(boss);
+await registerStreakJobs(boss);
 await boss.createQueue(BACKUP_QUEUE, { name: BACKUP_QUEUE, policy: 'stately', retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 3600 });
 await boss.createQueue(BACKUP_SCHEDULE_QUEUE);
 await boss.work<BackupJob>(BACKUP_QUEUE, { includeMetadata: true }, async jobs => {
@@ -20,6 +25,8 @@ await boss.work(BACKUP_SCHEDULE_QUEUE, async () => { await enqueueDueBackup(boss
 let scheduledTimezone: string | undefined;
 async function reconcileBackups() {
   await reconcileDomainJobs(boss);
+  await reconcilePlanningJobs(boss);
+  await reconcileStreakJobs(boss);
   const timezone = await ownerTimezone();
   if (timezone !== scheduledTimezone) {
     await boss.schedule(BACKUP_SCHEDULE_QUEUE, '0 3 * * *', {}, { tz: timezone });
@@ -28,7 +35,7 @@ async function reconcileBackups() {
   await enqueueDueBackup(boss, new Date(), timezone);
 }
 await boss.createQueue('healthcheck-report');
-await boss.work('healthcheck-report',async()=>{await reconcileBackups();const now=new Date().toISOString();await db.systemMeta.upsert({where:{key:'worker-heartbeat'},create:{key:'worker-heartbeat',value:now},update:{value:now}});const file=process.env.WORKER_HEALTH_FILE || '/tmp/kram-worker-health.json';await writeFile(`${file}.tmp`,JSON.stringify({status:'ok',timestamp:now}));await rename(`${file}.tmp`,file);});
+await boss.work('healthcheck-report',async()=>{await reconcileBackups();const now=new Date().toISOString();await runDurableJob('hourly-health',now.slice(0,13),null,()=>recordHealthReport());await db.systemMeta.upsert({where:{key:'worker-heartbeat'},create:{key:'worker-heartbeat',value:now},update:{value:now}});const file=process.env.WORKER_HEALTH_FILE || '/tmp/kram-worker-health.json';await writeFile(`${file}.tmp`,JSON.stringify({status:'ok',timestamp:now}));await rename(`${file}.tmp`,file);});
 await boss.schedule('healthcheck-report','* * * * *',{}, {tz:'UTC'});
 await reconcileBackups();
 await boss.send('healthcheck-report',{});

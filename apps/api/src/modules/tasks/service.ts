@@ -18,6 +18,7 @@ import {
   ownerWhere,
   lockOwner,
   type Connection,
+  type Transaction,
 } from "../../repository";
 import {
   clock,
@@ -201,7 +202,7 @@ export const tasks = {
       return row;
     });
   },
-  async event(userId: string, id: string, input: unknown) {
+  async event(userId: string, id: string, input: unknown, transaction?: Transaction) {
     const data = progressInputSchema.parse(input),
       now = clock.now();
     const quantityProvided=typeof input==='object'&&input!==null&&Object.hasOwn(input,'qty');
@@ -213,7 +214,7 @@ export const tasks = {
         "Check your device clock before recording progress.",
         400,
       );
-    return db.$transaction(async (tx) => {
+    const operation = async (tx: Transaction) => {
       await lockOwner(tx, userId);
       const row = await get(userId, id, tx);
       const settings = await getSettings(userId, tx),
@@ -362,10 +363,11 @@ export const tasks = {
         event: eventDto(stored),
         replayed: false,
       };
-    });
+    };
+    return transaction ? operation(transaction) : db.$transaction(operation);
   },
-  async edit(userId: string, id: string, input: Record<string, unknown>) {
-    return db.$transaction(async (tx) => {
+  async edit(userId: string, id: string, input: Record<string, unknown>, transaction?: Transaction) {
+    const edit = async (tx: Transaction) => {
       await lockOwner(tx, userId);
       const row = await get(userId, id, tx);
       const data = taskSchema.parse({
@@ -422,7 +424,8 @@ export const tasks = {
       });
       await refreshReminders(userId, tx);
       return get(userId, id, tx);
-    });
+    };
+    return transaction ? edit(transaction) : db.$transaction(edit);
   },
   async context(userId: string) {
     const settings = await getSettings(userId);

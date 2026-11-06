@@ -45,7 +45,7 @@ export async function materializeTasks(userId: string, from?: string, c: Connect
   const first = dateSchema.parse(from ?? studyDate(clock.now(), settings.timezone, settings.dayRollover)), last = addDays(first, 13);
   await materializeOccurrences(userId, first, c);
   const recurrenceRows = await c.occurrence.findMany({ where: { userId, status: 'scheduled', localDate: { gte: calendarDate(first), lte: calendarDate(last) }, series: { kind: 'goal' } }, include: { series: true } });
-  const goals = await c.goal.findMany({ where: { userId, status: 'active', archivedAt: null, skill: { archivedAt: null, profile: { archivedAt: null } } },
+  const goals = await c.goal.findMany({ where: { userId, isDemo: false, status: 'active', archivedAt: null, skill: { archivedAt: null, profile: { archivedAt: null } } },
     include: { rules: { orderBy: [{ effectiveFrom: 'asc' }, { version: 'asc' }] }, resources: { include: { resource: { include: { items: { include: { dependencies: true } } } } } } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
   const existing = await c.task.findMany({ where: { userId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
   const byKey = new Map(existing.map(task => [task.materializationKey, task]));

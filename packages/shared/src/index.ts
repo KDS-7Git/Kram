@@ -521,6 +521,10 @@ export const reminderRuleSchema = z
   });
 export type ReminderRule = Entity & z.infer<typeof reminderRuleSchema>;
 export type TodayResponse = {
+  review?: {state:string;summary:unknown;closedAt:string|null}|null;
+  unverifiedReviews?:string[];
+  proposalCount?:number;
+  tomorrowFirst?:TimeSlot|null;
   studyDate: string;
   tasks: Task[];
   slots: TimeSlot[];

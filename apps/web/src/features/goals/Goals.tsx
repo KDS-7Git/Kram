@@ -242,7 +242,7 @@ export function GoalEditor({
             },
           })}
         >
-          {goalTypes.map((type) => (
+          {goalTypes.filter(type=>data.user.settings.featurePreset!=='simple'||!['recurring','adaptive'].includes(type)||type===goal?.type).map((type) => (
             <option value={type} key={type}>
               {goalLabels[type]}
             </option>
@@ -253,6 +253,15 @@ export function GoalEditor({
         <Field
           id="goal-quantity"
           label="Target quantity"
+          hint={
+            values.type === "daily"
+              ? "Amount for each selected practice day."
+              : values.type === "weekly"
+                ? "Amount across one week."
+                : values.type === "recurring"
+                  ? "Amount for each occurrence."
+                  : "Choose a concrete scope, such as 12 lessons or 1 assignment. A skill can stay ongoing."
+          }
           error={errors.targetQty?.message}
         >
           <input
@@ -327,7 +336,13 @@ export function GoalEditor({
       <Field
         id="goal-estimate"
         label="Estimated session time (min)"
-        hint="Time needed for one session, separate from the quantity you measure."
+        hint={
+          (values.unit ?? "minutes").toLowerCase() === "minutes"
+            ? "Minute targets supply generated task durations. This is a starting estimate for tasks you add manually."
+            : ["milestone", "adaptive"].includes(values.type)
+              ? "Rough time for this goal's defined quantity. Break larger goals into resource items or edit individual task estimates."
+              : "Rough time for one task's assigned quantity. Start with a guess and refine individual estimates after trying the work."
+        }
         error={errors.estMinutes?.message}
       >
         <input
@@ -399,7 +414,7 @@ export function GoalEditor({
           </details>
         </div>
       )}
-      <details className="disclosure">
+      {data.user.settings.featurePreset!=='simple'&&<details className="disclosure">
         <summary>Planning preferences</summary>
         <div className="stack" style={{ marginTop: "1rem" }}>
           <Field id="goal-mode" label="Planning period">
@@ -413,6 +428,7 @@ export function GoalEditor({
               <option value="combined">Daily and weekly</option>
             </select>
           </Field>
+          {data.user.settings.featurePreset==='full'&&<>
           <Field id="goal-priority-use" label="Priority scheduling">
             <select
               className="input"
@@ -447,8 +463,9 @@ export function GoalEditor({
               ))}
             </select>
           </Field>
+          </>}
         </div>
-      </details>
+      </details>}
       {goal && (
         <Field
           id="goal-effective"

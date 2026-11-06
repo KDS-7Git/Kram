@@ -13,7 +13,7 @@ export interface BackupJob {
   periodKey: string;
   periodDay: string;
   timezone: string;
-  reason: 'initial' | 'nightly' | 'catch-up' | 'timezone-change';
+  reason: 'initial' | 'nightly' | 'catch-up' | 'timezone-change' | 'manual';
   missedPeriods: string[];
   catchUpCapped: boolean;
   scheduledAt: string;

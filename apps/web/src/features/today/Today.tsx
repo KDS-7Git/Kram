@@ -206,6 +206,9 @@ export function Today() {
           . Late-night progress stays with this day.
         </Banner>
       )}
+      {!!today.proposalCount&&<Banner>{today.proposalCount} plan proposals await your review. <Link className="button button-text" to="/planning">Review changes</Link></Banner>}
+      {!!today.unverifiedReviews?.length&&<Banner>Some previous days still need confirmation. <Link className="button button-text" to={`/review?date=${today.unverifiedReviews[0]}`}>Reconcile {calendarDate(today.unverifiedReviews[0]!)}</Link></Banner>}
+      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
             <Card className="day-ribbon-card">
           <div className="row between">
             <h2 className="sr-only">Your day at a glance</h2>
@@ -261,8 +264,8 @@ export function Today() {
         </Card>
       <div className="today-grid">
         <Card className={`today-now${running ? " today-now-running" : ""}`}>
-          <p className="eyebrow">Now</p>
-          {nowTask ? (
+          <p className="eyebrow">{today.review?.state==='closed'?'Day closed':'Now'}</p>
+          {today.review?.state==='closed'?<><h2>Your day is recorded</h2><p className="muted">Progress is preserved. You can correct an earlier log from its task history.</p>{today.tomorrowFirst&&<p>Tomorrow: {today.tomorrowFirst.title} · {clockLabel(today.tomorrowFirst.startMin,data.user.settings.clockFormat)}</p>}<Link className="button" to="/review">See closing summary</Link></>:nowTask ? (
             <>
               <button type="button" className="now-task-title" aria-label={`Open focused task ${nowTask.title}`} onClick={() => setSelected({ id: nowTask.id })}><h2>{nowTask.title}</h2></button>
               <StatusPill status={nowTask.status} />
@@ -589,7 +592,7 @@ function TaskRow({
         className="task-check"
         onClick={() => onOpen(finished ? undefined : "completed")}
         aria-label={finished ? `Open ${task.title}` : `Complete ${task.title}`}
-        disabled={!online && !finished}
+        disabled={writer.mutation.isPending}
       >
         <StatusPill status={task.status} />
       </button>
@@ -650,7 +653,7 @@ function TaskRow({
 function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction) => void }) {
   const online = useOnline();
   const writer = useTaskEvents(task.id);
-  const editable = online && !writer.uncertain && !writer.mutation.isPending;
+  const editable = !writer.uncertain && !writer.mutation.isPending;
   return <>
     <div className="task-primary-actions">
       <Button variant="primary" disabled={!editable || task.status === 'deferred'} loading={writer.mutation.isPending} onClick={() => void writer.post(task.timerStartedAt ? 'paused' : task.status === 'in_progress' ? 'resumed' : 'started').catch(() => undefined)}>
@@ -659,7 +662,7 @@ function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction
       <Button disabled={!editable} onClick={() => onOpen('completed')}><Check size={18} strokeWidth={1.5} />Done</Button>
     </div>
     {writer.uncertain && <Banner tone="error">This timer action may already be saved. <Button disabled={!online} onClick={() => void writer.retry().catch(() => undefined)}>Retry same event</Button></Banner>}
-    {!online && <p className="caption">Reconnect to save timer actions and completion.</p>}
+    {!online && <p className="caption">Timer actions and completion save here and sync when connected.</p>}
   </>;
 }
 

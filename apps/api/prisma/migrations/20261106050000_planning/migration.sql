@@ -1,0 +1,17 @@
+CREATE TABLE "plan" ("id" uuid PRIMARY KEY,"userId" uuid NOT NULL UNIQUE REFERENCES app_user(id),"version" integer NOT NULL DEFAULT 1 CHECK (version>0),"activeVersionId" uuid,"createdAt" timestamptz(3) NOT NULL DEFAULT now(),"updatedAt" timestamptz(3) NOT NULL DEFAULT now(),UNIQUE(id,"userId"));
+CREATE TABLE plan_version (id uuid PRIMARY KEY,"userId" uuid NOT NULL REFERENCES app_user(id),"planId" uuid NOT NULL,number integer NOT NULL CHECK(number>0),state text NOT NULL DEFAULT 'proposed' CHECK(state IN ('proposed','active','superseded','discarded')),"fromDate" date NOT NULL,"toDate" date NOT NULL,"algoVersion" text NOT NULL,"inputsHash" text NOT NULL,"sourceHash" text NOT NULL,config jsonb NOT NULL,input jsonb NOT NULL,result jsonb NOT NULL,reason text NOT NULL,"createdAt" timestamptz(3) NOT NULL DEFAULT now(),UNIQUE(id,"userId"),UNIQUE("planId",number),FOREIGN KEY("planId","userId") REFERENCES plan(id,"userId"),CHECK("toDate">="fromDate"));
+ALTER TABLE plan ADD CONSTRAINT plan_active_owner FOREIGN KEY("activeVersionId","userId") REFERENCES plan_version(id,"userId");
+CREATE UNIQUE INDEX plan_one_active ON plan_version("userId") WHERE state='active';
+CREATE INDEX plan_version_owner_state ON plan_version("userId",state,"createdAt");
+CREATE TABLE plan_item (id uuid PRIMARY KEY,"userId" uuid NOT NULL REFERENCES app_user(id),"versionId" uuid NOT NULL,"taskId" uuid NOT NULL,"goalId" uuid NOT NULL,"skillId" uuid NOT NULL,date date NOT NULL,"startMin" integer NOT NULL,"endMin" integer NOT NULL,minutes double precision NOT NULL,"workMinutes" double precision NOT NULL,score double precision NOT NULL,explanation text NOT NULL,UNIQUE("versionId","taskId",date,"startMin"),FOREIGN KEY("versionId","userId") REFERENCES plan_version(id,"userId"),FOREIGN KEY("taskId","userId") REFERENCES task(id,"userId"),FOREIGN KEY("goalId","userId") REFERENCES goal(id,"userId"),FOREIGN KEY("skillId","userId") REFERENCES skill(id,"userId"),CHECK("startMin">=0 AND "endMin"<=1440 AND "endMin">"startMin" AND minutes>0 AND "workMinutes">=0));
+CREATE TABLE daily_review (id uuid PRIMARY KEY,"userId" uuid NOT NULL REFERENCES app_user(id),date date NOT NULL,state text NOT NULL DEFAULT 'draft' CHECK(state IN ('draft','unverified','closed')),revision integer NOT NULL DEFAULT 1,summary jsonb NOT NULL DEFAULT '{}',"requestHash" text,"createdAt" timestamptz(3) NOT NULL DEFAULT now(),"closedAt" timestamptz(3),UNIQUE("userId",date));
+CREATE INDEX daily_review_owner_state ON daily_review("userId",state,date);
+CREATE TABLE planning_break (id uuid PRIMARY KEY,"userId" uuid NOT NULL REFERENCES app_user(id),"fromDate" date NOT NULL,"toDate" date NOT NULL,reason text NOT NULL,choices jsonb NOT NULL,"createdAt" timestamptz(3) NOT NULL DEFAULT now(),CHECK("toDate">="fromDate"));
+CREATE INDEX planning_break_owner_dates ON planning_break("userId","fromDate","toDate");
+CREATE FUNCTION protect_plan_version() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Plan history is immutable'; END IF;
+  IF (to_jsonb(NEW)-'state') IS DISTINCT FROM (to_jsonb(OLD)-'state') THEN RAISE EXCEPTION 'Plan version contents are immutable'; END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER plan_version_immutable BEFORE UPDATE OR DELETE ON plan_version FOR EACH ROW EXECUTE FUNCTION protect_plan_version();
+CREATE TRIGGER plan_item_immutable BEFORE UPDATE OR DELETE ON plan_item FOR EACH ROW EXECUTE FUNCTION protect_append_only_history();

@@ -47,5 +47,11 @@ export async function todaySummary(userId: string) {
     const skillId = (ruleId ? historicalSkills.get(ruleId) : undefined) ?? byGoal.get(event.goalId);
     if (skillId) totals.set(skillId, (totals.get(skillId) ?? 0) + event.minutes);
   }
-  return { studyDate: today, tasks: todayTasks, slots, goals: goalRows.map(goalDto), weekly: { minutes, bySkill: [...totals].sort(([a], [b]) => a.localeCompare(b)).map(([skillId, value]) => ({ skillId, minutes: value })) }, notifications: notifications.slice(0, 50) };
+  const [review,unverifiedReviews,proposalCount]=await Promise.all([
+    db.dailyReview.findUnique({where:{userId_date:{userId,date:calendarDate(today)}}}),
+    db.dailyReview.findMany({where:{userId,state:'unverified'},orderBy:{date:'desc'},take:14,select:{date:true}}),
+    db.planVersion.count({where:{userId,state:'proposed'}}),
+  ]);
+  const tomorrowFirst=slotRows.find(slot=>studyDate(localToInstant(calendarString(slot.date),slot.startMin,settings.timezone),settings.timezone,settings.dayRollover)>today);
+  return { review:review?{state:review.state,summary:review.summary,closedAt:review.closedAt}:null,unverifiedReviews:unverifiedReviews.map(r=>calendarString(r.date)),proposalCount,tomorrowFirst:tomorrowFirst?slotDto(tomorrowFirst):null,studyDate: today, tasks: todayTasks, slots, goals: goalRows.map(goalDto), weekly: { minutes, bySkill: [...totals].sort(([a], [b]) => a.localeCompare(b)).map(([skillId, value]) => ({ skillId, minutes: value })) }, notifications: notifications.slice(0, 50) };
 }

@@ -621,3 +621,185 @@ model TemplateApplication {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@map("template_application")
 }
+
+model Plan {
+  id String @id @db.Uuid
+  userId String @unique @db.Uuid
+  version Int @default(1)
+  activeVersionId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  versions PlanVersion[]
+  @@unique([id,userId])
+  @@map("plan")
+}
+model PlanVersion {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  planId String @db.Uuid
+  plan Plan @relation(fields:[planId,userId],references:[id,userId],onDelete:Restrict)
+  number Int
+  state String @default("proposed")
+  fromDate DateTime @db.Date
+  toDate DateTime @db.Date
+  algoVersion String
+  inputsHash String
+  sourceHash String
+  config Json
+  input Json
+  result Json
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  items PlanItem[]
+  @@unique([id,userId])
+  @@unique([planId,number])
+  @@index([userId,state,createdAt])
+  @@map("plan_version")
+}
+model PlanItem {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  versionId String @db.Uuid
+  version PlanVersion @relation(fields:[versionId,userId],references:[id,userId],onDelete:Restrict)
+  taskId String @db.Uuid
+  goalId String @db.Uuid
+  skillId String @db.Uuid
+  date DateTime @db.Date
+  startMin Int
+  endMin Int
+  minutes Float
+  workMinutes Float
+  score Float
+  explanation String
+  @@unique([versionId,taskId,date,startMin])
+  @@map("plan_item")
+}
+model DailyReview {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  date DateTime @db.Date
+  state String @default("draft")
+  revision Int @default(1)
+  summary Json @default("{}")
+  requestHash String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  closedAt DateTime? @db.Timestamptz(3)
+  @@unique([userId,date])
+  @@index([userId,state,date])
+  @@map("daily_review")
+}
+model PlanningBreak {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  fromDate DateTime @db.Date
+  toDate DateTime @db.Date
+  reason String
+  choices Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([userId,fromDate,toDate])
+  @@map("planning_break")
+}
+
+model StreakDef {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  title String
+  scope String
+  scopeId String? @db.Uuid
+  startDate DateTime @db.Date
+  status String @default("active")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  rules StreakRuleVersion[]
+  records StreakRecord[]
+  @@unique([id,userId])
+  @@index([userId,status,createdAt])
+  @@map("streak_def")
+}
+model StreakRuleVersion {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  streakId String @db.Uuid
+  streak StreakDef @relation(fields:[streakId,userId],references:[id,userId],onDelete:Restrict)
+  version Int
+  effectiveFrom DateTime @db.Date
+  rules Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  records StreakRecord[]
+  @@unique([id,userId])
+  @@unique([streakId,version])
+  @@unique([streakId,effectiveFrom])
+  @@map("streak_rule_version")
+}
+model StreakRecord {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  streakId String @db.Uuid
+  streak StreakDef @relation(fields:[streakId,userId],references:[id,userId],onDelete:Restrict)
+  ruleVersionId String @db.Uuid
+  ruleVersion StreakRuleVersion @relation(fields:[ruleVersionId,userId],references:[id,userId],onDelete:Restrict)
+  periodStart DateTime @db.Date
+  periodEnd DateTime @db.Date
+  result String
+  value Float
+  provisional Boolean @default(false)
+  reason String
+  sourceHash String
+  correctsRecordId String? @db.Uuid
+  beforeReason String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([id,userId])
+  @@index([userId,streakId,periodStart,createdAt])
+  @@map("streak_record")
+}
+model UserChannel {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  channel String
+  encryptedConfig String
+  verifiedAt DateTime? @db.Timestamptz(3)
+  enabled Boolean @default(false)
+  privacy Boolean @default(true)
+  linkCodeHash String?
+  linkExpiresAt DateTime? @db.Timestamptz(3)
+  pollOffset BigInt @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([id,userId])
+  @@unique([userId,channel])
+  @@map("user_channel")
+}
+model NotificationRoute {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  profileId String? @db.Uuid
+  type String
+  routeKey String
+  channels String[]
+  topic String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([userId,routeKey])
+  @@map("notification_route")
+}
+model TelegramUpdate {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  channelId String @db.Uuid
+  updateId BigInt
+  botHash String
+  outcome String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([channelId,botHash,updateId])
+  @@map("telegram_update")
+}
+model NotificationSnooze {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  taskId String @db.Uuid
+  until DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([userId,taskId])
+  @@map("notification_snooze")
+}

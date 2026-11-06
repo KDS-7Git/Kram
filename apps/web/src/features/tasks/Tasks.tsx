@@ -1,3 +1,4 @@
+import { clientId } from "../../shared/id";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -140,7 +141,7 @@ export function TaskEditor({
           {...form.register("title")}
         />
       </Field>
-      <Field id="task-goal" label="Goal" error={errors.goalId?.message}>
+      <Field id="task-goal" label="Goal" hint={task ? "This task keeps its goal and recorded history." : "A task added here is a one-time item under this goal."} error={errors.goalId?.message}>
         <select
           className="input"
           id="task-goal"
@@ -222,6 +223,7 @@ export function TaskEditor({
         <Field
           id="task-estimate"
           label="Estimated time (min)"
+          hint="A rough starting estimate for this task. Use it to reserve time, then adjust it after doing the work."
           error={errors.estMinutes?.message}
         >
           <input
@@ -337,6 +339,7 @@ export function TaskPanel({
     initialData: () => data.tasks.find((task) => task.id === taskId),
     refetchInterval: 10000,
   });
+  const planning = useQuery({queryKey:['planning','task',taskId],queryFn:()=>api<{items:{date:string;explanation:string}[]}>(`/tasks/${taskId}/planning`)});
   const history = useQuery({
     queryKey: ["tasks", taskId, "events"],
     queryFn: ({ signal }) =>
@@ -356,7 +359,7 @@ export function TaskPanel({
   }, [writer.mutation.data, writer.mutation.isSuccess]);
   const task = taskQuery.data;
   const busy = writer.mutation.isPending || writer.uncertain;
-  const editable = online && !busy;
+  const editable = !busy;
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (
@@ -601,10 +604,10 @@ export function TaskPanel({
           </Link>
         </div>
       )}
+      {!!planning.data?.items.length&&<details><summary>Why here?</summary><div className="stack">{planning.data.items.map((item,i)=><p key={i}>{calendarDate(item.date)} · {item.explanation}</p>)}</div></details>}
       {!online && (
         <Banner>
-          Reconnect to store timer actions and progress. A running timer
-          continues to measure time.
+          Timer actions and progress save on this device and sync when you reconnect. Planning edits need a connection.
         </Banner>
       )}
       {deferred && (
@@ -641,7 +644,7 @@ export function TaskPanel({
             action={composer}
             task={task}
             unit={unit}
-            disabled={!editable || (deferred && composer !== "completed")}
+            disabled={!editable || (deferred && composer !== "completed") || (!online && ["deferred", "cancelled", "correction"].includes(composer))}
             pending={writer.mutation.isPending}
             onCancel={() => setComposer(null)}
             onSave={(values) =>
@@ -885,7 +888,7 @@ function ProgressEditor({
   >({
     resolver: zodResolver(progressInputSchema),
     defaultValues: {
-      clientEventId: crypto.randomUUID(),
+      clientEventId: clientId(),
       occurredAt: new Date().toISOString(),
       kind: action,
       minutes:
