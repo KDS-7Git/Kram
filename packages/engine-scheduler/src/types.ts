@@ -40,6 +40,7 @@ export interface SkillMeta {
   maxDailyMin?: number;
   maxWeeklyMin?: number;
   minWeeklyMin?: number;
+  weeklyTargetMin?: number;
   allocationWeight?: number;
   order?: number;
   sortOrder?: number;
@@ -82,6 +83,9 @@ export interface PlanItem {
   explanation: string;
   pinned?: boolean;
 }
+/** Occupied workload outside copied frozen plan items; include earlier days of
+ * every horizon week so weekly caps account for work already committed. */
+export interface ExistingWork { date: string; minutes: number; skillId?: string; goalId?: string }
 export interface PlanInput {
   today: string;
   horizonDays?: number;
@@ -94,6 +98,9 @@ export interface PlanInput {
   history?: RecentProgress;
   frozen?: PlanItem[];
   previous?: PlanItem[];
+  /** Feasible historical placements to prefer; diffs still compare with previous. */
+  preferred?: PlanItem[];
+  existingWork?: ExistingWork[];
   config?: Partial<Omit<SchedulerConfig, 'weights'>> & { weights?: Partial<ScoreWeights> };
 }
 export type UnplacedCode = 'NO_CAPACITY' | 'BLOCKED_BY_DEP' | 'BEYOND_DEADLINE' | 'FROZEN_CONFLICT' | 'PAUSED_GOAL';

@@ -1,0 +1,5333 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: break-week 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "title": "Read the course",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 600,
+        "minutes": 120,
+        "workMinutes": 120,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+      }
+    ],
+    "unplaced": [
+      {
+        "taskId": "a",
+        "code": "NO_CAPACITY",
+        "reason": "There is not enough eligible time within the configured capacity. Move a commitment, extend the date or reduce scope.",
+        "remainingMinutes": 60
+      }
+    ],
+    "warnings": [
+      {
+        "goalId": "ga",
+        "code": "INFEASIBLE_DEADLINE",
+        "message": "ga needs 180 min, with 120 min available after the buffer; short by 60 min.",
+        "shortfallMin": 60
+      }
+    ],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 600,
+              "minutes": 120,
+              "workMinutes": 120,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 120,
+      "shortfallMin": 60,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": false
+    }
+  ]
+}"
+`;
+
+exports[`golden: calibration-1-3x 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "supportsSplit": true,
+        "kind": "reading"
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    },
+    "history": {
+      "samples": [
+        {
+          "skillId": "sa",
+          "kind": "reading",
+          "actualMinutes": 78,
+          "estMinutes": 60
+        },
+        {
+          "skillId": "sa",
+          "kind": "reading",
+          "actualMinutes": 78,
+          "estMinutes": 60
+        },
+        {
+          "skillId": "sa",
+          "kind": "reading",
+          "actualMinutes": 78,
+          "estMinutes": 60
+        },
+        {
+          "skillId": "sa",
+          "kind": "reading",
+          "actualMinutes": 78,
+          "estMinutes": 60
+        },
+        {
+          "skillId": "sa",
+          "kind": "reading",
+          "actualMinutes": 78,
+          "estMinutes": 60
+        }
+      ]
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 570,
+        "minutes": 90,
+        "workMinutes": 69.230769,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 234 min of goal work left; estimate adjusted 1.3× from completed work"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 555,
+        "minutes": 75,
+        "workMinutes": 57.692308,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 144 min of goal work left; estimate adjusted 1.3× from completed work"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 549,
+        "minutes": 69,
+        "workMinutes": 53.076923,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 69 min of goal work left; estimate adjusted 1.3× from completed work"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 570,
+              "minutes": 90,
+              "workMinutes": 69.230769,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 234 min of goal work left; estimate adjusted 1.3× from completed work"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 555,
+              "minutes": 75,
+              "workMinutes": 57.692308,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 144 min of goal work left; estimate adjusted 1.3× from completed work"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 549,
+              "minutes": 69,
+              "workMinutes": 53.076923,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 69 min of goal work left; estimate adjusted 1.3× from completed work"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 234 min of goal work left; estimate adjusted 1.3× from completed work"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 234,
+      "availableMin": 360,
+      "shortfallMin": 0,
+      "requiredPerDay": 78,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: course-60-videos-25-days 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 25,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "video-00",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-01",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-02",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-03",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-04",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-05",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-06",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-07",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-08",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-09",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-10",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-11",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-12",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-13",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-14",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-15",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-16",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-17",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-18",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-19",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-20",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-21",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-22",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-23",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-24",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-25",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-26",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-27",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-28",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-29",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-30",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-31",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-32",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-33",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-34",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-35",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-36",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-37",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-38",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-39",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-40",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-41",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-42",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-43",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-44",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-45",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-46",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-47",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-48",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-49",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-50",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-51",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-52",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-53",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-54",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-55",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-56",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-57",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-58",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "video-59",
+        "goalId": "ga",
+        "estMinutes": 35,
+        "remainingMinutes": 35,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-00",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-01",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-02",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-03",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-04",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-05",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-06",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-07",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-08",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-09",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-10",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "revision-11",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 60,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-12-03"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-12": [
+        {
+          "date": "2026-11-12",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-13": [
+        {
+          "date": "2026-11-13",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-14": [
+        {
+          "date": "2026-11-14",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-15": [
+        {
+          "date": "2026-11-15",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-16": [
+        {
+          "date": "2026-11-16",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-17": [
+        {
+          "date": "2026-11-17",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-18": [
+        {
+          "date": "2026-11-18",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-19": [
+        {
+          "date": "2026-11-19",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-20": [
+        {
+          "date": "2026-11-20",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-21": [
+        {
+          "date": "2026-11-21",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-22": [
+        {
+          "date": "2026-11-22",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-23": [
+        {
+          "date": "2026-11-23",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-24": [
+        {
+          "date": "2026-11-24",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-25": [
+        {
+          "date": "2026-11-25",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-26": [
+        {
+          "date": "2026-11-26",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-27": [
+        {
+          "date": "2026-11-27",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-28": [
+        {
+          "date": "2026-11-28",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-29": [
+        {
+          "date": "2026-11-29",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-30": [
+        {
+          "date": "2026-11-30",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-12-01": [
+        {
+          "date": "2026-12-01",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-12-02": [
+        {
+          "date": "2026-12-02",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-12-03": [
+        {
+          "date": "2026-12-03",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "revision-00",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 24 days with 2820 min of goal work left; runner-up: revision-01"
+      },
+      {
+        "taskId": "revision-01",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 24 days with 2760 min of goal work left; runner-up: revision-02"
+      },
+      {
+        "taskId": "revision-02",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 23 days with 2700 min of goal work left; runner-up: revision-03"
+      },
+      {
+        "taskId": "revision-03",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 23 days with 2640 min of goal work left; runner-up: revision-04"
+      },
+      {
+        "taskId": "revision-04",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 22 days with 2580 min of goal work left; runner-up: revision-05"
+      },
+      {
+        "taskId": "revision-05",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 22 days with 2520 min of goal work left; runner-up: revision-06"
+      },
+      {
+        "taskId": "revision-06",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-12",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 21 days with 2460 min of goal work left; runner-up: revision-07"
+      },
+      {
+        "taskId": "revision-07",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-12",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 21 days with 2400 min of goal work left; runner-up: revision-08"
+      },
+      {
+        "taskId": "revision-08",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-13",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 20 days with 2340 min of goal work left; runner-up: revision-09"
+      },
+      {
+        "taskId": "revision-09",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-13",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 20 days with 2280 min of goal work left; runner-up: revision-10"
+      },
+      {
+        "taskId": "revision-10",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-14",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 19 days with 2220 min of goal work left; runner-up: revision-11"
+      },
+      {
+        "taskId": "revision-11",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-14",
+        "startMin": 540,
+        "endMin": 600,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 19 days with 2160 min of goal work left; runner-up: video-00"
+      },
+      {
+        "taskId": "video-00",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-15",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 18 days with 2100 min of goal work left; runner-up: video-01"
+      },
+      {
+        "taskId": "video-01",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-15",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 18 days with 2065 min of goal work left; runner-up: video-02"
+      },
+      {
+        "taskId": "video-02",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-15",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 18 days with 2030 min of goal work left; runner-up: video-03"
+      },
+      {
+        "taskId": "video-03",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-15",
+        "startMin": 585,
+        "endMin": 600,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 18 days with 1995 min of goal work left; runner-up: video-04"
+      },
+      {
+        "taskId": "video-03",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-16",
+        "startMin": 480,
+        "endMin": 500,
+        "minutes": 20,
+        "workMinutes": 20,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 17 days with 1980 min of goal work left; runner-up: video-04"
+      },
+      {
+        "taskId": "video-04",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-16",
+        "startMin": 500,
+        "endMin": 535,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 17 days with 1960 min of goal work left; runner-up: video-05"
+      },
+      {
+        "taskId": "video-05",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-16",
+        "startMin": 535,
+        "endMin": 570,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 17 days with 1925 min of goal work left; runner-up: video-06"
+      },
+      {
+        "taskId": "video-06",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-16",
+        "startMin": 570,
+        "endMin": 600,
+        "minutes": 30,
+        "workMinutes": 30,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 17 days with 1890 min of goal work left; runner-up: video-07"
+      },
+      {
+        "taskId": "video-06",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-17",
+        "startMin": 480,
+        "endMin": 485,
+        "minutes": 5,
+        "workMinutes": 5,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 16 days with 1860 min of goal work left; runner-up: video-07"
+      },
+      {
+        "taskId": "video-07",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-17",
+        "startMin": 485,
+        "endMin": 520,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 16 days with 1855 min of goal work left; runner-up: video-08"
+      },
+      {
+        "taskId": "video-08",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-17",
+        "startMin": 520,
+        "endMin": 555,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 16 days with 1820 min of goal work left; runner-up: video-09"
+      },
+      {
+        "taskId": "video-09",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-17",
+        "startMin": 555,
+        "endMin": 590,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 16 days with 1785 min of goal work left; runner-up: video-10"
+      },
+      {
+        "taskId": "video-10",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-18",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 15 days with 1750 min of goal work left; runner-up: video-11"
+      },
+      {
+        "taskId": "video-11",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-18",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 15 days with 1715 min of goal work left; runner-up: video-12"
+      },
+      {
+        "taskId": "video-12",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-18",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 15 days with 1680 min of goal work left; runner-up: video-13"
+      },
+      {
+        "taskId": "video-13",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-18",
+        "startMin": 585,
+        "endMin": 600,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 15 days with 1645 min of goal work left; runner-up: video-14"
+      },
+      {
+        "taskId": "video-13",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-19",
+        "startMin": 480,
+        "endMin": 500,
+        "minutes": 20,
+        "workMinutes": 20,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 14 days with 1630 min of goal work left; runner-up: video-14"
+      },
+      {
+        "taskId": "video-14",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-19",
+        "startMin": 500,
+        "endMin": 535,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 14 days with 1610 min of goal work left; runner-up: video-15"
+      },
+      {
+        "taskId": "video-15",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-19",
+        "startMin": 535,
+        "endMin": 570,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 14 days with 1575 min of goal work left; runner-up: video-16"
+      },
+      {
+        "taskId": "video-16",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-19",
+        "startMin": 570,
+        "endMin": 600,
+        "minutes": 30,
+        "workMinutes": 30,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 14 days with 1540 min of goal work left; runner-up: video-17"
+      },
+      {
+        "taskId": "video-16",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-20",
+        "startMin": 480,
+        "endMin": 485,
+        "minutes": 5,
+        "workMinutes": 5,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 13 days with 1510 min of goal work left; runner-up: video-17"
+      },
+      {
+        "taskId": "video-17",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-20",
+        "startMin": 485,
+        "endMin": 520,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 13 days with 1505 min of goal work left; runner-up: video-18"
+      },
+      {
+        "taskId": "video-18",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-20",
+        "startMin": 520,
+        "endMin": 555,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 13 days with 1470 min of goal work left; runner-up: video-19"
+      },
+      {
+        "taskId": "video-19",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-20",
+        "startMin": 555,
+        "endMin": 590,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 13 days with 1435 min of goal work left; runner-up: video-20"
+      },
+      {
+        "taskId": "video-20",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-21",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 12 days with 1400 min of goal work left; runner-up: video-21"
+      },
+      {
+        "taskId": "video-21",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-21",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 12 days with 1365 min of goal work left; runner-up: video-22"
+      },
+      {
+        "taskId": "video-22",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-21",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 12 days with 1330 min of goal work left; runner-up: video-23"
+      },
+      {
+        "taskId": "video-23",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-21",
+        "startMin": 585,
+        "endMin": 600,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 12 days with 1295 min of goal work left; runner-up: video-24"
+      },
+      {
+        "taskId": "video-23",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-22",
+        "startMin": 480,
+        "endMin": 500,
+        "minutes": 20,
+        "workMinutes": 20,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 11 days with 1280 min of goal work left; runner-up: video-24"
+      },
+      {
+        "taskId": "video-24",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-22",
+        "startMin": 500,
+        "endMin": 535,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 11 days with 1260 min of goal work left; runner-up: video-25"
+      },
+      {
+        "taskId": "video-25",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-22",
+        "startMin": 535,
+        "endMin": 570,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 11 days with 1225 min of goal work left; runner-up: video-26"
+      },
+      {
+        "taskId": "video-26",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-22",
+        "startMin": 570,
+        "endMin": 600,
+        "minutes": 30,
+        "workMinutes": 30,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 11 days with 1190 min of goal work left; runner-up: video-27"
+      },
+      {
+        "taskId": "video-26",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-23",
+        "startMin": 480,
+        "endMin": 485,
+        "minutes": 5,
+        "workMinutes": 5,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 10 days with 1160 min of goal work left; runner-up: video-27"
+      },
+      {
+        "taskId": "video-27",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-23",
+        "startMin": 485,
+        "endMin": 520,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 10 days with 1155 min of goal work left; runner-up: video-28"
+      },
+      {
+        "taskId": "video-28",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-23",
+        "startMin": 520,
+        "endMin": 555,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 10 days with 1120 min of goal work left; runner-up: video-29"
+      },
+      {
+        "taskId": "video-29",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-23",
+        "startMin": 555,
+        "endMin": 590,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 10 days with 1085 min of goal work left; runner-up: video-30"
+      },
+      {
+        "taskId": "video-30",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-24",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 9 days with 1050 min of goal work left; runner-up: video-31"
+      },
+      {
+        "taskId": "video-31",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-24",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 9 days with 1015 min of goal work left; runner-up: video-32"
+      },
+      {
+        "taskId": "video-32",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-24",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 9 days with 980 min of goal work left; runner-up: video-33"
+      },
+      {
+        "taskId": "video-33",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-25",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 8 days with 945 min of goal work left; runner-up: video-34"
+      },
+      {
+        "taskId": "video-34",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-25",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 8 days with 910 min of goal work left; runner-up: video-35"
+      },
+      {
+        "taskId": "video-35",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-25",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 8 days with 875 min of goal work left; runner-up: video-36"
+      },
+      {
+        "taskId": "video-36",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-26",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 7 days with 840 min of goal work left; runner-up: video-37"
+      },
+      {
+        "taskId": "video-37",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-26",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 7 days with 805 min of goal work left; runner-up: video-38"
+      },
+      {
+        "taskId": "video-38",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-26",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 7 days with 770 min of goal work left; runner-up: video-39"
+      },
+      {
+        "taskId": "video-39",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-27",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 6 days with 735 min of goal work left; runner-up: video-40"
+      },
+      {
+        "taskId": "video-40",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-27",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 6 days with 700 min of goal work left; runner-up: video-41"
+      },
+      {
+        "taskId": "video-41",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-27",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 6 days with 665 min of goal work left; runner-up: video-42"
+      },
+      {
+        "taskId": "video-42",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-28",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 5 days with 630 min of goal work left; runner-up: video-43"
+      },
+      {
+        "taskId": "video-43",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-28",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 5 days with 595 min of goal work left; runner-up: video-44"
+      },
+      {
+        "taskId": "video-44",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-28",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 5 days with 560 min of goal work left; runner-up: video-45"
+      },
+      {
+        "taskId": "video-45",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-29",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 4 days with 525 min of goal work left; runner-up: video-46"
+      },
+      {
+        "taskId": "video-46",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-29",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 4 days with 490 min of goal work left; runner-up: video-47"
+      },
+      {
+        "taskId": "video-47",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-29",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 4 days with 455 min of goal work left; runner-up: video-48"
+      },
+      {
+        "taskId": "video-48",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-30",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 3 days with 420 min of goal work left; runner-up: video-49"
+      },
+      {
+        "taskId": "video-49",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-30",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 3 days with 385 min of goal work left; runner-up: video-50"
+      },
+      {
+        "taskId": "video-50",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-30",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 3 days with 350 min of goal work left; runner-up: video-51"
+      },
+      {
+        "taskId": "video-51",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-01",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 315 min of goal work left; runner-up: video-52"
+      },
+      {
+        "taskId": "video-52",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-01",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 280 min of goal work left; runner-up: video-53"
+      },
+      {
+        "taskId": "video-53",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-01",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 245 min of goal work left; runner-up: video-54"
+      },
+      {
+        "taskId": "video-54",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-02",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 210 min of goal work left; runner-up: video-55"
+      },
+      {
+        "taskId": "video-55",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-02",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 175 min of goal work left; runner-up: video-56"
+      },
+      {
+        "taskId": "video-56",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-02",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 140 min of goal work left; runner-up: video-57"
+      },
+      {
+        "taskId": "video-57",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-03",
+        "startMin": 480,
+        "endMin": 515,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 105 min of goal work left; runner-up: video-58"
+      },
+      {
+        "taskId": "video-58",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-03",
+        "startMin": 515,
+        "endMin": 550,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 70 min of goal work left; runner-up: video-59"
+      },
+      {
+        "taskId": "video-59",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-12-03",
+        "startMin": 550,
+        "endMin": 585,
+        "minutes": 35,
+        "workMinutes": 35,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 35 min of goal work left"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "revision-00",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-00",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 24 days with 2820 min of goal work left; runner-up: revision-01"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 24 days with 2820 min of goal work left; runner-up: revision-01"
+        },
+        {
+          "taskId": "revision-01",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-01",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 24 days with 2760 min of goal work left; runner-up: revision-02"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 24 days with 2760 min of goal work left; runner-up: revision-02"
+        },
+        {
+          "taskId": "revision-02",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-02",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 23 days with 2700 min of goal work left; runner-up: revision-03"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 23 days with 2700 min of goal work left; runner-up: revision-03"
+        },
+        {
+          "taskId": "revision-03",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-03",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 23 days with 2640 min of goal work left; runner-up: revision-04"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 23 days with 2640 min of goal work left; runner-up: revision-04"
+        },
+        {
+          "taskId": "revision-04",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-04",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 22 days with 2580 min of goal work left; runner-up: revision-05"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 22 days with 2580 min of goal work left; runner-up: revision-05"
+        },
+        {
+          "taskId": "revision-05",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-05",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 22 days with 2520 min of goal work left; runner-up: revision-06"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 22 days with 2520 min of goal work left; runner-up: revision-06"
+        },
+        {
+          "taskId": "revision-06",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-06",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-12",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 21 days with 2460 min of goal work left; runner-up: revision-07"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 21 days with 2460 min of goal work left; runner-up: revision-07"
+        },
+        {
+          "taskId": "revision-07",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-07",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-12",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 21 days with 2400 min of goal work left; runner-up: revision-08"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 21 days with 2400 min of goal work left; runner-up: revision-08"
+        },
+        {
+          "taskId": "revision-08",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-08",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-13",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 20 days with 2340 min of goal work left; runner-up: revision-09"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 20 days with 2340 min of goal work left; runner-up: revision-09"
+        },
+        {
+          "taskId": "revision-09",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-09",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-13",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 20 days with 2280 min of goal work left; runner-up: revision-10"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 20 days with 2280 min of goal work left; runner-up: revision-10"
+        },
+        {
+          "taskId": "revision-10",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-10",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-14",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 19 days with 2220 min of goal work left; runner-up: revision-11"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 19 days with 2220 min of goal work left; runner-up: revision-11"
+        },
+        {
+          "taskId": "revision-11",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "revision-11",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-14",
+              "startMin": 540,
+              "endMin": 600,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 19 days with 2160 min of goal work left; runner-up: video-00"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 19 days with 2160 min of goal work left; runner-up: video-00"
+        },
+        {
+          "taskId": "video-00",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-00",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-15",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 18 days with 2100 min of goal work left; runner-up: video-01"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 18 days with 2100 min of goal work left; runner-up: video-01"
+        },
+        {
+          "taskId": "video-01",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-01",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-15",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 18 days with 2065 min of goal work left; runner-up: video-02"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 18 days with 2065 min of goal work left; runner-up: video-02"
+        },
+        {
+          "taskId": "video-02",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-02",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-15",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 18 days with 2030 min of goal work left; runner-up: video-03"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 18 days with 2030 min of goal work left; runner-up: video-03"
+        },
+        {
+          "taskId": "video-03",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-03",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-15",
+              "startMin": 585,
+              "endMin": 600,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 18 days with 1995 min of goal work left; runner-up: video-04"
+            },
+            {
+              "taskId": "video-03",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-16",
+              "startMin": 480,
+              "endMin": 500,
+              "minutes": 20,
+              "workMinutes": 20,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 17 days with 1980 min of goal work left; runner-up: video-04"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 18 days with 1995 min of goal work left; runner-up: video-04"
+        },
+        {
+          "taskId": "video-04",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-04",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-16",
+              "startMin": 500,
+              "endMin": 535,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 17 days with 1960 min of goal work left; runner-up: video-05"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 17 days with 1960 min of goal work left; runner-up: video-05"
+        },
+        {
+          "taskId": "video-05",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-05",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-16",
+              "startMin": 535,
+              "endMin": 570,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 17 days with 1925 min of goal work left; runner-up: video-06"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 17 days with 1925 min of goal work left; runner-up: video-06"
+        },
+        {
+          "taskId": "video-06",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-06",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-16",
+              "startMin": 570,
+              "endMin": 600,
+              "minutes": 30,
+              "workMinutes": 30,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 17 days with 1890 min of goal work left; runner-up: video-07"
+            },
+            {
+              "taskId": "video-06",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-17",
+              "startMin": 480,
+              "endMin": 485,
+              "minutes": 5,
+              "workMinutes": 5,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 16 days with 1860 min of goal work left; runner-up: video-07"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 17 days with 1890 min of goal work left; runner-up: video-07"
+        },
+        {
+          "taskId": "video-07",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-07",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-17",
+              "startMin": 485,
+              "endMin": 520,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 16 days with 1855 min of goal work left; runner-up: video-08"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 16 days with 1855 min of goal work left; runner-up: video-08"
+        },
+        {
+          "taskId": "video-08",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-08",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-17",
+              "startMin": 520,
+              "endMin": 555,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 16 days with 1820 min of goal work left; runner-up: video-09"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 16 days with 1820 min of goal work left; runner-up: video-09"
+        },
+        {
+          "taskId": "video-09",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-09",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-17",
+              "startMin": 555,
+              "endMin": 590,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 16 days with 1785 min of goal work left; runner-up: video-10"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 16 days with 1785 min of goal work left; runner-up: video-10"
+        },
+        {
+          "taskId": "video-10",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-10",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-18",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 15 days with 1750 min of goal work left; runner-up: video-11"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 15 days with 1750 min of goal work left; runner-up: video-11"
+        },
+        {
+          "taskId": "video-11",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-11",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-18",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 15 days with 1715 min of goal work left; runner-up: video-12"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 15 days with 1715 min of goal work left; runner-up: video-12"
+        },
+        {
+          "taskId": "video-12",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-12",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-18",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 15 days with 1680 min of goal work left; runner-up: video-13"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 15 days with 1680 min of goal work left; runner-up: video-13"
+        },
+        {
+          "taskId": "video-13",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-13",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-18",
+              "startMin": 585,
+              "endMin": 600,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 15 days with 1645 min of goal work left; runner-up: video-14"
+            },
+            {
+              "taskId": "video-13",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-19",
+              "startMin": 480,
+              "endMin": 500,
+              "minutes": 20,
+              "workMinutes": 20,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 14 days with 1630 min of goal work left; runner-up: video-14"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 15 days with 1645 min of goal work left; runner-up: video-14"
+        },
+        {
+          "taskId": "video-14",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-14",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-19",
+              "startMin": 500,
+              "endMin": 535,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 14 days with 1610 min of goal work left; runner-up: video-15"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 14 days with 1610 min of goal work left; runner-up: video-15"
+        },
+        {
+          "taskId": "video-15",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-15",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-19",
+              "startMin": 535,
+              "endMin": 570,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 14 days with 1575 min of goal work left; runner-up: video-16"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 14 days with 1575 min of goal work left; runner-up: video-16"
+        },
+        {
+          "taskId": "video-16",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-16",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-19",
+              "startMin": 570,
+              "endMin": 600,
+              "minutes": 30,
+              "workMinutes": 30,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 14 days with 1540 min of goal work left; runner-up: video-17"
+            },
+            {
+              "taskId": "video-16",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-20",
+              "startMin": 480,
+              "endMin": 485,
+              "minutes": 5,
+              "workMinutes": 5,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 13 days with 1510 min of goal work left; runner-up: video-17"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 14 days with 1540 min of goal work left; runner-up: video-17"
+        },
+        {
+          "taskId": "video-17",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-17",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-20",
+              "startMin": 485,
+              "endMin": 520,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 13 days with 1505 min of goal work left; runner-up: video-18"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 13 days with 1505 min of goal work left; runner-up: video-18"
+        },
+        {
+          "taskId": "video-18",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-18",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-20",
+              "startMin": 520,
+              "endMin": 555,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 13 days with 1470 min of goal work left; runner-up: video-19"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 13 days with 1470 min of goal work left; runner-up: video-19"
+        },
+        {
+          "taskId": "video-19",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-19",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-20",
+              "startMin": 555,
+              "endMin": 590,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 13 days with 1435 min of goal work left; runner-up: video-20"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 13 days with 1435 min of goal work left; runner-up: video-20"
+        },
+        {
+          "taskId": "video-20",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-20",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-21",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 12 days with 1400 min of goal work left; runner-up: video-21"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 12 days with 1400 min of goal work left; runner-up: video-21"
+        },
+        {
+          "taskId": "video-21",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-21",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-21",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 12 days with 1365 min of goal work left; runner-up: video-22"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 12 days with 1365 min of goal work left; runner-up: video-22"
+        },
+        {
+          "taskId": "video-22",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-22",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-21",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 12 days with 1330 min of goal work left; runner-up: video-23"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 12 days with 1330 min of goal work left; runner-up: video-23"
+        },
+        {
+          "taskId": "video-23",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-23",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-21",
+              "startMin": 585,
+              "endMin": 600,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 12 days with 1295 min of goal work left; runner-up: video-24"
+            },
+            {
+              "taskId": "video-23",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-22",
+              "startMin": 480,
+              "endMin": 500,
+              "minutes": 20,
+              "workMinutes": 20,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 11 days with 1280 min of goal work left; runner-up: video-24"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 12 days with 1295 min of goal work left; runner-up: video-24"
+        },
+        {
+          "taskId": "video-24",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-24",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-22",
+              "startMin": 500,
+              "endMin": 535,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 11 days with 1260 min of goal work left; runner-up: video-25"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 11 days with 1260 min of goal work left; runner-up: video-25"
+        },
+        {
+          "taskId": "video-25",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-25",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-22",
+              "startMin": 535,
+              "endMin": 570,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 11 days with 1225 min of goal work left; runner-up: video-26"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 11 days with 1225 min of goal work left; runner-up: video-26"
+        },
+        {
+          "taskId": "video-26",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-26",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-22",
+              "startMin": 570,
+              "endMin": 600,
+              "minutes": 30,
+              "workMinutes": 30,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 11 days with 1190 min of goal work left; runner-up: video-27"
+            },
+            {
+              "taskId": "video-26",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-23",
+              "startMin": 480,
+              "endMin": 485,
+              "minutes": 5,
+              "workMinutes": 5,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 10 days with 1160 min of goal work left; runner-up: video-27"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 11 days with 1190 min of goal work left; runner-up: video-27"
+        },
+        {
+          "taskId": "video-27",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-27",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-23",
+              "startMin": 485,
+              "endMin": 520,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 10 days with 1155 min of goal work left; runner-up: video-28"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 10 days with 1155 min of goal work left; runner-up: video-28"
+        },
+        {
+          "taskId": "video-28",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-28",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-23",
+              "startMin": 520,
+              "endMin": 555,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 10 days with 1120 min of goal work left; runner-up: video-29"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 10 days with 1120 min of goal work left; runner-up: video-29"
+        },
+        {
+          "taskId": "video-29",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-29",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-23",
+              "startMin": 555,
+              "endMin": 590,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 10 days with 1085 min of goal work left; runner-up: video-30"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 10 days with 1085 min of goal work left; runner-up: video-30"
+        },
+        {
+          "taskId": "video-30",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-30",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-24",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 9 days with 1050 min of goal work left; runner-up: video-31"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 9 days with 1050 min of goal work left; runner-up: video-31"
+        },
+        {
+          "taskId": "video-31",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-31",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-24",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 9 days with 1015 min of goal work left; runner-up: video-32"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 9 days with 1015 min of goal work left; runner-up: video-32"
+        },
+        {
+          "taskId": "video-32",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-32",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-24",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 9 days with 980 min of goal work left; runner-up: video-33"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 9 days with 980 min of goal work left; runner-up: video-33"
+        },
+        {
+          "taskId": "video-33",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-33",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-25",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 8 days with 945 min of goal work left; runner-up: video-34"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 8 days with 945 min of goal work left; runner-up: video-34"
+        },
+        {
+          "taskId": "video-34",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-34",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-25",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 8 days with 910 min of goal work left; runner-up: video-35"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 8 days with 910 min of goal work left; runner-up: video-35"
+        },
+        {
+          "taskId": "video-35",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-35",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-25",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 8 days with 875 min of goal work left; runner-up: video-36"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 8 days with 875 min of goal work left; runner-up: video-36"
+        },
+        {
+          "taskId": "video-36",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-36",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-26",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 7 days with 840 min of goal work left; runner-up: video-37"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 7 days with 840 min of goal work left; runner-up: video-37"
+        },
+        {
+          "taskId": "video-37",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-37",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-26",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 7 days with 805 min of goal work left; runner-up: video-38"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 7 days with 805 min of goal work left; runner-up: video-38"
+        },
+        {
+          "taskId": "video-38",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-38",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-26",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 7 days with 770 min of goal work left; runner-up: video-39"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 7 days with 770 min of goal work left; runner-up: video-39"
+        },
+        {
+          "taskId": "video-39",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-39",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-27",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 6 days with 735 min of goal work left; runner-up: video-40"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 6 days with 735 min of goal work left; runner-up: video-40"
+        },
+        {
+          "taskId": "video-40",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-40",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-27",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 6 days with 700 min of goal work left; runner-up: video-41"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 6 days with 700 min of goal work left; runner-up: video-41"
+        },
+        {
+          "taskId": "video-41",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-41",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-27",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 6 days with 665 min of goal work left; runner-up: video-42"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 6 days with 665 min of goal work left; runner-up: video-42"
+        },
+        {
+          "taskId": "video-42",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-42",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-28",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 5 days with 630 min of goal work left; runner-up: video-43"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 5 days with 630 min of goal work left; runner-up: video-43"
+        },
+        {
+          "taskId": "video-43",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-43",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-28",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 5 days with 595 min of goal work left; runner-up: video-44"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 5 days with 595 min of goal work left; runner-up: video-44"
+        },
+        {
+          "taskId": "video-44",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-44",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-28",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 5 days with 560 min of goal work left; runner-up: video-45"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 5 days with 560 min of goal work left; runner-up: video-45"
+        },
+        {
+          "taskId": "video-45",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-45",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-29",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 4 days with 525 min of goal work left; runner-up: video-46"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 4 days with 525 min of goal work left; runner-up: video-46"
+        },
+        {
+          "taskId": "video-46",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-46",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-29",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 4 days with 490 min of goal work left; runner-up: video-47"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 4 days with 490 min of goal work left; runner-up: video-47"
+        },
+        {
+          "taskId": "video-47",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-47",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-29",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 4 days with 455 min of goal work left; runner-up: video-48"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 4 days with 455 min of goal work left; runner-up: video-48"
+        },
+        {
+          "taskId": "video-48",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-48",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-30",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 3 days with 420 min of goal work left; runner-up: video-49"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 3 days with 420 min of goal work left; runner-up: video-49"
+        },
+        {
+          "taskId": "video-49",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-49",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-30",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 3 days with 385 min of goal work left; runner-up: video-50"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 3 days with 385 min of goal work left; runner-up: video-50"
+        },
+        {
+          "taskId": "video-50",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-50",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-30",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 3 days with 350 min of goal work left; runner-up: video-51"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 3 days with 350 min of goal work left; runner-up: video-51"
+        },
+        {
+          "taskId": "video-51",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-51",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-01",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 315 min of goal work left; runner-up: video-52"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 315 min of goal work left; runner-up: video-52"
+        },
+        {
+          "taskId": "video-52",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-52",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-01",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 280 min of goal work left; runner-up: video-53"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 280 min of goal work left; runner-up: video-53"
+        },
+        {
+          "taskId": "video-53",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-53",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-01",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 245 min of goal work left; runner-up: video-54"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 245 min of goal work left; runner-up: video-54"
+        },
+        {
+          "taskId": "video-54",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-54",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-02",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 210 min of goal work left; runner-up: video-55"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 1 days with 210 min of goal work left; runner-up: video-55"
+        },
+        {
+          "taskId": "video-55",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-55",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-02",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 175 min of goal work left; runner-up: video-56"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 1 days with 175 min of goal work left; runner-up: video-56"
+        },
+        {
+          "taskId": "video-56",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-56",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-02",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 140 min of goal work left; runner-up: video-57"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 1 days with 140 min of goal work left; runner-up: video-57"
+        },
+        {
+          "taskId": "video-57",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-57",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-03",
+              "startMin": 480,
+              "endMin": 515,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 105 min of goal work left; runner-up: video-58"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 0 days with 105 min of goal work left; runner-up: video-58"
+        },
+        {
+          "taskId": "video-58",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-58",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-03",
+              "startMin": 515,
+              "endMin": 550,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 70 min of goal work left; runner-up: video-59"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 0 days with 70 min of goal work left; runner-up: video-59"
+        },
+        {
+          "taskId": "video-59",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "video-59",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-12-03",
+              "startMin": 550,
+              "endMin": 585,
+              "minutes": 35,
+              "workMinutes": 35,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 35 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 0 days with 35 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 4
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 2820,
+      "availableMin": 3000,
+      "shortfallMin": 0,
+      "requiredPerDay": 112.8,
+      "eligibleDays": 25,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: dependency-chain 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 30,
+        "remainingMinutes": 30,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "b",
+        "goalId": "ga",
+        "estMinutes": 30,
+        "remainingMinutes": 30,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    },
+    "dependencies": [
+      {
+        "taskId": "b",
+        "dependsOnTaskId": "a"
+      }
+    ]
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 510,
+        "minutes": 30,
+        "workMinutes": 30,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 60 min of goal work left"
+      },
+      {
+        "taskId": "b",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 495,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 30 min of goal work left"
+      },
+      {
+        "taskId": "b",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 495,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 15 min of goal work left"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 510,
+              "minutes": 30,
+              "workMinutes": 30,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 60 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 60 min of goal work left"
+        },
+        {
+          "taskId": "b",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "b",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 495,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 30 min of goal work left"
+            },
+            {
+              "taskId": "b",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 495,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 15 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 1 days with 30 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 2
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 60,
+      "availableMin": 360,
+      "shortfallMin": 0,
+      "requiredPerDay": 20,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: freeze-window-proposal 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "title": "Read the course",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    },
+    "frozen": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Accepted placement",
+        "pinned": true
+      }
+    ],
+    "previous": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Accepted placement",
+        "pinned": true
+      }
+    ]
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Accepted placement",
+        "pinned": true
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 540,
+        "endMin": 585,
+        "minutes": 45,
+        "workMinutes": 45,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 120 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 525,
+        "minutes": 45,
+        "workMinutes": 45,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 75 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 510,
+        "minutes": 30,
+        "workMinutes": 30,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 30 min of goal work left"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "moved",
+          "before": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Accepted placement",
+              "pinned": true
+            }
+          ],
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Accepted placement",
+              "pinned": true
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 540,
+              "endMin": 585,
+              "minutes": 45,
+              "workMinutes": 45,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 120 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 525,
+              "minutes": 45,
+              "workMinutes": 45,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 75 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 510,
+              "minutes": 30,
+              "workMinutes": 30,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 30 min of goal work left"
+            }
+          ],
+          "reason": "Accepted placement"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 360,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: infeasible-deadline 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 1,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 600,
+        "remainingMinutes": 600,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 600,
+        "minutes": 120,
+        "workMinutes": 120,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 600 min of goal work left"
+      }
+    ],
+    "unplaced": [
+      {
+        "taskId": "a",
+        "code": "NO_CAPACITY",
+        "reason": "There is not enough eligible time within the configured capacity. Move a commitment, extend the date or reduce scope.",
+        "remainingMinutes": 480
+      }
+    ],
+    "warnings": [
+      {
+        "goalId": "ga",
+        "code": "INFEASIBLE_DEADLINE",
+        "message": "ga needs 600 min, with 120 min available after the buffer; short by 480 min.",
+        "shortfallMin": 480
+      }
+    ],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 600,
+              "minutes": 120,
+              "workMinutes": 120,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 600 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 600 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 600,
+      "availableMin": 120,
+      "shortfallMin": 480,
+      "requiredPerDay": 600,
+      "eligibleDays": 1,
+      "feasible": false
+    }
+  ]
+}"
+`;
+
+exports[`golden: missed-day-partial 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 60,
+        "remainingMinutes": 20,
+        "status": "partial",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 495,
+        "minutes": 15,
+        "workMinutes": 15,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 20 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 485,
+        "minutes": 5,
+        "workMinutes": 5,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 5 min of goal work left"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 495,
+              "minutes": 15,
+              "workMinutes": 15,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 20 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 485,
+              "minutes": 5,
+              "workMinutes": 5,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 5 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 20 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 20,
+      "availableMin": 360,
+      "shortfallMin": 0,
+      "requiredPerDay": 6.666667,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: priority-mixed 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "b",
+        "goalId": "gb",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "priority": 1,
+        "usePriority": "off"
+      },
+      {
+        "id": "gb",
+        "skillId": "sb",
+        "priority": 5,
+        "usePriority": "on"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      },
+      {
+        "id": "sb"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0.525,
+        "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.35)"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0.3,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0.457857,
+        "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.305238)"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0.255238,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 516,
+        "minutes": 36,
+        "workMinutes": 36,
+        "score": 0.390714,
+        "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.260476)"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 516,
+        "endMin": 600,
+        "minutes": 84,
+        "workMinutes": 84,
+        "score": 0.210476,
+        "explanation": "Open time within your capacity; your manual order"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0.3,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0.255238,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 516,
+              "endMin": 600,
+              "minutes": 84,
+              "workMinutes": 84,
+              "score": 0.210476,
+              "explanation": "Open time within your capacity; your manual order"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order"
+        },
+        {
+          "taskId": "b",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0.525,
+              "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.35)"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0.457857,
+              "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.305238)"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 516,
+              "minutes": 36,
+              "workMinutes": 36,
+              "score": 0.390714,
+              "explanation": "Open time within your capacity; your manual order; runner-up: a (score 0.260476)"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order; runner-up: a (score 0.35)"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 2
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 216,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    },
+    {
+      "goalId": "gb",
+      "remainingMin": 180,
+      "availableMin": 216,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: priority-off 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "b",
+        "goalId": "gb",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "priority": 1
+      },
+      {
+        "id": "gb",
+        "skillId": "sb",
+        "priority": 5
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      },
+      {
+        "id": "sb"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-09",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-10",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 516,
+        "minutes": 36,
+        "workMinutes": 36,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-11",
+        "startMin": 516,
+        "endMin": 600,
+        "minutes": 84,
+        "workMinutes": 84,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 516,
+              "minutes": 36,
+              "workMinutes": 36,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order; runner-up: b"
+        },
+        {
+          "taskId": "b",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-09",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-10",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-11",
+              "startMin": 516,
+              "endMin": 600,
+              "minutes": 84,
+              "workMinutes": 84,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 2
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 216,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    },
+    {
+      "goalId": "gb",
+      "remainingMin": 180,
+      "availableMin": 216,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: reserved-window-fill 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 1,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "title": "Read the course",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 540
+        },
+        {
+          "date": "2026-11-09",
+          "startMin": 1080,
+          "endMin": 1140,
+          "skillId": "sa"
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 120 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 1080,
+        "endMin": 1140,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Reserved time for sa; deadline in 2 days with 180 min of goal work left"
+      }
+    ],
+    "unplaced": [
+      {
+        "taskId": "a",
+        "code": "NO_CAPACITY",
+        "reason": "There is not enough eligible time within the configured capacity. Move a commitment, extend the date or reduce scope.",
+        "remainingMinutes": 60
+      }
+    ],
+    "warnings": [
+      {
+        "goalId": "ga",
+        "code": "INFEASIBLE_DEADLINE",
+        "message": "ga needs 180 min, with 120 min available after the buffer; short by 60 min.",
+        "shortfallMin": 60
+      }
+    ],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 120 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 1080,
+              "endMin": 1140,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Reserved time for sa; deadline in 2 days with 180 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 120 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 120,
+      "shortfallMin": 60,
+      "requiredPerDay": 180,
+      "eligibleDays": 1,
+      "feasible": false
+    }
+  ]
+}"
+`;
+
+exports[`golden: single-goal-on-track 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 180,
+        "remainingMinutes": 180,
+        "status": "pending",
+        "title": "Read the course",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa",
+        "dueDate": "2026-11-11"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 1 days with 120 min of goal work left"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 540,
+        "minutes": 60,
+        "workMinutes": 60,
+        "score": 0,
+        "explanation": "Open time within your capacity; deadline in 0 days with 60 min of goal work left"
+      }
+    ],
+    "unplaced": [],
+    "warnings": [],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 1 days with 120 min of goal work left"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 540,
+              "minutes": 60,
+              "workMinutes": 60,
+              "score": 0,
+              "explanation": "Open time within your capacity; deadline in 0 days with 60 min of goal work left"
+            }
+          ],
+          "reason": "Open time within your capacity; deadline in 2 days with 180 min of goal work left"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 1
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 180,
+      "availableMin": 360,
+      "shortfallMin": 0,
+      "requiredPerDay": 60,
+      "eligibleDays": 3,
+      "feasible": true
+    }
+  ]
+}"
+`;
+
+exports[`golden: two-skills-contention 1`] = `
+"{
+  "input": {
+    "today": "2026-11-09",
+    "horizonDays": 3,
+    "mode": "directed",
+    "tasks": [
+      {
+        "id": "a",
+        "goalId": "ga",
+        "estMinutes": 300,
+        "remainingMinutes": 300,
+        "status": "pending",
+        "supportsSplit": true
+      },
+      {
+        "id": "b",
+        "goalId": "gb",
+        "estMinutes": 300,
+        "remainingMinutes": 300,
+        "status": "pending",
+        "supportsSplit": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "ga",
+        "skillId": "sa"
+      },
+      {
+        "id": "gb",
+        "skillId": "sb"
+      }
+    ],
+    "skills": [
+      {
+        "id": "sa"
+      },
+      {
+        "id": "sb"
+      }
+    ],
+    "freeSlots": {
+      "2026-11-09": [
+        {
+          "date": "2026-11-09",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-10": [
+        {
+          "date": "2026-11-10",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ],
+      "2026-11-11": [
+        {
+          "date": "2026-11-11",
+          "startMin": 480,
+          "endMin": 600
+        }
+      ]
+    },
+    "config": {
+      "minBreak": 0,
+      "maxDailyMin": 120,
+      "maxWeeklyMin": 840,
+      "buffer": 0
+    }
+  },
+  "result": {
+    "items": [
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-09",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-09",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-10",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-10",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      },
+      {
+        "taskId": "a",
+        "goalId": "ga",
+        "skillId": "sa",
+        "date": "2026-11-11",
+        "startMin": 480,
+        "endMin": 552,
+        "minutes": 72,
+        "workMinutes": 72,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order; runner-up: b"
+      },
+      {
+        "taskId": "b",
+        "goalId": "gb",
+        "skillId": "sb",
+        "date": "2026-11-11",
+        "startMin": 552,
+        "endMin": 600,
+        "minutes": 48,
+        "workMinutes": 48,
+        "score": 0,
+        "explanation": "Open time within your capacity; your manual order"
+      }
+    ],
+    "unplaced": [
+      {
+        "taskId": "a",
+        "code": "NO_CAPACITY",
+        "reason": "There is not enough eligible time within the configured capacity. Move a commitment, extend the date or reduce scope.",
+        "remainingMinutes": 84
+      },
+      {
+        "taskId": "b",
+        "code": "NO_CAPACITY",
+        "reason": "There is not enough eligible time within the configured capacity. Move a commitment, extend the date or reduce scope.",
+        "remainingMinutes": 156
+      }
+    ],
+    "warnings": [
+      {
+        "goalId": "ga",
+        "code": "INFEASIBLE_DEADLINE",
+        "message": "ga needs 300 min, with 216 min available after the buffer; short by 84 min.",
+        "shortfallMin": 84
+      },
+      {
+        "goalId": "gb",
+        "code": "INFEASIBLE_DEADLINE",
+        "message": "gb needs 300 min, with 216 min available after the buffer; short by 84 min.",
+        "shortfallMin": 84
+      }
+    ],
+    "changes": {
+      "changes": [
+        {
+          "taskId": "a",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-09",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-10",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            },
+            {
+              "taskId": "a",
+              "goalId": "ga",
+              "skillId": "sa",
+              "date": "2026-11-11",
+              "startMin": 480,
+              "endMin": 552,
+              "minutes": 72,
+              "workMinutes": 72,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order; runner-up: b"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order; runner-up: b"
+        },
+        {
+          "taskId": "b",
+          "kind": "added",
+          "after": [
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-09",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-10",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            },
+            {
+              "taskId": "b",
+              "goalId": "gb",
+              "skillId": "sb",
+              "date": "2026-11-11",
+              "startMin": 552,
+              "endMin": 600,
+              "minutes": 48,
+              "workMinutes": 48,
+              "score": 0,
+              "explanation": "Open time within your capacity; your manual order"
+            }
+          ],
+          "reason": "Open time within your capacity; your manual order"
+        }
+      ],
+      "requiresApproval": true,
+      "frozenChangeCount": 2
+    },
+    "algoVersion": "greedy-v1"
+  },
+  "feasibility": [
+    {
+      "goalId": "ga",
+      "remainingMin": 300,
+      "availableMin": 216,
+      "shortfallMin": 84,
+      "requiredPerDay": 100,
+      "eligibleDays": 3,
+      "feasible": false
+    },
+    {
+      "goalId": "gb",
+      "remainingMin": 300,
+      "availableMin": 216,
+      "shortfallMin": 84,
+      "requiredPerDay": 100,
+      "eligibleDays": 3,
+      "feasible": false
+    }
+  ]
+}"
+`;
