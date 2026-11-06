@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { db } from '../../api/src/db';
 import { config } from '../../api/src/config';
 import { newId, json } from '../../api/src/repository';
-import { DISPATCH_QUEUE, MATERIALIZE_QUEUE } from '../../api/src/jobs';
+import { DISPATCH_QUEUE, MATERIALIZE_QUEUE, OCCURRENCE_QUEUE } from '../../api/src/jobs';
 import { dispatchNotifications, refreshReminders } from '../../api/src/modules/notifications/service';
 import { settingsSchema } from '@kram/shared';
 import { studyDate } from '@kram/time';
@@ -38,16 +38,18 @@ export async function reconcileDomainJobs(boss: PgBoss, now = new Date()) {
   const settings = settingsSchema.parse(owner.settings);
   if (settings.timezone !== scheduledZone) { await boss.schedule(SCHEDULE_QUEUE, '0 3 * * *', {}, { tz: settings.timezone }); scheduledZone = settings.timezone; }
   const today = studyDate(now.getTime(), settings.timezone, settings.dayRollover);
-  const last = await db.jobRun.findFirst({ where: { jobName: MATERIALIZE_QUEUE, userId: owner.id }, orderBy: { periodKey: 'desc' } });
-  const lastDate = last?.periodKey.split(':').at(-1);
-  for (const date of missingMaterializationDates(today, lastDate)) {
-    const periodKey = `${owner.id}:${date}`;
-    await boss.send(MATERIALIZE_QUEUE, { userId: owner.id, date, periodKey }, { singletonKey: periodKey, retryLimit: 3, retryDelay: 30, retryBackoff: true });
+  for (const name of [MATERIALIZE_QUEUE, OCCURRENCE_QUEUE]) {
+    const last = await db.jobRun.findFirst({ where: { jobName: name, userId: owner.id }, orderBy: { periodKey: 'desc' } });
+    const lastDate = last?.periodKey.split(':').at(-1);
+    for (const date of missingMaterializationDates(today, lastDate)) {
+      const periodKey = `${owner.id}:${date}`;
+      await boss.send(name, { userId: owner.id, date, periodKey }, { singletonKey: periodKey, retryLimit: 3, retryDelay: 30, retryBackoff: true });
+    }
   }
 }
 
 export async function registerDomainJobs(boss: PgBoss) {
-  for (const name of [DISPATCH_QUEUE, MATERIALIZE_QUEUE, SCHEDULE_QUEUE]) await boss.createQueue(name, { name, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, expireInSeconds: 600 });
+  for (const name of [DISPATCH_QUEUE, MATERIALIZE_QUEUE, OCCURRENCE_QUEUE, SCHEDULE_QUEUE]) await boss.createQueue(name, { name, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, expireInSeconds: 600 });
   await boss.work<{ periodKey?: string }>(DISPATCH_QUEUE, { includeMetadata: true }, async jobs => {
     for (const job of jobs) await runDurableJob(DISPATCH_QUEUE, job.data.periodKey ?? job.createdOn.toISOString().slice(0, 16), null, () => dispatchNotifications());
   });
@@ -58,6 +60,12 @@ export async function registerDomainJobs(boss: PgBoss) {
     });
   });
   await boss.work(SCHEDULE_QUEUE, async () => { await reconcileDomainJobs(boss); });
+  await boss.work<{ userId: string; date: string; periodKey: string }>(OCCURRENCE_QUEUE, async jobs => {
+    for (const job of jobs) await runDurableJob(OCCURRENCE_QUEUE, job.data.periodKey, job.data.userId, async () => {
+      const { materializeOccurrences } = await import('../../api/src/modules/recurrence/service');
+      await materializeOccurrences(job.data.userId, job.data.date);
+    });
+  });
   await boss.schedule(DISPATCH_QUEUE, '* * * * *', {}, { tz: 'UTC' });
   await reconcileDomainJobs(boss);
   await boss.send(DISPATCH_QUEUE, { periodKey: new Date().toISOString().slice(0, 16) });

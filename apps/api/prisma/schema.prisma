@@ -40,6 +40,12 @@ model User {
   notifications Notification[]
   notificationAttempts NotificationAttempt[]
   jobRuns JobRun[]
+  recurrenceSeries RecurrenceSeries[]
+  recurrenceExceptions RecurrenceException[]
+  occurrences Occurrence[]
+  holidays Holiday[]
+  scheduleTemplates ScheduleTemplate[]
+  templateApplications TemplateApplication[]
   @@map("app_user")
 }
 
@@ -57,6 +63,7 @@ model Profile {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   skills Skill[]
   timeSlots TimeSlot[]
+  recurrenceSeries RecurrenceSeries[]
   @@unique([id,userId])
   @@index([userId,sortOrder,id])
   @@map("profile")
@@ -84,6 +91,7 @@ model Skill {
   goals Goal[]
   resources Resource[]
   timeSlots TimeSlot[]
+  recurrenceSeries RecurrenceSeries[]
   @@unique([id,userId])
   @@index([userId,profileId,sortOrder,id])
   @@map("skill")
@@ -121,6 +129,7 @@ model Goal {
   progressEvents ProgressEvent[]
   progressCache GoalProgressCache?
   timeSlots TimeSlot[]
+  recurrenceSeries RecurrenceSeries[]
   @@unique([id,userId])
   @@index([userId,skillId,status,sortOrder,id])
   @@map("goal")
@@ -138,6 +147,7 @@ model GoalRuleVersion {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @default(now()) @db.Timestamptz(3)
   progressEvents ProgressEvent[]
+  recurrenceSeries RecurrenceSeries[]
   @@unique([id,userId])
   @@unique([goalId,version])
   @@index([userId,goalId,effectiveFrom,version])
@@ -265,6 +275,8 @@ model Task {
   dependencies TaskDependency[] @relation("TaskDepends")
   dependants TaskDependency[] @relation("TaskRequired")
   notifications Notification[]
+  occurrenceId String? @db.Uuid
+  occurrence Occurrence? @relation(fields:[occurrenceId,userId],references:[id,userId],onDelete:Restrict)
   @@unique([id,userId])
   @@unique([goalId,itemId,periodKey])
   @@index([userId,goalId,status,dueDate])
@@ -357,11 +369,16 @@ model TimeSlot {
   pinned Boolean @default(false)
   version Int @default(1)
   templateId String? @db.Uuid
+  template ScheduleTemplate? @relation(fields:[templateId,userId],references:[id,userId],onDelete:Restrict)
+  applicationKey String? @unique
+  occurrenceId String? @unique @db.Uuid
+  occurrence Occurrence? @relation(fields:[occurrenceId,userId],references:[id,userId],onDelete:Restrict)
   archivedAt DateTime? @db.Timestamptz(3)
   isDemo Boolean @default(false)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   @@unique([id,userId])
+  @@unique([occurrenceId,userId])
   @@index([userId,date,layer,startMin])
   @@map("time_slot")
 }
@@ -481,4 +498,126 @@ model Session {
   expire DateTime @db.Timestamptz(6)
   @@index([expire])
   @@map("session")
+}
+
+model RecurrenceSeries {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  goalId String? @db.Uuid
+  goal Goal? @relation(fields:[goalId,userId],references:[id,userId],onDelete:Restrict)
+  skillId String? @db.Uuid
+  skill Skill? @relation(fields:[skillId,userId],references:[id,userId],onDelete:Restrict)
+  profileId String? @db.Uuid
+  profile Profile? @relation(fields:[profileId,userId],references:[id,userId],onDelete:Restrict)
+  ruleVersionId String? @unique @db.Uuid
+  ruleVersion GoalRuleVersion? @relation(fields:[ruleVersionId,userId],references:[id,userId],onDelete:Restrict)
+  kind String @default("fixed")
+  title String
+  rrule String
+  dtstartLocal DateTime @db.Date
+  effectiveFrom DateTime @db.Date
+  tz String
+  until DateTime? @db.Date
+  status String @default("active")
+  startMin Int?
+  estMinutes Int @default(30)
+  qty Float @default(1)
+  unit String @default("minutes")
+  layer String @default("fixed")
+  pausedRanges Json @default("[]")
+  version Int @default(1)
+  archivedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  exceptions RecurrenceException[]
+  occurrences Occurrence[]
+  @@unique([id,userId])
+  @@index([userId,goalId,effectiveFrom])
+  @@map("recurrence_series")
+}
+
+model RecurrenceException {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  seriesId String @db.Uuid
+  series RecurrenceSeries @relation(fields:[seriesId,userId],references:[id,userId],onDelete:Restrict)
+  date DateTime @db.Date
+  kind String
+  override Json @default("{}")
+  toDate DateTime? @db.Date
+  toStartMin Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([seriesId,date])
+  @@map("recurrence_exception")
+}
+
+model Occurrence {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  seriesId String @db.Uuid
+  series RecurrenceSeries @relation(fields:[seriesId,userId],references:[id,userId],onDelete:Restrict)
+  originalDate DateTime @db.Date
+  localDate DateTime @db.Date
+  fields Json
+  sourceHash String
+  status String @default("scheduled")
+  conflict Json?
+  manualOverride Boolean @default(false)
+  adjusted Boolean @default(false)
+  ambiguous Boolean @default(false)
+  moved Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  tasks Task[]
+  slot TimeSlot?
+  @@unique([id,userId])
+  @@unique([seriesId,originalDate])
+  @@index([userId,localDate,status])
+  @@map("occurrence")
+}
+
+model Holiday {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  date DateTime @db.Date
+  title String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([userId,date])
+  @@map("holiday")
+}
+
+model ScheduleTemplate {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  name String
+  kind String @default("week")
+  entries Json
+  version Int @default(1)
+  archivedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  slots TimeSlot[]
+  applications TemplateApplication[]
+  @@unique([id,userId])
+  @@map("schedule_template")
+}
+
+model TemplateApplication {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  templateId String? @db.Uuid
+  template ScheduleTemplate? @relation(fields:[templateId,userId],references:[id,userId],onDelete:Restrict)
+  key String @unique
+  anchor DateTime @db.Date
+  snapshot Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@map("template_application")
 }

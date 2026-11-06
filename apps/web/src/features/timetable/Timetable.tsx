@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -25,7 +25,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { slotSchema, type Task, type TimeSlot } from "@kram/shared";
+import { slotSchema, type Task, type TimeSlot, type Occurrence } from "@kram/shared";
 import type { z } from "zod";
 import {
   Banner,
@@ -38,6 +38,7 @@ import {
   IconButton,
   PageHeader,
   Sheet,
+  Segments,
 } from "../../components/ui/kit";
 import { api, apiList, ApiIssue, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
@@ -52,16 +53,11 @@ import {
 } from "../../shared/format";
 import { useUI } from "../../shared/ui";
 
+import { CalendarRange, calendarWindow, occurrenceLink, RecurringWork, layerLabels, type CalendarView } from "./CalendarViews";
+
 const pixelsPerMinute = 176 / 60;
 const timelineSize = (minutes: number) =>
   `${(minutes * pixelsPerMinute) / 16}rem`;
-const layerLabels = {
-  unavailable: "Unavailable",
-  fixed: "Fixed",
-  pinned: "Pinned",
-  reserved: "Reserved",
-  flexible: "Flexible",
-};
 type SlotDraft = {
   slot?: TimeSlot;
   startMin?: number;
@@ -104,22 +100,36 @@ function ConflictingBlocks({ error }: { error: unknown }) {
 
 export function Timetable() {
   const data = useData();
+  const navigate = useNavigate();
   const online = useOnline();
   const refresh = useRefresh();
   const { toast } = useUI();
   const [params, setParams] = useSearchParams();
   const now = useWallClock(60000);
   const [date, setDate] = useState(params.get("date") || data.studyDate);
+  const [view, setView] = useState<CalendarView>((['day', 'week', 'month', 'agenda'].includes(params.get('view') || '') ? params.get('view') : 'day') as CalendarView);
+  const [profileFilter, setProfileFilter] = useState('all'), [skillFilter, setSkillFilter] = useState('all'), [goalFilter, setGoalFilter] = useState('all');
+  const range = calendarWindow(date, view, data.user.settings.weekStart);
+  const matches = (item: { profileId?: string | null; skillId?: string | null; goalId?: string | null }) => {
+    const goal = data.goals.find(goal => goal.id === item.goalId), skillId = item.skillId || goal?.skillId, skill = data.skills.find(skill => skill.id === skillId), profileId = item.profileId || skill?.profileId;
+    return (profileFilter === 'all' || profileId === profileFilter) && (skillFilter === 'all' || skillId === skillFilter) && (goalFilter === 'all' || item.goalId === goalFilter);
+  };
+  const stepDate = (value: string, direction: number) => view === 'month' ? DateTime.fromISO(value, { zone: 'UTC' }).plus({ months: direction }).toISODate()! : addDays(value, direction * (view === 'day' ? 1 : view === 'week' ? 7 : 21));
   const [editor, setEditor] = useState<SlotDraft | null>(null);
   const [remove, setRemove] = useState<TimeSlot | null>(null);
   const [lastAttempt, setLastAttempt] = useState<TimeSlot | null>(null);
   const [editorConflicts, setEditorConflicts] = useState<string[]>([]);
   const slots = useQuery({
-    queryKey: ["timetable", "day", date],
+    queryKey: ["timetable", view, range.from, range.to],
     queryFn: ({ signal }) =>
-      apiList<TimeSlot>(`/timetable/day/${date}`, signal),
+      apiList<TimeSlot>(`/timetable/global?from=${range.from}&to=${range.to}`, signal),
     refetchInterval: 15000,
   });
+  const occurrences = useQuery({ queryKey: ['recurrence', 'calendar', range.from, range.to], queryFn: ({ signal }) => apiList<Occurrence>(`/recurrence/occurrences?from=${range.from}&to=${range.to}`, signal), refetchInterval: 15000 });
+  const free = useQuery({ queryKey: ['timetable', 'free', date], queryFn: () => apiList<{ startMin: number; endMin: number; skillId?: string }>(`/timetable/free/${date}`), enabled: view === 'day' });
+  const visibleOccurrences = (occurrences.data || []).filter(item => matches(item.series));
+  const blocked = visibleOccurrences.filter(item => item.status === 'conflict');
+  const editSlot = (slot: TimeSlot) => slot.virtual ? navigate(occurrenceLink(slot)) : setEditor({ slot });
   useEffect(() => {
     if (params.has("add") || params.has("taskId")) {
       setEditor({
@@ -149,7 +159,7 @@ export function Timetable() {
         return;
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        setDate((value) => addDays(value, event.key === "ArrowLeft" ? -1 : 1));
+        setDate((value) => stepDate(value, event.key === "ArrowLeft" ? -1 : 1));
       }
       if (event.key.toLowerCase() === "t") {
         event.preventDefault();
@@ -158,8 +168,8 @@ export function Timetable() {
     };
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
-  }, [data.studyDate]);
-  const ordered = [...(slots.data || [])].sort(
+  }, [data.studyDate, view]);
+  const ordered = [...(slots.data || []).filter(matches)].sort(
     (a, b) => a.startMin - b.startMin || a.id.localeCompare(b.id),
   );
   const start =
@@ -215,7 +225,7 @@ export function Timetable() {
   );
   const onDragEnd = (event: DragEndEvent) => {
     const slot = ordered.find((slot) => slot.id === event.active.id);
-    if (!slot || !online) return;
+    if (!slot || !online || slot.virtual) return;
     const length = slot.endMin - slot.startMin;
     const startMin = Math.max(
       0,
@@ -245,7 +255,7 @@ export function Timetable() {
     <>
       <PageHeader
         title="A little space for your day"
-        eyebrow="Plan · day timetable"
+        eyebrow={`Plan · ${view} timetable`}
         description="Give tasks a time, keep fixed commitments in place, and leave room between them."
         action={
           <Button
@@ -258,10 +268,16 @@ export function Timetable() {
           </Button>
         }
       />
+      <div className="row between wrap calendar-toolbar"><Segments label="Timetable view" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]} /><Link className="button" to="/schedules">Schedules and templates</Link></div>
+      <div className="calendar-filters">
+        <Field id="plan-profile" label="Profile filter"><select className="input" id="plan-profile" value={profileFilter} onChange={event => { setProfileFilter(event.target.value); setSkillFilter('all'); setGoalFilter('all'); }}><option value="all">All profiles</option>{data.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></Field>
+        <Field id="plan-skill" label="Skill filter"><select className="input" id="plan-skill" value={skillFilter} onChange={event => { setSkillFilter(event.target.value); setGoalFilter('all'); }}><option value="all">All skills</option>{data.skills.filter(skill => profileFilter === 'all' || skill.profileId === profileFilter).map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
+        <Field id="plan-goal" label="Goal filter"><select className="input" id="plan-goal" value={goalFilter} onChange={event => setGoalFilter(event.target.value)}><option value="all">All goals</option>{data.goals.filter(goal => (skillFilter === 'all' || goal.skillId === skillFilter) && (profileFilter === 'all' || data.skills.find(skill => skill.id === goal.skillId)?.profileId === profileFilter)).map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></Field>
+      </div>
       <div className="row day-navigation">
         <IconButton
-          label="Previous day"
-          onClick={() => setDate((value) => addDays(value, -1))}
+          label={`Previous ${view === "day" ? "day" : view === "month" ? "month" : view === "week" ? "week" : "range"}`}
+          onClick={() => setDate((value) => stepDate(value, -1))}
         >
           <ArrowLeft size={18} strokeWidth={1.5} />
         </IconButton>
@@ -277,8 +293,8 @@ export function Timetable() {
           />
         </Field>
         <IconButton
-          label="Next day"
-          onClick={() => setDate((value) => addDays(value, 1))}
+          label={`Next ${view === "day" ? "day" : view === "month" ? "month" : view === "week" ? "week" : "range"}`}
+          onClick={() => setDate((value) => stepDate(value, 1))}
         >
           <ArrowRight size={18} strokeWidth={1.5} />
         </IconButton>
@@ -287,6 +303,8 @@ export function Timetable() {
         </Button>
         <span className="caption">{data.user.settings.timezone}</span>
       </div>
+      {blocked.length > 0 && <Banner tone="warning"><strong>{blocked.length} repeating occurrences need another time.</strong><ul className="conflict-list">{blocked.map(item => <li key={item.id}><Link to={`/schedules?seriesId=${item.seriesId}&date=${item.originalDate}`}>{item.fields.title} · {calendarDate(item.localDate)}</Link></li>)}</ul></Banner>}
+      {occurrences.isError && <Banner tone="error">{errorMessage(occurrences.error)} <Button variant="text" onClick={() => void occurrences.refetch()}>Retry recurring schedules</Button></Banner>}
       {move.isError && (
         <Banner tone="error">
           {errorMessage(move.error)}
@@ -323,7 +341,7 @@ export function Timetable() {
       )}
       {slots.isPending ? (
         <DelayedSkeleton height={320} />
-      ) : (
+      ) : view !== 'day' ? <CalendarRange view={view} date={date} from={range.from} to={range.to} slots={ordered} occurrences={visibleOccurrences} goals={data.goals.filter(goal => matches({ goalId: goal.id }))} onDate={value => { setDate(value); setView('day'); }} onEdit={editSlot} /> : (
         <>
           <Card className="day-summary">
             <CalendarDays size={24} strokeWidth={1.5} aria-hidden="true" />
@@ -351,6 +369,9 @@ export function Timetable() {
               </Button>
             )}
           </Card>
+          {free.isSuccess && <p className="caption calendar-capacity">{duration(free.data.reduce((sum, slot) => sum + slot.endMin - slot.startMin, 0))} available for additional work after breaks, free-time reserve and your daily limit.</p>}
+          {allocatedMinutes((slots.data || []).filter(slot => !['reserved', 'unavailable'].includes(slot.layer))) > data.user.settings.maxDailyMin && <Banner tone="warning">Planned work exceeds your {duration(data.user.settings.maxDailyMin)} daily limit. Shorten or move a block to leave more room.</Banner>}
+          <RecurringWork items={visibleOccurrences.filter(item => item.series.kind === 'goal' && item.status === 'scheduled')} />
           {!ordered.length && (
             <div style={{ marginBottom: "1.5rem" }}>
               <Card>
@@ -438,8 +459,8 @@ export function Timetable() {
                   start={start}
                   editable={online && !move.isPending}
                   conflict={conflictIds.has(slot.id)}
-                  onEdit={() => setEditor({ slot })}
-                  onRemove={() => setRemove(slot)}
+                  onEdit={() => editSlot(slot)}
+                  onRemove={() => slot.virtual ? navigate(occurrenceLink(slot)) : setRemove(slot)}
                 />
               ))}
               {visibleNow && (
@@ -528,9 +549,9 @@ function TimelineBlock({
   onRemove: () => void;
 }) {
   const data = useData();
-  const fixed = slot.layer === "fixed" || slot.layer === "unavailable";
+  const fixed = slot.layer === "fixed" || slot.layer === "unavailable" || !!slot.virtual;
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: slot.id, disabled: fixed || !editable });
+    useDraggable({ id: slot.id, disabled: fixed || !!slot.virtual || !editable });
   const profile = data.profiles.find(
     (profile) => profile.id === slot.profileId,
   );
@@ -573,14 +594,14 @@ function TimelineBlock({
           <span className="caption">
             {clockLabel(slot.startMin, data.user.settings.clockFormat)}–
             {clockLabel(slot.endMin, data.user.settings.clockFormat)} ·{" "}
-            {layerLabels[slot.layer]}
+            {layerLabels[slot.layer]}{slot.recurrenceSeriesId ? " · repeats" : ""}
           </span>
         </button>
         {slot.layer === "pinned" && (
           <Pin size={16} strokeWidth={1.5} aria-hidden="true" />
         )}
         <IconButton
-          label={`Remove block ${slot.title}`}
+          label={slot.virtual ? `Manage repeating block ${slot.title}` : `Remove block ${slot.title}`}
           disabled={!editable}
           onClick={onRemove}
         >

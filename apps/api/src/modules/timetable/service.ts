@@ -4,11 +4,14 @@ import type { TimeSlot } from '@prisma/client';
 import { db } from '../../db';
 import { ApiError } from '../../errors';
 import { calendarDate, calendarString } from '../../calendar';
-import { lockOwner, newId, notFound, ownerWhere, type Connection } from '../../repository';
+import { json, lockOwner, newId, notFound, ownerWhere, type Connection } from '../../repository';
 import { profiles, skills, getSettings } from '../hierarchy/service';
 import { goals } from '../goals/service';
 import { tasks } from '../tasks/service';
 import { refreshReminders } from '../notifications/service';
+import { recurrence } from '../recurrence/service';
+import { conflicts, freeSlots, type Layer } from '@kram/timetable';
+import { weekday } from '@kram/time';
 
 type SlotInput = ReturnType<typeof slotSchema.parse>;
 export const slotDto = (row: TimeSlot) => ({ ...row, date: calendarString(row.date) });
@@ -28,7 +31,7 @@ function isNewPlacement(data: SlotInput, previous?: TimeSlot) {
     data.layer !== previous.layer || data.pinned !== previous.pinned || data.taskId !== previous.taskId ||
     data.goalId !== previous.goalId || data.skillId !== previous.skillId || data.profileId !== previous.profileId;
 }
-async function associations(userId: string, data: SlotInput, c: Connection, previous?: TimeSlot) {
+export async function associations(userId: string, data: SlotInput, c: Connection, previous?: TimeSlot) {
   const value = { ...data };
   if (value.layer === 'pinned' || (value.layer === 'flexible' && value.pinned)) { value.layer = 'pinned'; value.pinned = true; }
   // Scope every explicit reference before testing relationships between them.
@@ -74,7 +77,7 @@ function overlapAllowed(a: SlotInput, b: TimeSlot) {
   const work = a.layer === 'reserved' ? b : a;
   return work.layer === 'flexible' && !work.pinned && work.startMin >= reserved.startMin && work.endMin <= reserved.endMin;
 }
-async function assertNoConflict(userId: string, data: SlotInput, c: Connection, excludingId?: string) {
+export async function assertNoConflict(userId: string, data: SlotInput, c: Connection, excludingId?: string) {
   const rows = await c.timeSlot.findMany({ where: { ...ownerWhere(userId), date: calendarDate(data.date), archivedAt: null,
     ...(excludingId ? { id: { not: excludingId } } : {}), startMin: { lt: data.endMin }, endMin: { gt: data.startMin } }, orderBy: [{ startMin: 'asc' }, { id: 'asc' }] });
   const conflicts = rows.filter((row) => !overlapAllowed(data, row));
@@ -92,12 +95,23 @@ export const timetable = {
     return notFound(await c.timeSlot.findFirst({ where: { id, ...ownerWhere(userId) } }), 'time slot');
   },
   async day(userId: string, date: string, c: Connection = db) {
-    return (await c.timeSlot.findMany({ where: { ...ownerWhere(userId), date: calendarDate(dateSchema.parse(date)), archivedAt: null }, orderBy: [{ startMin: 'asc' }, { id: 'asc' }] })).map(slotDto);
+    dateSchema.parse(date); return this.global(userId, date, date, c);
   },
   async global(userId: string, from: string, to: string, c: Connection = db) {
     const span = daysBetween(dateSchema.parse(from), dateSchema.parse(to));
     if (span < 0 || span > 366) throw new ApiError('INVALID_DATE_RANGE', 'Choose an ordered range spanning at most 366 days.', 400);
-    return (await c.timeSlot.findMany({ where: { ...ownerWhere(userId), archivedAt: null, date: { gte: calendarDate(from), lte: calendarDate(to) } }, orderBy: [{ date: 'asc' }, { startMin: 'asc' }, { id: 'asc' }] })).map(slotDto);
+    const slots = (await c.timeSlot.findMany({ where: { ...ownerWhere(userId), archivedAt: null, date: { gte: calendarDate(from), lte: calendarDate(to) } }, include: { occurrence: true }, orderBy: [{ date: 'asc' }, { startMin: 'asc' }, { id: 'asc' }] })).map(slot => ({ ...slotDto(slot), ...(slot.occurrence ? { recurrenceSeriesId: slot.occurrence.seriesId, originalDate: calendarString(slot.occurrence.originalDate) } : {}) }));
+    for (const occurrence of await recurrence.occurrences(userId, from, to, c)) {
+      if (!occurrence.virtual || !occurrence.slot || occurrence.status !== 'scheduled') continue;
+      const slot = occurrence.slot;
+      if (conflicts([...slots.filter(existing => existing.date === slot.date).map(existing => ({ ...existing, layer: existing.layer as Layer })), { ...slot, layer: slot.layer as Layer }]).length) continue;
+      slots.push({ ...slot, virtual: true } as typeof slots[number]);
+    }
+    return slots.sort((a, b) => a.date.localeCompare(b.date) || a.startMin - b.startMin || a.id.localeCompare(b.id));
+  },
+  async free(userId: string, date: string) {
+    const settings = await getSettings(userId), slots = await this.day(userId, date);
+    return freeSlots({ date, wakingWindow: { startMin: settings.wakingMin, endMin: settings.sleepingMin }, slots: slots.map(slot => ({ ...slot, layer: slot.layer as Layer })), maxDailyMin: settings.maxDailyMin, minFreeTime: settings.minFreeMin, minBreak: settings.minBreakMin, breakAfter: settings.breakAfterMin, restDay: settings.restDays.includes(weekday(date)) });
   },
   async create(userId: string, input: unknown) {
     const parsed = slotSchema.parse(input);
@@ -122,6 +136,11 @@ export const timetable = {
         const data = await associations(userId, slotSchema.parse({ ...slotDto(current), ...input }), tx, current);
         await assertNoConflict(userId, data, tx, id);
         const row = await tx.timeSlot.update({ where: { id, userId, version: expectedVersion }, data: { ...data, date: calendarDate(data.date), version: { increment: 1 } } });
+        if (row.occurrenceId) {
+          const occurrence = await tx.occurrence.findUniqueOrThrow({ where: { id: row.occurrenceId } });
+          await tx.occurrence.update({ where: { id: occurrence.id }, data: { manualOverride: true, localDate: row.date, moved: calendarString(occurrence.originalDate) !== data.date,
+            fields: json({ ...(occurrence.fields as Record<string, unknown>), title: row.title, startMin: row.startMin, estMinutes: row.endMin - row.startMin, localDate: data.date }) } });
+        }
         await refreshReminders(userId, tx);
         return slotDto(row);
       });
@@ -134,6 +153,7 @@ export const timetable = {
       assertVersion(current, expectedVersion);
       if (current.archivedAt) throw new ApiError('SLOT_ARCHIVED', 'This slot is already archived.', 409);
       const row = await tx.timeSlot.update({ where: { id, userId, version: expectedVersion }, data: { archivedAt: new Date(), version: { increment: 1 } } });
+      if (row.occurrenceId) await tx.occurrence.update({ where: { id: row.occurrenceId }, data: { manualOverride: true, status: 'suppressed' } });
       await refreshReminders(userId, tx);
       return slotDto(row);
     });

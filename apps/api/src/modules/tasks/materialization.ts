@@ -7,6 +7,7 @@ import { calendarDate, calendarString, clock } from '../../calendar';
 import { lockOwner, newId, type Connection } from '../../repository';
 import { getSettings } from '../hierarchy/service';
 import { refreshReminders } from '../notifications/service';
+import { materializeOccurrences } from '../recurrence/service';
 
 type DesiredTask = Prisma.TaskCreateManyInput;
 type Item = ResourceItem & { dependencies: { dependsOnItemId: string }[] };
@@ -42,6 +43,8 @@ export async function materializeTasks(userId: string, from?: string, c: Connect
   if (c === db) return db.$transaction(async tx => { await lockOwner(tx, userId); return materializeTasks(userId, from, tx); }, { timeout: 30000 });
   const settings = await getSettings(userId, c);
   const first = dateSchema.parse(from ?? studyDate(clock.now(), settings.timezone, settings.dayRollover)), last = addDays(first, 13);
+  await materializeOccurrences(userId, first, c);
+  const recurrenceRows = await c.occurrence.findMany({ where: { userId, status: 'scheduled', localDate: { gte: calendarDate(first), lte: calendarDate(last) }, series: { kind: 'goal' } }, include: { series: true } });
   const goals = await c.goal.findMany({ where: { userId, status: 'active', archivedAt: null, skill: { archivedAt: null, profile: { archivedAt: null } } },
     include: { rules: { orderBy: [{ effectiveFrom: 'asc' }, { version: 'asc' }] }, resources: { include: { resource: { include: { items: { include: { dependencies: true } } } } } } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
   const existing = await c.task.findMany({ where: { userId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
@@ -57,12 +60,13 @@ export async function materializeTasks(userId: string, from?: string, c: Connect
     };
     const eligible = (date: string) => {
       const rule = rulesAt(date);
-      return rule && date >= rule.startDate && (!rule.dueDate || date <= rule.dueDate) && rule.availableDays.includes(weekday(date));
+      return rule && (rule.type === 'recurring' ? recurrenceRows.some(row => row.series.goalId === goal.id && calendarString(row.localDate) === date) : date >= rule.startDate && (!rule.dueDate || date <= rule.dueDate) && rule.availableDays.includes(weekday(date)));
     };
     const add = (date: string, due: string | null, qty: number, estimated: number, periodKey: string, title: string, sortOrder: number, itemId: string | null = null) => {
       const materializationKey = keyFor(userId, goal.id, itemId, periodKey), previous = byKey.get(materializationKey);
       desired.set(materializationKey, { id: previous?.id ?? newId(), userId, goalId: goal.id, itemId, title, estMinutes: estimated, remainingMinutes: estimated, qty,
-        earliestDate: dateValue(date), dueDate: due ? dateValue(due) : null, periodKey, materializationKey, sortOrder });
+        earliestDate: dateValue(date), dueDate: due ? dateValue(due) : null, periodKey, materializationKey, sortOrder,
+        ...(itemId ? { occurrenceId: recurrenceRows.find(row => row.series.goalId === goal.id && calendarString(row.localDate) === date)?.id ?? null } : {}) });
     };
     // A linked resource is finite material. Closed/manual items never spawn a
     // second generated copy; a paused/archived source supplies no replacement.
@@ -99,8 +103,8 @@ export async function materializeTasks(userId: string, from?: string, c: Connect
     }
     for (const date of dateRange(first, last)) {
       const rule = rulesAt(date); if (!rule || !eligible(date)) continue;
-      // RRULE occurrences use the recurrence engine. Do not approximate them as daily.
-      if (rule.type === 'recurring') { unresolved++; continue; }
+      // Recurring quota tasks use their immutable series/original-date identities.
+      if (rule.type === 'recurring') continue;
       if (!['daily', 'weekly', 'milestone', 'adaptive'].includes(rule.type)) continue;
       let qty = rule.targetQty, period = `daily:${date}`, due: string | null = date;
       if (rule.type === 'weekly') {

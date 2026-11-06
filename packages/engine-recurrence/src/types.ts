@@ -8,7 +8,7 @@ export interface OccurrenceFields {
 }
 export type RecurrenceException =
   | { date: string; kind: 'skip' }
-  | { date: string; kind: 'move'; toDate: string; toStartMin?: number }
+  | { date: string; kind: 'move'; toDate: string; toStartMin?: number; override?: Partial<OccurrenceFields> }
   | { date: string; kind: 'modify'; override: Partial<OccurrenceFields> };
 export interface RecurrenceSeries extends OccurrenceFields {
   id: string;

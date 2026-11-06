@@ -83,6 +83,7 @@ const Timetable = lazy(() =>
     default: module.Timetable,
   })),
 );
+const Schedules = lazy(() => import('./features/timetable/Schedules').then(module => ({ default: module.Schedules })));
 const NotificationCenter = lazy(() =>
   import("./features/tasks/reminders").then((module) => ({
     default: module.NotificationCenter,
@@ -410,6 +411,7 @@ function SignedIn({ user }: { user: User }) {
             <Route path="/" element={<Today />} />
             <Route path="/tasks/:taskId" element={<TaskPage />} />
             <Route path="/plan" element={<Timetable />} />
+            <Route path="/schedules" element={<Schedules />} />
             <Route path="/notifications" element={<NotificationCenter />} />
             <Route path="/goals/*" element={<Hierarchy />} />
             <Route path="/goals/:goalId" element={<GoalDetail />} />

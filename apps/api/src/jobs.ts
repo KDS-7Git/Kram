@@ -4,6 +4,7 @@ import { logger } from './logger';
 
 export const DISPATCH_QUEUE = 'dispatch-notifications';
 export const MATERIALIZE_QUEUE = 'materialize-tasks';
+export const OCCURRENCE_QUEUE = 'materialize-occurrences';
 let producer: Promise<PgBoss> | undefined;
 
 async function queue() {
@@ -12,7 +13,7 @@ async function queue() {
     boss.on('error', error => logger.error({ error: error.message }, 'job producer error'));
     try {
       await boss.start();
-      for (const name of [DISPATCH_QUEUE, MATERIALIZE_QUEUE]) await boss.createQueue(name, { name, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
+      for (const name of [DISPATCH_QUEUE, MATERIALIZE_QUEUE, OCCURRENCE_QUEUE]) await boss.createQueue(name, { name, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
       return boss;
     } catch (error) { await boss.stop().catch(() => undefined); producer = undefined; throw error; }
   })();

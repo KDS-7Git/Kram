@@ -16,6 +16,7 @@ import { resourcesRouter } from "./modules/resources/router";
 import { timetableRouter } from "./modules/timetable/router";
 import { notificationsRouter } from "./modules/notifications/router";
 import { tasksRouter } from "./modules/tasks/router";
+import { recurrenceRouter } from "./modules/recurrence/router";
 import { closeJobProducer } from "./jobs";
 
 export function createApp() {
@@ -96,7 +97,7 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1", requireAuth, csrf, hierarchyRouter);
   app.use("/api/v1", goalsRouter, resourcesRouter);
-  app.use("/api/v1", tasksRouter, timetableRouter, notificationsRouter);
+  app.use("/api/v1", tasksRouter, timetableRouter, notificationsRouter, recurrenceRouter);
   app.use("/api", (_req, res) =>
     res.status(404).json({
       error: {

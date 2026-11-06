@@ -166,10 +166,10 @@ describe('rolling task source projection', () => {
     await db.resourceItem.update({ where: { id: prerequisiteId }, data: { estMinutes: 0, kind: 'chapter' } });
     expect((await materialize(userId, '2026-11-06')).unresolved).toBeGreaterThan(0); expect(await db.task.count({ where: { goalId: g.id } })).toBe(0);
   });
-  it('respects pause/start/deadline and leaves recurring occurrence generation unresolved', async () => {
+  it('respects pause/start/deadline and generates anchored recurring dates', async () => {
     const bounded = await goal({ startDate: '2026-11-10', dueDate: '2026-11-12' }); const recurring = await goal({ type: 'recurring', rrule: 'FREQ=DAILY;INTERVAL=2' }); const paused = await goal();
     await db.goal.update({ where: { id: paused.id }, data: { status: 'paused' } }); const result = await materialize(userId, '2026-11-06');
-    expect(await db.task.count({ where: { goalId: bounded.id } })).toBe(3); expect(await db.task.count({ where: { goalId: paused.id } })).toBe(0); expect(await db.task.count({ where: { goalId: recurring.id } })).toBe(0); expect(result.unresolved).toBeGreaterThan(0);
+    expect(await db.task.count({ where: { goalId: bounded.id } })).toBe(3); expect(await db.task.count({ where: { goalId: paused.id } })).toBe(0); expect((await db.task.findMany({ where: { goalId: recurring.id }, orderBy: { earliestDate: 'asc' } })).map(task => task.earliestDate.toISOString().slice(0, 10))).toEqual(['2026-11-06', '2026-11-08', '2026-11-10', '2026-11-12', '2026-11-14', '2026-11-16', '2026-11-18']); expect(result.unresolved).toBe(0);
   });
   it('keeps a completed or skipped finite goal closed across rolling horizons', async () => {
     const g = await goal({ type: 'milestone', targetQty: 1, unit: 'count' }); await materialize(userId, '2026-11-06'); const task = await db.task.findFirstOrThrow({ where: { goalId: g.id } });

@@ -53,6 +53,7 @@ export function validateRRule(input: string): string {
     ['BYWEEKNO', -53, 53, false], ['BYSETPOS', -366, 366, false],
   ];
   for (const [field, min, max, zero] of bounds) if (parts.has(field)) integerList(parts.get(field)!, field, min, max, zero);
+  for (const field of ['BYHOUR', 'BYMINUTE', 'BYSECOND']) if (parts.has(field) && parts.get(field)!.split(',').some(value => Number(value) !== 0)) invalid('Use the separate start time; RRULE selects calendar dates.');
   if (parts.has('WKST') && !new RegExp(`^${weekdays}$`).test(parts.get('WKST')!)) invalid('WKST must be a weekday.');
   if (parts.has('BYDAY')) for (const day of parts.get('BYDAY')!.split(',')) {
     const match = new RegExp(`^([+-]?\\d+)?(${weekdays})$`).exec(day);

@@ -101,7 +101,7 @@ export const goals = {
       return goalDto(row);
     });
   },
-  async edit(userId: string, id: string, input: Record<string, unknown>) {
+  async edit(userId: string, id: string, input: Record<string, unknown>, connection: Connection = db, forceVersion = false) {
     const today = await currentStudyDate(userId);
     const effectiveFrom = "effectiveFrom" in input
       ? dateSchema.parse(input.effectiveFrom)
@@ -112,7 +112,7 @@ export const goals = {
         "A rule change must start today or later; past rules stay unchanged.",
         409,
       );
-    return db.$transaction(async (tx) => {
+    const edit = async (tx: Connection) => {
       await lockOwner(tx, userId);
       const current = await this.get(userId, id, tx);
       const effective = await this.rulesForDate(userId, id, effectiveFrom, tx);
@@ -135,7 +135,7 @@ export const goals = {
             409,
           );
       }
-      if (JSON.stringify({ ...before, title: current.title, sortOrder: current.sortOrder }) === JSON.stringify(data))
+      if (!forceVersion && JSON.stringify({ ...before, title: current.title, sortOrder: current.sortOrder }) === JSON.stringify(data))
         return goalDto(current);
       const version = current.ruleVersion + 1;
       await tx.goalRuleVersion.create({
@@ -166,7 +166,8 @@ export const goals = {
       });
       await materializeTasks(userId, undefined, tx);
       return goalDto(row);
-    });
+    };
+    return connection === db ? db.$transaction(edit, { timeout: 30000 }) : edit(connection);
   },
   async status(
     userId: string,

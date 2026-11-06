@@ -44,6 +44,9 @@ export function useRefresh() {
       client.invalidateQueries({ queryKey: ["timetable"] }),
       client.invalidateQueries({ queryKey: ["reminders"] }),
       client.invalidateQueries({ queryKey: ["notifications"] }),
+      client.invalidateQueries({ queryKey: ["recurrence"] }),
+      client.invalidateQueries({ queryKey: ["templates"] }),
+      client.invalidateQueries({ queryKey: ["holidays"] }),
     ]);
 }
 export function useOnline() {

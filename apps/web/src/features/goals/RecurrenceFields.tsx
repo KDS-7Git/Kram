@@ -48,22 +48,29 @@ export function RecurrenceFields({
     ? parts.FREQ
     : "custom";
   const interval = Number(parts.INTERVAL || 1);
-  const selectedDays = (parts.BYDAY || "MO,TU,WE,TH,FR").split(",");
+  const savedDays = (parts.BYDAY || "").split(",").filter(day => dayCodes.includes(day));
+  const selectedDays = savedDays.length ? savedDays : dayCodes.slice(0, 5);
   const monthDay = Number(parts.BYMONTHDAY || 1);
+  const monthPattern = parts.BYSETPOS === '-1' ? 'last-weekday' : parts.BYDAY && /^-?[1-5](MO|TU|WE|TH|FR|SA|SU)$/.test(parts.BYDAY) ? 'numbered' : 'date';
+  const ordinal = Number(parts.BYDAY?.match(/^-?\d+/)?.[0] || 1), monthWeekday = parts.BYDAY?.slice(-2) || 'SU';
   const update = (next: {
     frequency?: string;
     interval?: number;
     days?: string[];
     monthDay?: number;
+    monthPattern?: string;
+    ordinal?: number;
+    monthWeekday?: string;
   }) => {
     const freq = next.frequency || frequency;
     const by =
       freq === "WEEKLY"
         ? `;BYDAY=${(next.days || selectedDays).join(",")}`
         : freq === "MONTHLY"
-          ? `;BYMONTHDAY=${next.monthDay ?? monthDay}`
+          ? (next.monthPattern || monthPattern) === 'last-weekday' ? ';BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1' : (next.monthPattern || monthPattern) === 'numbered' ? `;BYDAY=${next.ordinal ?? ordinal}${next.monthWeekday || monthWeekday}` : `;BYMONTHDAY=${next.monthDay ?? monthDay}`
           : "";
-    onChange(`FREQ=${freq};INTERVAL=${next.interval ?? interval}${by}`);
+    const ending = ['COUNT', 'UNTIL', 'WKST'].filter(key => parts[key]).map(key => `;${key}=${parts[key]}`).join('');
+    onChange(`FREQ=${freq};INTERVAL=${next.interval ?? interval}${by}${ending}`);
   };
   return (
     <div className="stack">
@@ -138,7 +145,9 @@ export function RecurrenceFields({
           </div>
         </fieldset>
       )}
-      {frequency === "MONTHLY" && (
+      {frequency === 'MONTHLY' && <Field id="recurrence-month-pattern" label="Monthly pattern"><select className="input" id="recurrence-month-pattern" value={monthPattern} onChange={event => update({ monthPattern: event.target.value })}><option value="date">A date of the month</option><option value="numbered">A numbered weekday</option><option value="last-weekday">Last working weekday</option></select></Field>}
+      {frequency === 'MONTHLY' && monthPattern === 'numbered' && <div className="grid-2"><Field id="recurrence-ordinal" label="Which week"><select className="input" id="recurrence-ordinal" value={ordinal} onChange={event => update({ ordinal: Number(event.target.value) })}>{[[1, 'First'], [2, 'Second'], [3, 'Third'], [4, 'Fourth'], [5, 'Fifth'], [-1, 'Last']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><Field id="recurrence-month-weekday" label="Monthly weekday"><select className="input" id="recurrence-month-weekday" value={monthWeekday} onChange={event => update({ monthWeekday: event.target.value })}>{weekdays.map((day, index) => <option key={day.value} value={dayCodes[index]}>{day.label}</option>)}</select></Field></div>}
+      {frequency === "MONTHLY" && monthPattern === 'date' && (
         <Field
           id="recurrence-monthday"
           label="Day of month"

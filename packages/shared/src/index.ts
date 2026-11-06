@@ -387,7 +387,7 @@ export type Resource = Entity & z.infer<typeof resourceSchema>;
 export type ResourceItem = Entity &
   z.infer<typeof resourceItemSchema> & { resourceId: string };
 export type TimeSlot = Entity &
-  z.infer<typeof slotSchema> & { version: number; templateId: string | null };
+  z.infer<typeof slotSchema> & { version: number; templateId: string | null; occurrenceId?: string | null; recurrenceSeriesId?: string; originalDate?: string; virtual?: boolean };
 export type PlanItem = {
   taskId: string;
   goalId: string;
@@ -528,3 +528,38 @@ export type TodayResponse = {
   weekly: { minutes: number; bySkill: { skillId: string; minutes: number }[] };
   notifications: Notification[];
 };
+
+const timezoneSchema = settingsSchema.shape.timezone;
+export const recurrenceSeriesSchema = z.object({
+  kind: z.enum(['fixed', 'goal']).default('fixed'),
+  goalId: idSchema.nullable().default(null),
+  skillId: idSchema.nullable().default(null),
+  profileId: idSchema.nullable().default(null),
+  title: z.string().trim().min(1).max(200),
+  rrule: z.string().trim().min(1).max(1000),
+  dtstartLocal: dateSchema,
+  tz: timezoneSchema.default('Asia/Kolkata'),
+  until: dateSchema.nullable().default(null),
+  startMin: clockMinuteSchema.nullable().default(null),
+  estMinutes: z.number().int().min(1).max(960).default(30),
+  qty: z.number().positive().max(1000000).default(1),
+  unit: z.string().trim().min(1).max(24).default('minutes'),
+  layer: z.enum(['fixed', 'unavailable']).default('fixed'),
+}).superRefine((value, context) => {
+  if (value.until && value.until < value.dtstartLocal) context.addIssue({ code: 'custom', message: 'End after the series anchor.', path: ['until'] });
+  if (value.kind === 'goal' && !value.goalId) context.addIssue({ code: 'custom', message: 'Choose a goal.', path: ['goalId'] });
+  if (value.kind === 'fixed' && (value.startMin === null || value.startMin + value.estMinutes > 1440)) context.addIssue({ code: 'custom', message: 'Choose a time and duration within one calendar day.', path: ['startMin'] });
+});
+const occurrenceFieldsSchema = z.object({ title: z.string().trim().min(1).max(200).optional(), startMin: clockMinuteSchema.optional(), estMinutes: z.number().int().min(1).max(960).optional(), qty: z.number().positive().max(1000000).optional() }).strict();
+export const recurrenceExceptionSchema = z.discriminatedUnion('kind', [
+  z.object({ date: dateSchema, kind: z.literal('skip') }),
+  z.object({ date: dateSchema, kind: z.literal('move'), toDate: dateSchema, toStartMin: clockMinuteSchema.optional(), override: occurrenceFieldsSchema.optional() }),
+  z.object({ date: dateSchema, kind: z.literal('modify'), override: occurrenceFieldsSchema }),
+]);
+export type RecurrenceSeries = Entity & z.infer<typeof recurrenceSeriesSchema> & { status: 'active' | 'paused' | 'ended'; version: number; effectiveFrom: string; ruleVersionId: string | null; pausedRanges: { start: string; end?: string | null }[] };
+export type Occurrence = { id: string; seriesId: string; originalDate: string; localDate: string; status: 'scheduled' | 'suppressed' | 'conflict'; fields: { title: string; startMin?: number; estMinutes: number; qty: number }; manualOverride: boolean; moved: boolean; adjusted: boolean; ambiguous: boolean; tasks: Task[]; slot: TimeSlot | null; series: RecurrenceSeries; conflict: unknown; virtual?: boolean };
+export const holidaySchema = z.object({ date: dateSchema, title: z.string().trim().min(1).max(200) });
+export type Holiday = Entity & z.infer<typeof holidaySchema>;
+export const templateEntrySchema = z.object(slotSchema.shape).omit({ date: true, taskId: true }).extend({ weekday: weekdaySchema }).refine(value => value.endMin > value.startMin, { message: 'End time must be after start time.', path: ['endMin'] });
+export const scheduleTemplateSchema = z.object({ name: z.string().trim().min(1).max(100), kind: z.enum(['week', 'day']).default('week'), entries: z.array(templateEntrySchema).min(1).max(100) });
+export type ScheduleTemplate = Entity & z.infer<typeof scheduleTemplateSchema> & { version: number };
