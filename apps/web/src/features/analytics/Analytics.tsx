@@ -35,7 +35,7 @@ export function Analytics() {
         <IconButton label="Next report week" disabled={weekStart >= currentWeek} onClick={() => changeWeek(1)}><ChevronRight size={20} /></IconButton>
         <Button variant="text" disabled={weekStart === currentWeek} onClick={() => setParams(previous => { const params = new URLSearchParams(previous); params.delete('weekStart'); return params; })}>This week</Button>
       </div>
-      <Field id="analytics-skill" label="Skill"><select id="analytics-skill" value={skillId} onChange={event => setSkillId(event.target.value)}><option value="all">All skills</option>{data.skills.map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
+      <Field id="analytics-skill" label="Skill"><select className="input" id="analytics-skill" value={skillId} onChange={event => setSkillId(event.target.value)}><option value="all">All skills</option>{data.skills.map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
     </div>
     {report.isError && <Banner tone="error" action={<Button onClick={() => void report.refetch()}>Retry</Button>}>{errorMessage(report.error)}</Banner>}
     {report.isPending ? <DelayedSkeleton height={220} /> : !report.data ? null : <>
@@ -46,9 +46,9 @@ export function Analytics() {
       <section style={{ marginBlock: '2rem' }}><h2>Practice by skill</h2><p className="muted">Minutes share a scale. Quantities remain in their own unit.</p>
         {skills.length ? <div className="grid-2">{skills.map(skill => <Card key={skill.id}>
           <h3>{skill.name}</h3><p><strong>{duration(skill.minutes)}</strong> credited · {duration(skill.weeklyTargetMin)} weekly practice target</p>
-          <progress max={Math.max(skill.weeklyTargetMin, skill.minutes, 1)} value={skill.minutes} aria-label={`${skill.name}: ${duration(skill.minutes)} of ${duration(skill.weeklyTargetMin)} weekly practice target`} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+          <progress className="time-progress" max={Math.max(skill.weeklyTargetMin, skill.minutes, 1)} value={skill.minutes} aria-label={`${skill.name}: ${duration(skill.minutes)} of ${duration(skill.weeklyTargetMin)} weekly practice target`} />
           <div className="row" style={{ flexWrap: 'wrap', gap: '.5rem 1rem', marginBlock: '.75rem' }}>{skill.units.map(unit => <span key={unit.unit}>{unit.credited} {unit.unit}</span>)}</div>
-          <details><summary className="button button-text">Daily credited time</summary><dl>{skill.days.map(day => <div className="row between" key={day.date}><dt>{calendarDate(day.date)}</dt><dd>{duration(day.minutes)}</dd></div>)}</dl></details>
+          <details><summary className="button button-text">Daily credited time</summary><dl className="credit-list">{skill.days.map(day => <div key={day.date}><dt>{calendarDate(day.date)}</dt><dd>{duration(day.minutes)}</dd></div>)}</dl></details>
         </Card>)}</div> : <EmptyState icon={<BarChart3 />} title="A little practice will appear here">Start a task and record progress to build a useful weekly picture.</EmptyState>}
       </section>
       <section style={{ marginBlock: '2rem' }}><h2>Goals in their own units</h2><p className="muted">This week’s credit follows the selected calendar dates. Quotas keep their original period dates, including weeks created before a week-start change.</p>

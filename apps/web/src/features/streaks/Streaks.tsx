@@ -33,7 +33,7 @@ export function Streaks() {
 }
 function StreakCard({ streak, today, quiet, weekStart, onEdit }: { streak: StreakDto; today: string; quiet: boolean; weekStart: 1 | 7; onEdit: () => void }) {
   const online = useOnline();
-  const [selected, setSelected] = useState(addDays(today, -1));
+  const [selected, setSelected] = useState(streak.startDate > addDays(today, -1) ? streak.startDate : addDays(today, -1));
   const dates = dateRange(addDays(weekStartDate(today, weekStart), -77), addDays(weekStartDate(today, weekStart), 6));
   const recordAt = (date: string) => streak.records.find(record => record.periodStart <= date && record.periodEnd >= date);
   const record = recordAt(selected);

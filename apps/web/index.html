@@ -28,6 +28,8 @@
           d = s > w ? h >= s || h < w : h >= s && h < w;
         }
         document.documentElement.dataset.theme = d ? "dark" : "light";
+        document.documentElement.dataset.motion = a.motion ?? "system";
+        document.documentElement.dataset.density = a.density ?? "comfortable";
         document.documentElement.style.colorScheme = d ? "dark" : "light";
         document.querySelector('meta[name="theme-color"]').content = d
           ? "#151310"

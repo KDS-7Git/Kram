@@ -1,3 +1,5 @@
+import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { defaultSettings, profileSchema, type Bootstrap } from '@kram/shared';
@@ -27,7 +29,7 @@ async function mock(page: Page) {
   });
   return { data, streak, routes };
 }
-async function accessible(page: Page) { await expect(page.locator('html')).not.toHaveClass(/theme-crossfade/); expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]); }
+async function accessible(page: Page) { await settleAppearance(page); expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]); }
 test('stored streak reasons and corrections are available through the date inspector', async ({ page }) => {
   await mock(page); await page.goto('/streaks'); await expect(page.getByRole('heading', { name: 'Practice, over time' })).toBeVisible();
   await expect(page.getByText('Rest period; the run stays unchanged; rule v1.', { exact: true })).toBeVisible();
@@ -48,7 +50,7 @@ test('channel linking and per-profile routing retain private defaults', async ({
   await expect(page.getByText('Kram reminder', { exact: true })).toHaveCount(2); await page.getByText('Link Telegram', { exact: true }).click();
   await page.getByLabel('Bot token', { exact: true }).fill('123456789:mock-token-123456789'); await page.getByRole('button', { name: 'Create link code', exact: true }).click();
   await expect(page.getByLabel('Send this command to your bot')).toHaveValue('/start mock-one-time-code'); await expect(page.getByLabel('Bot token', { exact: true })).toHaveValue('');
-  await page.getByLabel('Apply these routes to').selectOption(profile); const task = page.locator('.routing-matrix fieldset').filter({ has: page.getByText('Task reminder', { exact: true }) }); await task.getByLabel('Telegram', { exact: true }).check();
+  await chooseOption(page.getByLabel('Apply these routes to'), profile); const task = page.locator('.routing-matrix fieldset').filter({ has: page.getByText('Task reminder', { exact: true }) }); await task.getByLabel('Telegram', { exact: true }).check();
   await page.getByRole('button', { name: 'Generate a private topic name' }).click(); await page.getByRole('button', { name: 'Save routing', exact: true }).click(); await expect.poll(() => fixture.routes.length).toBe(13);
   expect(fixture.routes.find(route => route.type === 'task_reminder')).toMatchObject({ profileId: profile, channels: ['ntfy', 'telegram'] }); await accessible(page);
 });

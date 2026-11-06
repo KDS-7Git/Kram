@@ -162,6 +162,7 @@ export function SettingsPage() {
                   className="input"
                   id="settings-rollover"
                   type="time"
+                  required
                   value={minuteTime(values.dayRollover ?? 240)}
                   onChange={(event) =>
                     form.setValue(
@@ -196,6 +197,7 @@ export function SettingsPage() {
                   className="input"
                   id="settings-waking"
                   type="time"
+                  required
                   value={minuteTime(values.wakingMin ?? 420)}
                   onChange={(event) =>
                     form.setValue("wakingMin", timeMinute(event.target.value), {
@@ -206,13 +208,16 @@ export function SettingsPage() {
               </Field>
               <Field
                 id="settings-sleeping"
+                  data-allow-midnight="true"
                 label="Sleeping time"
                 error={form.formState.errors.sleepingMin?.message}
               >
                 <input
                   className="input"
                   id="settings-sleeping"
+                  data-allow-midnight="true"
                   type="time"
+                  required
                   value={minuteTime(values.sleepingMin ?? 1380)}
                   onChange={(event) =>
                     form.setValue(
@@ -283,6 +288,7 @@ export function SettingsPage() {
                   className="input"
                   id="settings-quiet-start"
                   type="time"
+                  required
                   value={minuteTime(values.quietHours?.startMin ?? 1320)}
                   onChange={(event) =>
                     form.setValue(
@@ -298,6 +304,7 @@ export function SettingsPage() {
                   className="input"
                   id="settings-quiet-end"
                   type="time"
+                  required
                   value={minuteTime(values.quietHours?.endMin ?? 420)}
                   onChange={(event) =>
                     form.setValue(

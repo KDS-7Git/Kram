@@ -1,3 +1,5 @@
+import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type {
@@ -122,7 +124,7 @@ async function captureThemes(page: Page, testInfo: TestInfo, screen: string) {
         })
         .click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await expect(page.locator("html")).not.toHaveClass(/theme-crossfade/);
+    await settleAppearance(page);
     await assertAccessible(page);
     await page.screenshot({
       path: testInfo.outputPath(screen + "-" + theme + ".png"),
@@ -272,6 +274,7 @@ test("a persisted timer survives pause, resume and reload without crediting unlo
   await dialog
     .getByRole("button", { name: "Resume timer", exact: true })
     .click();
+  await expect.poll(async () => (await savedTask(page, task.id)).timerStartedAt).not.toBeNull();
   await page.goto("/tasks/" + task.id);
   await expect(
     page.getByRole("button", { name: "Pause timer", exact: true }),
@@ -399,7 +402,7 @@ async function addBlock(
   await dialog.getByLabel("Block title", { exact: true }).fill(title);
   await dialog.getByLabel("Starts at", { exact: true }).fill(start);
   await dialog.getByLabel("Ends at", { exact: true }).fill(end);
-  await dialog.getByLabel("Block kind", { exact: true }).selectOption(layer);
+  await chooseOption(dialog.getByLabel("Block kind", { exact: true }), layer);
   return dialog;
 }
 test("timetable names conflicts, protects fixed changes and recovers a stale draft", async ({
@@ -524,9 +527,8 @@ test("reserved overlaps count once, reminders edit and pause, and command search
   await dialog
     .getByText("Link a profile, skill or goal", { exact: true })
     .click();
-  await dialog
-    .getByLabel("Reserved skill", { exact: true })
-    .selectOption(data.skills[0]!.id);
+  await chooseOption(dialog
+    .getByLabel("Reserved skill", { exact: true }), data.skills[0]!.id);
   await dialog
     .getByRole("button", { name: "Place time block", exact: true })
     .click();
@@ -535,9 +537,8 @@ test("reserved overlaps count once, reminders edit and pause, and command search
   await dialog
     .getByText("Link a profile, skill or goal", { exact: true })
     .click();
-  await dialog
-    .getByLabel("Skill (optional)", { exact: true })
-    .selectOption(data.skills[0]!.id);
+  await chooseOption(dialog
+    .getByLabel("Skill (optional)", { exact: true }), data.skills[0]!.id);
   await dialog
     .getByRole("button", { name: "Place time block", exact: true })
     .click();

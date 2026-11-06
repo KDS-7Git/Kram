@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -16,6 +16,7 @@ import {
   StatusPill,
 } from "../../components/ui/kit";
 import { TimerDigits } from "../../components/ui/TimerDigits";
+import { SelectControl } from "../../components/ui/SelectControl";
 import { api, errorMessage } from "../../shared/api";
 import { useData, useOnline } from "../../shared/data";
 import { useWallClock } from "../../shared/clock";
@@ -93,6 +94,15 @@ export function Today() {
     return () => window.removeEventListener("keydown", shortcut);
   }, []);
   const today = query.data;
+  const simple = data.user.settings.featurePreset === "simple";
+  const taskDestination = data.goals.length ? "#today-tasks" : "/goals";
+  const chooseTask = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!simple || !data.goals.length) return;
+    event.preventDefault();
+    const list = document.getElementById("today-tasks");
+    list?.scrollIntoView({ block: "start", behavior: "instant" });
+    list?.focus({ preventScroll: true });
+  };
   if (!today)
     return (
       <>
@@ -206,10 +216,9 @@ export function Today() {
           . Late-night progress stays with this day.
         </Banner>
       )}
-      {!!today.proposalCount&&<Banner>{today.proposalCount} plan proposals await your review. <Link className="button button-text" to="/planning">Review changes</Link></Banner>}
-      {!!today.unverifiedReviews?.length&&<Banner>Some previous days still need confirmation. <Link className="button button-text" to={`/review?date=${today.unverifiedReviews[0]}`}>Reconcile {calendarDate(today.unverifiedReviews[0]!)}</Link></Banner>}
-      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
-            <Card className="day-ribbon-card">
+      {!simple && !!today.proposalCount&&<Banner>{today.proposalCount} plan {today.proposalCount === 1 ? 'proposal awaits' : 'proposals await'} your review. <Link className="button button-text" to="/planning">Review changes</Link></Banner>}
+      {!simple && !!today.unverifiedReviews?.length&&<Banner>Some previous days still need confirmation. <Link className="button button-text" to={`/review?date=${today.unverifiedReviews[0]}`}>Reconcile {calendarDate(today.unverifiedReviews[0]!)}</Link></Banner>}
+            {!simple && <Card className="day-ribbon-card">
           <div className="row between">
             <h2 className="sr-only">Your day at a glance</h2>
             <span className="caption">
@@ -261,11 +270,12 @@ export function Today() {
             <time>{clockLabel(wake, data.user.settings.clockFormat)}</time>
             <time>{clockLabel(sleep, data.user.settings.clockFormat)}</time>
           </div>
-        </Card>
+        </Card>}
       <div className="today-grid">
+        <div className="today-execution">
         <Card className={`today-now${running ? " today-now-running" : ""}`}>
           <p className="eyebrow">{today.review?.state==='closed'?'Day closed':'Now'}</p>
-          {today.review?.state==='closed'?<><h2>Your day is recorded</h2><p className="muted">Progress is preserved. You can correct an earlier log from its task history.</p>{today.tomorrowFirst&&<p>Tomorrow: {today.tomorrowFirst.title} · {clockLabel(today.tomorrowFirst.startMin,data.user.settings.clockFormat)}</p>}<Link className="button" to="/review">See closing summary</Link></>:nowTask ? (
+          {today.review?.state==='closed'?<><h2>Your day is recorded</h2><p className="muted">Progress is preserved. You can correct an earlier log from its task history.</p>{today.tomorrowFirst&&<p>Tomorrow: {today.tomorrowFirst.title} · {clockLabel(today.tomorrowFirst.startMin,data.user.settings.clockFormat)}</p>}{!simple && <Link className="button" to="/review">See closing summary</Link>}</>:nowTask ? (
             <>
               <button type="button" className="now-task-title" aria-label={`Open focused task ${nowTask.title}`} onClick={() => setSelected({ id: nowTask.id })}><h2>{nowTask.title}</h2></button>
               <StatusPill status={nowTask.status} />
@@ -297,8 +307,8 @@ export function Today() {
                 {clockLabel(currentSlot.endMin, data.user.settings.clockFormat)}{" "}
                 · {currentSlot.layer}
               </p>
-              <Link className="button button-primary" to="/plan">
-                See the day
+              <Link className="button button-primary" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
+                {simple ? "Choose a task" : "See the day"}
               </Link>
             </>
           ) : (
@@ -309,8 +319,8 @@ export function Today() {
                   ? `Free until ${clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}.`
                   : "No block is happening now."}
               </p>
-              <Link className="button button-text" to="/plan">
-                Choose a time for something
+              <Link className="button button-text" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
+                {simple ? (data.goals.length ? "Choose a task" : "Create a goal") : "Choose a time for something"}
               </Link>
             </>
           )}
@@ -334,8 +344,8 @@ export function Today() {
                   Open next task
                 </Button>
               ) : (
-                <Link className="button button-text" to="/plan">
-                  Open timetable
+                <Link className="button button-text" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
+                  {simple ? "Choose a task" : "Open timetable"}
                 </Link>
               )}
             </>
@@ -343,18 +353,17 @@ export function Today() {
             <>
               <h2>No next block</h2>
               <p className="muted">The next stretch is yours to shape.</p>
-              <Link className="button button-text" to="/plan">
-                Plan a time block
+              <Link className="button button-text" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
+                {simple ? (data.goals.length ? "Choose a task" : "Create a goal") : "Plan a time block"}
               </Link>
             </>
           )}
         </Card>
-        <Card className="today-tasks">
+        <Card className="today-tasks" id="today-tasks" tabIndex={-1} aria-labelledby="today-task-heading">
           <div className="card-header">
-            <h2>Your tasks</h2>
-            <label className="task-filter">
-              <span className="sr-only">Task view</span>
-              <select
+            <h2 id="today-task-heading">Your tasks</h2>
+            <div className="task-filter">
+              <SelectControl label="Task view" select={<select
                 className="input"
                 aria-label="Task view"
                 value={filter}
@@ -363,8 +372,8 @@ export function Today() {
                 <option value="all">All tasks</option>
                 <option value="open">Open tasks</option>
                 <option value="finished">Finished tasks</option>
-              </select>
-            </label>
+              </select>} />
+            </div>
           </div>
           {filter !== "all" && (
             <Banner tone="info">
@@ -411,8 +420,10 @@ export function Today() {
             Open a task for its timer and notes.<span className="desktop-shortcuts"> On desktop: J and K move, D completes, S controls the timer, E defers, X skips.</span>
           </p>
         </Card>
+      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
+        </div>
         <div className="today-aside">
-          <TodayTimeline slots={ribbonSlots} wake={wake} sleep={sleep} minute={sameDate ? minute : -1} />
+          {!simple && <TodayTimeline slots={ribbonSlots} wake={wake} sleep={sleep} minute={sameDate ? minute : -1} />}
           <Card>
             <p className="eyebrow">This week</p>
             <h2>{duration(today.weekly.minutes)} logged</h2>
@@ -524,6 +535,8 @@ function TaskRow({
     (profile) => profile.id === skill?.profileId,
   );
   const finished = closed.has(task.status);
+  const scopeLabel = goal?.title?.trim().toLocaleLowerCase() === task.title.trim().toLocaleLowerCase() ? "" : goal?.title || "Goal";
+  const quantityLabel = goal && goal.unit.toLowerCase() !== "minutes" ? `${task.completedQty} of ${task.qty} ${goal.unit}` : "";
   return (
     <li
       className={`today-task-row${finished ? " task-finished" : ""}`}
@@ -616,12 +629,9 @@ function TaskRow({
         <span id={`task-state-${task.id}`}>
           <StatusPill status={task.status} />
         </span>
-        <span className="caption">
-          {goal?.title || "Goal"}
-          {goal?.unit.toLowerCase() !== "minutes"
-            ? ` · ${task.completedQty} of ${task.qty} ${goal?.unit || "units"}`
-            : ""}
-        </span>
+        {(scopeLabel || quantityLabel) && <span className="caption">
+          {[scopeLabel, quantityLabel].filter(Boolean).join(" · ")}
+        </span>}
         {task.overdue && <StatusPill status="overdue" />}
       </button>
       <span className="task-row-time">
@@ -668,6 +678,7 @@ function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction
 
 function TodayTimeline({ slots, wake, sleep, minute }: { slots: TimeSlot[]; wake: number; sleep: number; minute: number }) {
   const data = useData();
+  if (!slots.some(slot => slot.startMin < sleep && slot.endMin > wake)) return <Card className="today-live today-live-empty"><h2>Timeline</h2><p className="muted">No blocks planned today.</p><Link className="button button-text" to="/plan">Open timetable</Link></Card>;
   const span = sleep - wake, scale = 32 / 60, height = span * scale + 28, lanes = blockLanes(slots);
   return <Card className="today-live">
     <h2>Timeline</h2>

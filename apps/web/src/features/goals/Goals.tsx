@@ -327,6 +327,7 @@ export function GoalEditor({
             className="input"
             type="date"
             min={values.startDate}
+            data-min-error="Deadline must be on or after the start date."
             {...form.register("dueDate", {
               setValueAs: (value) => value || null,
             })}

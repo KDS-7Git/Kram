@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell, Pause, Pencil, Play, Plus, Send } from "lucide-react";
+import { Bell, Clock, Pause, Pencil, Play, Plus, Send } from "lucide-react";
 import {
   reminderRuleSchema,
   type Notification,
@@ -25,6 +25,7 @@ import { api, apiList, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
 import { minuteTime, timeMinute } from "../../shared/format";
 import { useUI } from "../../shared/ui";
+import { deliveryAttemptLabel, deliveryProvider, groupNotifications, ntfyTopicAddress, pendingDeliveryLabel } from "./notificationPresentation";
 
 type ChannelStatus = {
   configured: boolean;
@@ -345,6 +346,7 @@ function ReminderEditor({
             className="input"
             id="reminder-at"
             type="time"
+            required
             value={minuteTime(values.atLocal ?? 1080)}
             onChange={(event) =>
               form.setValue("atLocal", timeMinute(event.target.value), {
@@ -458,6 +460,10 @@ export function NotificationCenter() {
       toast("Test queued. Check its delivery attempt below.");
     },
   });
+  const { history, upcoming } = groupNotifications(notifications.data || [], Date.now());
+  const topicAddress = channel.data?.baseUrl && channel.data.topic
+    ? ntfyTopicAddress(channel.data.baseUrl, channel.data.topic)
+    : null;
   return (
     <>
       <PageHeader
@@ -465,9 +471,9 @@ export function NotificationCenter() {
         eyebrow="Notifications"
         description="Control reminders and see whether the channel accepted each message."
       />
-      <Link className="button" to="/channels">Channels and reminder routing</Link>
+      {data.user.settings.featurePreset === "full" && <p><Link className="button" to="/channels">Channels and reminder routing</Link></p>}
       <div className="stack-lg">
-        <Card>
+        <Card className="notification-channel">
           <div className="card-header">
             <h2>
               <Bell size={20} strokeWidth={1.5} aria-hidden="true" /> ntfy
@@ -500,11 +506,15 @@ export function NotificationCenter() {
               <p className="caption">
                 Subscribe to the configured topic in your ntfy app.
               </p>
-              {channel.data.baseUrl && channel.data.topic && (
+              {topicAddress && (
                 <p className="channel-address">
-                  {channel.data.baseUrl}/{channel.data.topic}
+                  {topicAddress}
                 </p>
               )}
+              <p className="caption">
+                This is Kram’s configured publishing address. On your phone,
+                use the address that reaches this ntfy server and the same topic.
+              </p>
               {channel.data.lastSentAt && (
                 <p className="caption">
                   Last accepted{" "}
@@ -535,7 +545,7 @@ export function NotificationCenter() {
             <Banner tone="error">{errorMessage(test.error)}</Banner>
           )}
         </Card>
-        <Card>
+        <Card className="notification-reminders">
           <ReminderList
             rules={rules.data || []}
             pending={rules.isPending}
@@ -543,8 +553,9 @@ export function NotificationCenter() {
             retry={() => void rules.refetch()}
           />
         </Card>
-        <Card>
+        <Card className="notification-deliveries">
           <h2>Delivery history</h2>
+          <p className="caption">Recent delivery attempts and decisions appear first. Future reminders are grouped below.</p>
           {notifications.isPending ? (
             <DelayedSkeleton height={180} />
           ) : notifications.isError ? (
@@ -557,67 +568,57 @@ export function NotificationCenter() {
                 Retry history
               </Button>
             </Banner>
-          ) : !notifications.data?.length ? (
+          ) : !history.length ? (
             <EmptyState
-              title="Messages will appear here"
+              title="No delivery attempts yet"
               icon={<Bell strokeWidth={1} />}
             >
-              Scheduled reminders and test messages keep their delivery attempts
-              here.
+              Send a test or wait for a reminder. Its result will appear here.
             </EmptyState>
           ) : (
-            <ol className="notification-history">
-              {notifications.data.map((notification) => (
-                <li key={notification.id}>
-                  <div className="row between">
-                    <strong>{notification.title}</strong>
-                    <StatusPill
-                      status={
-                        notification.status === "pending"
-                          ? "queued"
-                          : notification.status
-                      }
-                    />
-                  </div>
-                  <p>{notification.body}</p>
-                  <p className="caption">
-                    Scheduled{" "}
-                    {new Date(notification.scheduledFor).toLocaleString(
-                      undefined,
-                      { timeZone: data.user.settings.timezone },
-                    )}
-                  </p>
-                  {notification.attempts.length > 0 && (
-                    <details className="disclosure">
-                      <summary>
-                        {notification.attempts.length} delivery{" "}
-                        {notification.attempts.length === 1
-                          ? "attempt"
-                          : "attempts"}
-                      </summary>
-                      <ul>
-                        {notification.attempts.map((attempt) => (
-                          <li key={attempt.id}>
-                            {attempt.outcome.replaceAll("_", " ")}{" "}
-                            {attempt.httpStatus
-                              ? `· HTTP ${attempt.httpStatus}`
-                              : ""}{" "}
-                            ·{" "}
-                            {new Date(attempt.attemptedAt).toLocaleString(
-                              undefined,
-                              { timeZone: data.user.settings.timezone },
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </li>
-              ))}
-            </ol>
+            <NotificationHistory notifications={history} timezone={data.user.settings.timezone} />
+          )}
+          {!notifications.isPending && !notifications.isError && upcoming.length > 0 && (
+            <details className="disclosure notification-upcoming">
+              <summary>Upcoming reminders ({upcoming.length})</summary>
+              <p className="caption">Scheduled reminders have no delivery result yet.</p>
+              <NotificationHistory notifications={upcoming} timezone={data.user.settings.timezone} upcoming />
+            </details>
           )}
         </Card>
       </div>
     </>
   );
+}
+
+function NotificationHistory({ notifications, timezone, upcoming = false }: {
+  notifications: Notification[];
+  timezone: string;
+  upcoming?: boolean;
+}) {
+  const timestamp = (value: string) => new Date(value).toLocaleString(undefined, { timeZone: timezone });
+  return <ol className="notification-history">
+    {notifications.map((notification) => {
+      const provider = deliveryProvider(notification);
+      return <li key={notification.id}>
+        <div className="notification-entry-header row between">
+          <strong>{notification.title}</strong>
+          {notification.status === "pending" ? (
+            <span className="status status-queued"><Clock size={15} strokeWidth={1.5} aria-hidden="true" /><span className="status-label">{upcoming ? "Scheduled" : pendingDeliveryLabel(notification)}</span></span>
+          ) : <StatusPill status={notification.status} detail={provider} />}
+        </div>
+        <p>{notification.body}</p>
+        <p className="caption">{provider} · Scheduled {timestamp(notification.scheduledFor)}</p>
+        {notification.status === "sent" && <p className="caption">{provider} accepted this message. Arrival on your device is not confirmed here.</p>}
+        {notification.status === "suppressed_quiet_hours" && <p className="caption">Held for quiet hours; delivery has not been accepted.</p>}
+        {notification.status === "cancelled" && <p className="caption">No further delivery is scheduled.</p>}
+        {notification.attempts.length > 0 && <details className="disclosure">
+          <summary>{notification.attempts.length} delivery {notification.attempts.length === 1 ? "attempt" : "attempts"}</summary>
+          <ul>{notification.attempts.map((attempt) => <li key={attempt.id}>
+            {deliveryAttemptLabel(attempt.outcome, provider)}{attempt.httpStatus ? ` · HTTP ${attempt.httpStatus}` : ""} · {timestamp(attempt.attemptedAt)}
+          </li>)}</ul>
+        </details>}
+      </li>;
+    })}
+  </ol>;
 }

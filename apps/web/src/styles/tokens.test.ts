@@ -8,11 +8,19 @@ const css = readFileSync(
 );
 const sections = css.split('[data-theme="dark"]');
 function palette(source: string) {
+  const definitions: Record<string, string> = Object.fromEntries(
+    [...source.matchAll(/--([\w-]+):\s*(#[a-f\d]{6}|var\(--[\w-]+\));/gi)].map(
+      (match) => [match[1]!, match[2]!],
+    ),
+  );
+  function resolve(name: string): string {
+    const value = definitions[name];
+    if (!value) throw new Error(`Missing colour token: ${name}`);
+    const reference = /^var\(--([\w-]+)\)$/.exec(value);
+    return reference ? resolve(reference[1]!) : value;
+  }
   return Object.fromEntries(
-    [...source.matchAll(/--([\w-]+):\s*(#[a-f\d]{6});/gi)].map((match) => [
-      match[1]!,
-      match[2]!,
-    ]),
+    Object.keys(definitions).map((name) => [name, resolve(name)]),
   );
 }
 const themes = {
@@ -36,7 +44,9 @@ function contrast(a: string, b: string) {
 
 describe.each(Object.entries(themes))("%s Paper and Ink", (_name, tokens) => {
   it("keeps every body-text token readable on its declared paper surfaces", () => {
-    for (const background of ["bg", "surface"])
+    for (const background of [
+      "bg", "surface", "surface-2", "frame", "surface-panel", "surface-floating",
+    ])
       for (const foreground of [
         "text-1",
         "text-2",
@@ -60,6 +70,11 @@ describe.each(Object.entries(themes))("%s Paper and Ink", (_name, tokens) => {
         contrast(tokens["on-accent"]!, tokens[state]!),
         `on-accent on ${state}`,
       ).toBeGreaterThanOrEqual(4.5);
+    for (const label of ["text-1", "text-2"])
+      expect(
+        contrast(tokens[label]!, tokens["surface-3"]!),
+        `${label} on pressed surface`,
+      ).toBeGreaterThanOrEqual(4.5);
   });
   it("keeps focus, input edges and profile marks visible without decorative borders", () => {
     for (const token of [
@@ -67,10 +82,17 @@ describe.each(Object.entries(themes))("%s Paper and Ink", (_name, tokens) => {
       "accent",
       ...Object.keys(tokens).filter((name) => name.startsWith("profile-")),
     ])
-      for (const background of ["bg", "surface"])
+      for (const background of [
+        "bg", "surface", "surface-2", "surface-3", "accent-soft",
+        "frame", "surface-panel", "surface-floating",
+      ])
         expect(
           contrast(tokens[token]!, tokens[background]!),
           `${token} on ${background}`,
         ).toBeGreaterThanOrEqual(3);
+    expect(
+      contrast(tokens["accent"]!, tokens["progress-track"]!),
+      "recorded progress against its unfilled track",
+    ).toBeGreaterThanOrEqual(3);
   });
 });

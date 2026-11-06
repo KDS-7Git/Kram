@@ -633,7 +633,7 @@ export function ResourceDetail() {
       <PageHeader
         title={resource.title}
         eyebrow={`${resourceLabels[resource.type]} · ${data.skills.find((skill) => skill.id === resource.skillId)?.name || "Archived skill"}`}
-        description={`${items.filter((item) => !item.archivedAt).length} items · ${duration(items.filter((item) => !item.archivedAt).reduce((total, item) => total + item.estMinutes, 0))} estimated`}
+        description={`${items.filter((item) => !item.archivedAt).length} ${items.filter((item) => !item.archivedAt).length === 1 ? "item" : "items"} · ${duration(items.filter((item) => !item.archivedAt).reduce((total, item) => total + item.estMinutes, 0))} estimated`}
         action={
           <Button
             disabled={!online || !!resource.archivedAt}
@@ -1349,7 +1349,7 @@ function OutlineEditor({
       ),
     onSuccess: async (result) => {
       await refresh();
-      toast(`${result.imported} items imported.`);
+      toast(`${result.imported} ${result.imported === 1 ? "item" : "items"} imported.`);
       onDone();
     },
   });

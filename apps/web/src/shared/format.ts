@@ -12,6 +12,9 @@ export function duration(minutes: number) {
     ? `${Math.floor(value / 60)} h${remainder ? ` ${remainder} min` : ""}`
     : `${value} min`;
 }
+export function counted(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 export function allocatedMinutes(
   slots: { startMin: number; endMin: number }[],
   start = 0,

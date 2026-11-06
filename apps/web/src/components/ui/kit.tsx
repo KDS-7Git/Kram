@@ -12,7 +12,10 @@ import {
   type HTMLAttributes,
   type ReactElement,
   type ReactNode,
+  type InputHTMLAttributes,
 } from "react";
+import { TemporalControl } from "./TemporalControl";
+import { SelectControl } from "./SelectControl";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
@@ -102,7 +105,7 @@ export function PageHeader({
     <header className="page-header">
       <div>
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1>{title}</h1>
+        <h1 tabIndex={-1}>{title}</h1>
         {description && <p className="muted">{description}</p>}
       </div>
       {action}
@@ -142,10 +145,15 @@ export function Field({
         ].filter(Boolean),
       ),
     ].join(" ");
-    return cloneElement(element, {
+    const control = cloneElement(element, {
       "aria-describedby": describedBy || undefined,
       "aria-invalid": error ? true : element.props["aria-invalid"],
     });
+    if (child.type === "input" && ["date", "time"].includes((child.props as InputHTMLAttributes<HTMLInputElement>).type || "")) {
+      return <TemporalControl input={control as ReactElement<InputHTMLAttributes<HTMLInputElement>>} label={label} />;
+    }
+    if (child.type === "select") return (child.props as { multiple?: boolean }).multiple ? control : <SelectControl select={control} label={label} />;
+    return control;
   });
   return (
     <div className="field">
@@ -347,6 +355,22 @@ export function Segments<T extends string>({
     </div>
   );
 }
+function useDialogFocusReturn() {
+  const origin = useRef<HTMLElement | null>(null);
+  return {
+    onOpenAutoFocus: () => {
+      origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    },
+    onCloseAutoFocus: (event: Event) => {
+      const target = origin.current?.isConnected ? origin.current : document.getElementById("main-content");
+      if (target) {
+        event.preventDefault();
+        target.focus({ preventScroll: true });
+      }
+    },
+  };
+}
+
 export function Sheet({
   open,
   onOpenChange,
@@ -362,11 +386,12 @@ export function Sheet({
   children: ReactNode;
   modal?: boolean;
 }) {
+  const focusReturn = useDialogFocusReturn();
   return (
     <DialogDismissContext.Provider value={() => onOpenChange(false)}><DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
-        <DialogPrimitive.Content className="dialog-content sheet-content">
+        <DialogPrimitive.Content className="dialog-content sheet-content" {...focusReturn}>
           <button type="button" className="sheet-grab" aria-label="Dismiss panel" onClick={() => onOpenChange(false)} onPointerDown={event => { event.currentTarget.dataset.startY = String(event.clientY); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerUp={event => { if (event.clientY - Number(event.currentTarget.dataset.startY) > 70) onOpenChange(false); }}><span /></button>
           <DialogPrimitive.Title className="dialog-title">
             {title}
@@ -398,11 +423,12 @@ export function ConfirmDialog({
   description: string;
   children: ReactNode;
 }) {
+  const focusReturn = useDialogFocusReturn();
   return (
     <DialogDismissContext.Provider value={() => onOpenChange(false)}><DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
-        <DialogPrimitive.Content className="dialog-content">
+        <DialogPrimitive.Content className="dialog-content" {...focusReturn}>
           <DialogPrimitive.Title className="dialog-title">
             {title}
           </DialogPrimitive.Title>

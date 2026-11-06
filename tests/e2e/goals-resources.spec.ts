@@ -1,3 +1,4 @@
+import { chooseOption } from "./helpers/select";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type {
@@ -110,17 +111,15 @@ test("five goal types preserve units, dates, versioned rules and archive history
       .click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Goal title", { exact: true }).fill(choice.title);
-    await dialog
-      .getByLabel("Goal type", { exact: true })
-      .selectOption({ label: choice.label });
+    await chooseOption(dialog
+      .getByLabel("Goal type", { exact: true }), { label: choice.label });
     await dialog
       .getByLabel("Measurement unit", { exact: true })
       .fill(choice.unit);
     await dialog.getByLabel("Target quantity", { exact: true }).fill("12");
     if (index === 2) {
-      await dialog
-        .getByLabel("Repeat frequency", { exact: true })
-        .selectOption("MONTHLY");
+      await chooseOption(dialog
+        .getByLabel("Repeat frequency", { exact: true }), "MONTHLY");
       await dialog.getByLabel("Day of month", { exact: true }).fill("31");
       await expect(
         dialog.getByText(
@@ -128,9 +127,8 @@ test("five goal types preserve units, dates, versioned rules and archive history
           { exact: true },
         ),
       ).toBeVisible();
-      await dialog
-        .getByLabel("Repeat frequency", { exact: true })
-        .selectOption("WEEKLY");
+      await chooseOption(dialog
+        .getByLabel("Repeat frequency", { exact: true }), "WEEKLY");
       await dialog.getByLabel("Repeat every", { exact: true }).fill("2");
     }
     if (index === 0) {
@@ -250,9 +248,8 @@ test("resource outline, page ranges, prerequisites and keyboard tree edits persi
   await dialog
     .getByLabel("Resource title", { exact: true })
     .fill("Systems reference");
-  await dialog
-    .getByLabel("Resource type", { exact: true })
-    .selectOption("book");
+  await chooseOption(dialog
+    .getByLabel("Resource type", { exact: true }), "book");
   await dialog
     .getByRole("checkbox", { name: goals[0]!.title, exact: true })
     .check();

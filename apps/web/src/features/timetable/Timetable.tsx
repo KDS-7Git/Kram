@@ -24,16 +24,15 @@ import {
   Pin,
   Plus,
   Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { slotSchema, type Task, type TimeSlot, type Occurrence } from "@kram/shared";
 import type { z } from "zod";
 import {
   Banner,
   Button,
-  Card,
   ConfirmDialog,
   DelayedSkeleton,
-  EmptyState,
   Field,
   IconButton,
   PageHeader,
@@ -274,7 +273,6 @@ export function Timetable() {
       <PageHeader
         title="Your timetable"
         eyebrow={`Plan · ${view} timetable`}
-        description="Give tasks a time, keep fixed commitments in place, and leave room between them."
         action={
           <Button
             variant="primary"
@@ -286,14 +284,8 @@ export function Timetable() {
           </Button>
         }
       />
-      <div className="row between wrap calendar-toolbar"><Segments label="Timetable view" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]} /><div className="row wrap"><Link className="button" to="/planning">Proposals and plan history</Link><Link className="button" to="/schedules">Schedules and templates</Link></div></div>
-      <div className="calendar-filters">
-        <Field id="plan-profile" label="Profile filter"><select className="input" id="plan-profile" value={profileFilter} onChange={event => { setProfileFilter(event.target.value); setSkillFilter('all'); setGoalFilter('all'); }}><option value="all">All profiles</option>{data.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></Field>
-        <Field id="plan-skill" label="Skill filter"><select className="input" id="plan-skill" value={skillFilter} onChange={event => { setSkillFilter(event.target.value); setGoalFilter('all'); }}><option value="all">All skills</option>{data.skills.filter(skill => profileFilter === 'all' || skill.profileId === profileFilter).map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
-        <Field id="plan-goal" label="Goal filter"><select className="input" id="plan-goal" value={goalFilter} onChange={event => setGoalFilter(event.target.value)}><option value="all">All goals</option>{data.goals.filter(goal => (skillFilter === 'all' || goal.skillId === skillFilter) && (profileFilter === 'all' || data.skills.find(skill => skill.id === goal.skillId)?.profileId === profileFilter)).map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></Field>
-      </div>
-      {filtered && <div className="calendar-filter-banner"><Banner tone="info" action={<Button variant="text" onClick={() => { setProfileFilter('all'); setSkillFilter('all'); setGoalFilter('all'); }}>Clear filters</Button>}><strong>Showing {filterNames.join(' / ')} only</strong> · schedule unchanged. Hidden commitments still occupy their times.</Banner></div>}
-      <div className="row day-navigation">
+      <div className="calendar-controls">
+      <div className="row day-navigation calendar-date-navigation">
         <IconButton
           label={`Previous ${view === "day" ? "day" : view === "month" ? "month" : view === "week" ? "week" : "range"}`}
           onClick={() => setDate((value) => stepDate(value, -1))}
@@ -305,6 +297,7 @@ export function Timetable() {
             className="input"
             id="plan-date"
             type="date"
+            required
             value={date}
             onChange={(event) => {
               if (event.target.value) setDate(event.target.value);
@@ -317,11 +310,21 @@ export function Timetable() {
         >
           <ArrowRight size={18} strokeWidth={1.5} />
         </IconButton>
-        <Button variant="text" onClick={() => setDate(data.studyDate)}>
-          Current study day
-        </Button>
-        <span className="caption">{data.user.settings.timezone}</span>
+        <IconButton label="Current study day" onClick={() => setDate(data.studyDate)}><CalendarDays size={18} strokeWidth={1.5} /></IconButton>
       </div>
+        <div className="calendar-view-controls">
+          <Segments label="Timetable view" value={view} onChange={setView} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]} />
+          <details className="calendar-filter-disclosure">
+            <summary><SlidersHorizontal size={18} aria-hidden="true" />Filters{filtered ? ` · ${filterNames.length}` : ''}</summary>
+            <div className="calendar-filters">
+        <Field id="plan-profile" label="Profile filter"><select className="input" id="plan-profile" value={profileFilter} onChange={event => { setProfileFilter(event.target.value); setSkillFilter('all'); setGoalFilter('all'); }}><option value="all">All profiles</option>{data.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></Field>
+        <Field id="plan-skill" label="Skill filter"><select className="input" id="plan-skill" value={skillFilter} onChange={event => { setSkillFilter(event.target.value); setGoalFilter('all'); }}><option value="all">All skills</option>{data.skills.filter(skill => profileFilter === 'all' || skill.profileId === profileFilter).map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
+        <Field id="plan-goal" label="Goal filter"><select className="input" id="plan-goal" value={goalFilter} onChange={event => setGoalFilter(event.target.value)}><option value="all">All goals</option>{data.goals.filter(goal => (skillFilter === 'all' || goal.skillId === skillFilter) && (profileFilter === 'all' || data.skills.find(skill => skill.id === goal.skillId)?.profileId === profileFilter)).map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></Field>
+      </div>
+          </details>
+        </div>
+      </div>
+      {filtered && <div className="calendar-filter-banner"><Banner tone="info" action={<Button variant="text" onClick={() => { setProfileFilter('all'); setSkillFilter('all'); setGoalFilter('all'); }}>Clear filters</Button>}><strong>Showing {filterNames.join(' / ')} only</strong> · schedule unchanged. Hidden commitments still occupy their times.</Banner></div>}
       {(compact || (dayCalendar && view === 'week')) && (view === 'day' || view === 'week') && <WeekStrip date={date} onDate={setDate} />}
       {blocked.length > 0 && <Banner tone="warning"><strong>{blocked.length} repeating occurrences need another time.</strong><ul className="conflict-list">{blocked.map(item => <li key={item.id}><Link to={`/schedules?seriesId=${item.seriesId}&date=${item.originalDate}`}>{item.fields.title} · {calendarDate(item.localDate)}</Link></li>)}</ul></Banner>}
       {occurrences.isError && <Banner tone="error">{errorMessage(occurrences.error)} <Button variant="text" onClick={() => void occurrences.refetch()}>Retry recurring schedules</Button></Banner>}
@@ -363,12 +366,11 @@ export function Timetable() {
         <DelayedSkeleton height={320} />
       ) : view !== 'day' && !(dayCalendar && view === 'week') ? <CalendarRange view={view} date={date} from={range.from} to={range.to} slots={ordered} allSlots={slots.data || []} now={now} occurrences={visibleOccurrences} goals={data.goals.filter(goal => matches({ goalId: goal.id }))} onDate={value => { setDate(value); setView('day'); }} onEdit={editSlot} /> : (
         <>
-          <Card className="day-summary">
-            <CalendarDays size={24} strokeWidth={1.5} aria-hidden="true" />
+          <div className="calendar-day-heading row between">
             <div>
               <h2>{calendarDate(date)}</h2>
               <p className="caption">
-                {allDaySlots.length} blocks · {duration(allocatedMinutes(allDaySlots))}{" "}
+                {allDaySlots.length} {allDaySlots.length === 1 ? "block" : "blocks"} · {duration(allocatedMinutes(allDaySlots))}{" "}
                 allocated
               </p>
             </div>
@@ -388,29 +390,12 @@ export function Timetable() {
                 Jump to now
               </Button>
             )}
-          </Card>
+          </div>
           {rest && <Banner tone="info">Rest day · a planned pause.</Banner>}
           {free.isError && <Banner tone="error">Available times could not load. <Button variant="text" onClick={() => void free.refetch()}>Retry available times</Button></Banner>}
-          {free.isSuccess && <p className="caption calendar-capacity">{duration(free.data.reduce((sum, slot) => sum + slot.endMin - slot.startMin, 0))} available for additional work after breaks, free-time reserve and your daily limit.</p>}
+          {free.isSuccess && <p className="caption calendar-capacity">{duration(free.data.reduce((sum, slot) => sum + slot.endMin - slot.startMin, 0))} available within your limits.{!ordered.length && " Choose a free interval to add a block."}</p>}
           {allocatedMinutes(allDaySlots.filter(slot => !['reserved', 'unavailable'].includes(slot.layer))) > data.user.settings.maxDailyMin && <Banner tone="warning">Planned work exceeds your {duration(data.user.settings.maxDailyMin)} daily limit. Shorten or move a block to leave more room.</Banner>}
           <RecurringWork items={visibleOccurrences.filter(item => item.localDate === date && item.series.kind === 'goal' && item.status === 'scheduled')} />
-          {!ordered.length && (
-            <div style={{ marginBottom: "1.5rem" }}>
-              <Card>
-                <EmptyState
-                  title="There is room in this day"
-                  icon={<CalendarDays strokeWidth={1} />}
-                  action={
-                    <Button disabled={!online} onClick={() => setEditor({})}>
-                      Place a time block
-                    </Button>
-                  }
-                >
-                  Tap a free time or add a block to give the day a little shape.
-                </EmptyState>
-              </Card>
-            </div>
-          )}
           <DndContext
             sensors={sensors}
             onDragEnd={onDragEnd}
@@ -496,6 +481,7 @@ export function Timetable() {
           </p>
         </>
       )}
+      <div className="row wrap calendar-secondary-actions"><Link className="button" to="/planning">Proposals and plan history</Link><Link className="button" to="/schedules">Schedules and templates</Link></div>
       <Sheet
         open={!!editor}
         onOpenChange={(open) => {
@@ -755,7 +741,8 @@ function SlotEditor({
             className="input"
             id="slot-start"
             type="time"
-            step="300"
+            required
+            step="60"
             value={minuteTime(values.startMin)}
             onChange={(event) =>
               form.setValue("startMin", timeMinute(event.target.value), {
@@ -769,9 +756,10 @@ function SlotEditor({
             className="input"
             id="slot-end"
             type="time"
-            step="300"
-            disabled={values.endMin === 1440}
-            value={minuteTime(values.endMin === 1440 ? 0 : values.endMin)}
+            required
+            data-allow-midnight="true"
+            step="60"
+            value={minuteTime(values.endMin)}
             onChange={(event) =>
               form.setValue("endMin", timeMinute(event.target.value), {
                 shouldValidate: true,

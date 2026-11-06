@@ -1,3 +1,5 @@
+import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type {Bootstrap} from '@kram/shared';
@@ -15,7 +17,7 @@ async function seed(page:Page){
  const response=await page.request.post('/api/v1/tasks',{headers:{'X-CSRF-Token':csrf},data:{title:'Understand the scheduler',goalId:goal.id,estMinutes:60,earliestDate:data.studyDate}});expect(response.ok(),await response.text()).toBeTruthy();const task=await response.json();
  await page.goto('/');await expect(page.getByRole('heading',{name:'Your tasks',exact:true})).toBeVisible();return{task,goal,skill,csrf,date:data.studyDate};
 }
-async function accessible(page:Page){await expect(page.locator('html')).not.toHaveClass(/theme-crossfade/);expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);}
+async function accessible(page:Page){await settleAppearance(page);expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);}
 test('a generated proposal preserves the timetable until acceptance and exposes reasons/history',async({page})=>{
  await seed(page);await page.goto('/planning');await page.getByRole('button',{name:'Generate plan',exact:true}).click();await expect(page.getByRole('button',{name:'Accept all changes',exact:true})).toBeVisible();
  expect((await(await page.request.get('/api/v1/timetable/global?from=2026-01-01&to=2026-12-31')).json()).filter((s:{applicationKey:string})=>s.applicationKey?.startsWith('plan:'))).toHaveLength(0);
@@ -24,7 +26,7 @@ test('a generated proposal preserves the timetable until acceptance and exposes 
 });
 test('daily review previews without saving and closes the day with the accepted plan',async({page})=>{
  const{task}=await seed(page);await page.goto('/review');await page.getByRole('button',{name:'Continue to actual time'}).click();
- await page.locator(`#decision-${task.id}`).selectOption('partial');await page.locator(`#minutes-${task.id}`).fill('20');await page.getByRole('button',{name:'Preview tomorrow',exact:true}).click();await expect(page.getByRole('heading',{name:'Tomorrow, with reasons'})).toBeVisible();
+ await chooseOption(page.locator(`#decision-${task.id}`), 'partial');await page.locator(`#minutes-${task.id}`).fill('20');await page.getByRole('button',{name:'Preview tomorrow',exact:true}).click();await expect(page.getByRole('heading',{name:'Tomorrow, with reasons'})).toBeVisible();
  expect((await(await page.request.get(`/api/v1/tasks/${task.id}`)).json()).actualMinutes).toBe(0);
  await accessible(page);await page.getByRole('button',{name:'Accept all and continue'}).click();await page.getByRole('button',{name:'Close day and apply plan'}).click();await expect(page.getByRole('heading',{name:'Day closed',exact:true})).toBeVisible();
  expect((await(await page.request.get(`/api/v1/tasks/${task.id}`)).json()).actualMinutes).toBe(20);await page.goto('/');await expect(page.getByRole('heading',{name:'Your day is recorded'})).toBeVisible();

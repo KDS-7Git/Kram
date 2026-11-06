@@ -1,3 +1,5 @@
+import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { addDays, weekStartDate } from '@kram/time';
@@ -21,13 +23,13 @@ async function seed(page: Page) {
   await page.goto('/plan'); await expect(page.getByRole('link', { name: 'Schedules and templates' })).toBeVisible();
   return { data, csrf };
 }
-async function accessible(page: Page) { await expect(page.locator('html')).not.toHaveClass(/theme-crossfade/); expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]); }
+async function accessible(page: Page) { await settleAppearance(page); expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]); }
 async function repeating(page: Page, anchor: string, title: string) {
   await page.getByRole('link', { name: 'Schedules and templates' }).click();
   await page.getByRole('button', { name: 'Add repeating commitment', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Schedule title', { exact: true }).fill(title);
-  await dialog.getByLabel('Repeat frequency', { exact: true }).selectOption('DAILY');
+  await chooseOption(dialog.getByLabel('Repeat frequency', { exact: true }), 'DAILY');
   await dialog.getByLabel('Repeat every', { exact: true }).fill('2');
   await dialog.getByLabel('Anchor date', { exact: true }).fill(anchor);
   await dialog.getByLabel('Starts at', { exact: true }).fill('09:00');
@@ -67,13 +69,13 @@ test('weekly templates apply independently, copy a week, and calendar filters on
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Template name', { exact: true }).fill('A calm learning week');
   await dialog.getByLabel('Block title', { exact: true }).fill('Systems study window');
-  await dialog.getByLabel('Reserved for skill', { exact: true }).selectOption(data.skills[0]!.id);
+  await chooseOption(dialog.getByLabel('Reserved for skill', { exact: true }), data.skills[0]!.id);
   await dialog.getByRole('button', { name: 'Save template', exact: true }).click(); await expect(dialog).not.toBeVisible();
   await page.getByLabel('Apply to date or week', { exact: true }).fill(week);
   await page.getByRole('button', { name: 'Apply template', exact: true }).click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/timetable/global?from=${week}&to=${addDays(week, 6)}`)).json()).length).toBe(1);
   await page.getByLabel('Copy from', { exact: true }).fill(week); await page.getByLabel('Copy to', { exact: true }).fill(addDays(week, 7));
-  await page.getByLabel('Copy how much', { exact: true }).selectOption('7');
+  await chooseOption(page.getByLabel('Copy how much', { exact: true }), '7');
   await page.getByRole('button', { name: 'Copy time blocks', exact: true }).click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/timetable/global?from=${addDays(week, 7)}&to=${addDays(week, 13)}`)).json()).length).toBe(1);
   const otherProfile = await (await page.request.post('/api/v1/profiles', { headers: { 'X-CSRF-Token': csrf }, data: { name: 'Fitness' } })).json();
@@ -82,9 +84,10 @@ test('weekly templates apply independently, copy a week, and calendar filters on
   await page.goto(`/plan?date=${week}&view=week`);
   await expect(page.getByRole('button', { name: /Edit block Another profile block/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Edit block Systems study window/ })).toBeVisible();
-  await page.getByLabel('Profile filter', { exact: true }).selectOption(data.profiles[0]!.id);
+  await page.locator('.calendar-filter-disclosure summary').click();
+  await chooseOption(page.getByLabel('Profile filter', { exact: true }), data.profiles[0]!.id);
   await expect(page.getByRole('button', { name: /Edit block Another profile block/ })).not.toBeVisible();
-  await page.getByLabel('Skill filter', { exact: true }).selectOption(data.skills[0]!.id);
+  await chooseOption(page.getByLabel('Skill filter', { exact: true }), data.skills[0]!.id);
   await expect(page.getByRole('button', { name: /Edit block Systems study window/ })).toBeVisible();
   await accessible(page);
   await page.getByRole('button', { name: 'Month', exact: true }).click(); await expect(page.getByLabel('month timetable', { exact: true })).toBeVisible(); await accessible(page);
@@ -105,7 +108,7 @@ test('far-future projected blocks open the occurrence editor, and phone text and
   }
   await page.getByRole('button', { name: /Edit block पढ़ाई/ }).first().click();
   await expect(page).toHaveURL(new RegExp(`/schedules\\?seriesId=${row.id}`));
-  await expect(page.getByLabel('Series filter', { exact: true })).toHaveValue(row.id);
+  await expect(page.getByLabel('Series filter', { exact: true })).toHaveAttribute('data-value', row.id);
   await page.setViewportSize({ width: 320, height: 760 });
   await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
@@ -124,8 +127,8 @@ test('monthly weekday controls, holidays and offline drafts remain usable', asyn
   const add = page.getByRole('button', { name: 'Add repeating commitment', exact: true }); await add.focus(); await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Schedule title', { exact: true }).fill('Last working weekday');
-  await dialog.getByLabel('Repeat frequency', { exact: true }).selectOption('MONTHLY');
-  await dialog.getByLabel('Monthly pattern', { exact: true }).selectOption('last-weekday');
+  await chooseOption(dialog.getByLabel('Repeat frequency', { exact: true }), 'MONTHLY');
+  await chooseOption(dialog.getByLabel('Monthly pattern', { exact: true }), 'last-weekday');
   await dialog.getByRole('button', { name: 'Save schedule', exact: true }).click(); await expect(dialog).not.toBeVisible();
   const rows = await (await page.request.get('/api/v1/recurrence/series')).json(); expect(rows[0].rrule).toContain('BYSETPOS=-1');
   await page.getByRole('button', { name: 'Holidays', exact: true }).click();

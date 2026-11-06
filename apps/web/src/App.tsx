@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   CalendarDays,
@@ -137,7 +137,7 @@ function Shell({
   user?: User;
   workshop?: boolean;
 }) {
-  const { appearance, setAppearance } = useAppearance();
+  const { resolvedTheme, setAppearance } = useAppearance();
   const online = useOnline();
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -240,7 +240,7 @@ function Shell({
             </>
           )}
           <Button variant="text" onClick={toggleTheme}>
-            {appearance.theme === "dark" ? (
+            {resolvedTheme === "dark" ? (
               <Sun size={20} strokeWidth={1.5} />
             ) : (
               <Moon size={20} strokeWidth={1.5} />
@@ -280,7 +280,7 @@ function Shell({
               label="Toggle light and dark theme"
               onClick={toggleTheme}
             >
-              {appearance.theme === "dark" ? (
+              {resolvedTheme === "dark" ? (
                 <Sun size={20} strokeWidth={1.5} />
               ) : (
                 <Moon size={20} strokeWidth={1.5} />
@@ -339,7 +339,7 @@ function Shell({
           </div>
         </header>
         <main className="main-content" id="main-content" tabIndex={-1}>
-          {!online && (
+          {!online && !user && (
             <div style={{ marginBottom: "1.25rem" }}>
               <Banner>
                 You are offline. Progress saves on this device. Reconnect for planning or settings changes.
@@ -382,7 +382,27 @@ function Shell({
   );
 }
 
+function RouteContent({ children }: { children: ReactNode }) {
+  const content = useRef<HTMLDivElement>(null);
+  const { hash } = useLocation();
+  useEffect(() => {
+    let target: HTMLElement | null = null;
+    try { target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null; } catch { /* A malformed fragment falls back to the screen heading. */ }
+    if (target) {
+      target.scrollIntoView({ block: "start", behavior: "instant" });
+      const focus = target.matches("input,button,a,[tabindex]") ? target : target.querySelector<HTMLElement>("input,button,a,[tabindex]");
+      focus?.focus({ preventScroll: true });
+      return;
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    const heading = content.current?.querySelector<HTMLElement>("h1");
+    (heading || document.getElementById("main-content"))?.focus({ preventScroll: true });
+  }, [hash]);
+  return <div className="route-content" ref={content}>{children}</div>;
+}
+
 function SignedIn({ user }: { user: User }) {
+  const { pathname } = useLocation();
   const bootstrap = useBootstrap();
   const client = useQueryClient();
   useEffect(() => {
@@ -438,6 +458,7 @@ function SignedIn({ user }: { user: User }) {
           </div>
         )}
         <Suspense fallback={<DelayedLoading />}>
+        <RouteContent key={pathname}>
           <Routes>
             <Route path="/" element={<Today />} />
             <Route path="/tasks/:taskId" element={<TaskPage />} />
@@ -445,7 +466,7 @@ function SignedIn({ user }: { user: User }) {
             <Route path="/planning" element={<FeatureGate><Planning /></FeatureGate>} />
             <Route path="/progress" element={<FeatureGate><Analytics /></FeatureGate>} />
             <Route path="/progress/streaks" element={<FeatureGate level="full"><Streaks /></FeatureGate>} />
-            <Route path="/streaks" element={<FeatureGate level="full"><Streaks /></FeatureGate>} />
+            <Route path="/streaks" element={<Navigate to="/progress/streaks" replace />} />
             <Route path="/channels" element={<FeatureGate level="full"><PageHeader title="Reminders where you need them" eyebrow="Notifications"/><Channels/></FeatureGate>} />
             <Route path="/data" element={<DataRecovery />} />
             <Route path="/review" element={<FeatureGate><Review /></FeatureGate>} />
@@ -458,6 +479,7 @@ function SignedIn({ user }: { user: User }) {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Today />} />
           </Routes>
+        </RouteContent>
         </Suspense>
         <Suspense fallback={null}>
           <CommandPalette />
@@ -517,7 +539,7 @@ export function App() {
             path="/workshop"
             element={
               <Shell workshop>
-                <Workshop />
+                <div className="route-content"><Workshop /></div>
               </Shell>
             }
           />

@@ -1,5 +1,6 @@
 import { clientId } from "../../shared/id";
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, Link2, Send } from 'lucide-react';
 import { Banner, Button, Card, DelayedSkeleton, Field, Toggle } from '../../components/ui/kit';
@@ -20,7 +21,36 @@ export function ChannelSettings() {
   const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Channel> }) => api(`/channels/${id}`, { method: 'PATCH', body }), onMutate: ({ id, body }) => { const previous = query.getQueryData<Channel[]>(['channels', profile]); query.setQueryData<Channel[]>(['channels', profile], rows => rows?.map(row => row.id === id ? { ...row, ...body } : row)); return previous; }, onSuccess: async () => { await invalidate(); }, onError: (error, _variables, previous) => { query.setQueryData(['channels', profile], previous); toast(errorMessage(error), undefined, 'error'); } });
   const test = useMutation({ mutationFn: (id: string) => api(`/channels/${id}/test`, { method: 'POST', body: {} }), onSuccess: async () => { await invalidate(); toast('Test queued. Check the delivery history and your receiving device.'); }, onError: error => toast(errorMessage(error), undefined, 'error') });
   return <div className="stack-lg">
-    <Card><h2>Delivery channels</h2><p className="muted">Choose where reminders go. Telegram is optional and uses private text by default.</p>{!data.user.settings.notificationsEnabled && <Banner>General reminders are turned off in Settings. Channel tests are still available.</Banner>}{channels.isPending ? <DelayedSkeleton height={180} /> : channels.isError ? <Banner tone="error">{errorMessage(channels.error)} <Button variant="text" onClick={() => void channels.refetch()}>Retry channels</Button></Banner> : <div className="stack-lg">{channels.data?.map(channel => <div key={channel.id} className="channel-preference"><div className="row between"><h3><Bell size={18} strokeWidth={1.5} aria-hidden="true" /> {channel.id === 'ntfy' ? 'ntfy' : 'Telegram'}</h3><Button disabled={!online || !channel.linked} loading={test.isPending && test.variables === channel.id} onClick={() => test.mutate(channel.id)}><Send size={16} strokeWidth={1.5} />Send test</Button></div><p className="caption">{channel.linked ? channel.id === 'telegram' ? 'Private chat linked.' : 'Protected topic configured.' : channel.id === 'telegram' ? 'Link your private chat to receive messages.' : 'Configure the protected server and topic for this instance.'}</p><p className="caption">{channel.lastSentAt ? `Last accepted ${new Date(channel.lastSentAt).toLocaleString(undefined, { timeZone: data.user.settings.timezone })}${profile ? ' for this profile' : ''}.` : profile ? 'No accepted messages for this profile yet.' : 'No accepted messages yet.'}</p><Toggle label={`${channel.id === 'ntfy' ? 'ntfy' : 'Telegram'} delivery`} checked={channel.enabled} disabled={!online || !channel.linked || update.isPending} onChange={enabled => update.mutate({ id: channel.id, body: { enabled } })} /><Toggle label="Private lock-screen text" checked={channel.privacy} disabled={!online || !channel.configured || update.isPending} onChange={privacy => update.mutate({ id: channel.id, body: { privacy } })} /><div className="notification-preview"><p className="caption">Message preview</p><strong>{channel.privacy || data.user.settings.notificationPrivacy ? 'Kram reminder' : 'A chapter to study'}</strong><p>{channel.privacy || data.user.settings.notificationPrivacy ? 'You have a scheduled reminder. Open Kram for details.' : 'Open Kram to review your scheduled work.'}</p></div>{channel.id === 'telegram' && <TelegramLink channel={channel} onChange={invalidate} />}</div>)}</div>}</Card>
+    <Card>
+      <h2>Delivery channels</h2>
+      <p className="muted">Choose where reminders go. Telegram is optional and uses private text by default.</p>
+      <p className="caption">Accepted means the provider received a message; check your receiving device to confirm arrival.</p>
+      {!data.user.settings.notificationsEnabled && <Banner>General reminders are turned off in Settings. Channel tests are still available.</Banner>}
+      {channels.isPending ? <DelayedSkeleton height={180} /> : channels.isError ? (
+        <Banner tone="error">{errorMessage(channels.error)} <Button variant="text" onClick={() => void channels.refetch()}>Retry channels</Button></Banner>
+      ) : <div className="channel-grid">
+        {channels.data?.map(channel => <article key={channel.id} className="channel-preference">
+          <div className="channel-header row between">
+            <h3><Bell size={18} strokeWidth={1.5} aria-hidden="true" /> {channel.id === 'ntfy' ? 'ntfy' : 'Telegram'}</h3>
+            <Button disabled={!online || !channel.linked} loading={test.isPending && test.variables === channel.id} onClick={() => test.mutate(channel.id)}><Send size={16} strokeWidth={1.5} />Send test</Button>
+          </div>
+          <div className="channel-body stack">
+            <p className="caption">{channel.linked ? channel.id === 'telegram' ? 'Private chat linked.' : 'Protected topic configured.' : channel.id === 'telegram' ? 'Link your private chat to receive messages.' : 'Configure the protected server and topic for this instance.'}</p>
+            <p className="caption">{channel.lastSentAt ? `Last accepted ${new Date(channel.lastSentAt).toLocaleString(undefined, { timeZone: data.user.settings.timezone })}${profile ? ' for this profile' : ''}.` : profile ? 'No accepted messages for this profile yet.' : 'No accepted messages yet.'}</p>
+            <Toggle label={`${channel.id === 'ntfy' ? 'ntfy' : 'Telegram'} delivery`} checked={channel.enabled} disabled={!online || !channel.linked || update.isPending} onChange={enabled => update.mutate({ id: channel.id, body: { enabled } })} />
+            <Toggle label="Private lock-screen text" checked={channel.privacy} disabled={!online || !channel.configured || update.isPending} onChange={privacy => update.mutate({ id: channel.id, body: { privacy } })} />
+            <div className="notification-preview">
+              <p className="caption">Message preview</p>
+              <strong>{channel.privacy || data.user.settings.notificationPrivacy ? 'Kram reminder' : 'A chapter to study'}</strong>
+              <p>{channel.privacy || data.user.settings.notificationPrivacy ? 'You have a scheduled reminder. Open Kram for details.' : 'Open Kram to review your scheduled work.'}</p>
+            </div>
+          </div>
+          <div className="channel-actions">
+            {channel.id === 'telegram' ? <TelegramLink channel={channel} onChange={invalidate} /> : <Link className="button" to="/notifications">Topic and delivery history</Link>}
+          </div>
+        </article>)}
+      </div>}
+    </Card>
     <Card><h2>Routing by reminder type</h2><p className="muted">Profile choices override your general routes. Each selected channel receives its own message.</p><Field id="routing-profile" label="Apply these routes to"><select className="input" id="routing-profile" value={profile} onChange={event => setProfile(event.target.value)}><option value="">All profiles by default</option>{data.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></Field>{routing.isPending ? <DelayedSkeleton height={280} /> : routing.isError ? <Banner tone="error">{errorMessage(routing.error)} <Button variant="text" onClick={() => void routing.refetch()}>Retry routing</Button></Banner> : routing.data && <RoutingEditor key={profile} profileId={profile || null} routing={routing.data} onDone={invalidate} />}</Card>
   </div>;
 }

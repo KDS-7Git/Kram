@@ -1,3 +1,5 @@
+import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { DateTime } from 'luxon';
@@ -25,7 +27,7 @@ async function seed(page: Page, unit = 'minutes') {
   return { data, task, skill, goal, post };
 }
 async function accessible(page: Page) {
-  await expect(page.locator('html')).not.toHaveClass(/theme-crossfade/);
+  await settleAppearance(page);
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
 }
 async function reflow(page: Page) {
@@ -57,7 +59,7 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
       await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();
       await page.getByRole('button', { name: `Open task ${task.title}`, exact: true }).click();
     }
-    await accessible(page); await page.screenshot({ path: info.outputPath(`task-inspector-${theme}.png`), animations: 'disabled' });
+    await accessible(page); await panel.evaluate(element => { element.scrollTop = 0; }); await page.screenshot({ path: info.outputPath(`task-inspector-${theme}.png`), animations: 'disabled' });
   }
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();
@@ -74,7 +76,7 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   await page.keyboard.press('Escape');
   for (const theme of ['light', 'dark']) {
     if (await page.locator('html').getAttribute('data-theme') !== theme) await page.getByRole('button', { name: 'Toggle light and dark theme', exact: true }).click();
-    await accessible(page); await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }); await page.screenshot({ path: info.outputPath(`today-${theme}.png`), fullPage: true, animations: 'disabled' });
+    await accessible(page); await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); window.scrollTo(0, 0); }); await page.screenshot({ path: info.outputPath(`today-${theme}.png`), fullPage: true, animations: 'disabled' });
   }
   await page.setViewportSize({ width: 320, height: 760 }); await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
   await reflow(page);
@@ -119,7 +121,8 @@ test('week aligns time across days; phone date strip, filter scope, free targets
   await expect.poll(async () => (await (await page.request.get(`/api/v1/timetable/slots/${flexible.id}`)).json()).endMin).toBe(750);
   await page.getByRole('button', { name: 'Edit block Lecture · fixed', exact: true }).focus(); await page.keyboard.press('Alt+ArrowDown');
   expect((await (await page.request.get(`/api/v1/timetable/slots/${fixed.id}`)).json()).startMin).toBe(540);
-  await page.getByLabel('Skill filter', { exact: true }).selectOption(skill.id);
+  await page.locator('.calendar-filter-disclosure summary').click();
+  await chooseOption(page.getByLabel('Skill filter', { exact: true }), skill.id);
   await expect(page.locator('.calendar-filter-banner')).toContainText('Showing Machine Learning only');
   await expect(page.locator('.calendar-filter-banner')).toContainText('schedule unchanged');
   await expect(page.getByRole('button', { name: 'Edit block Lecture · fixed', exact: true })).not.toBeVisible();
@@ -136,6 +139,16 @@ test('week aligns time across days; phone date strip, filter scope, free targets
   await reflow(page); await accessible(page);
   await page.getByRole('button', { name: 'Week', exact: true }).click(); await reflow(page);
   await expect(page.getByRole('group', { name: 'Choose a day this week' })).toBeVisible();
+  expect(await page.locator('.week-strip button').evaluateAll(elements => Math.min(...elements.map(element => element.getBoundingClientRect().width)))).toBeGreaterThanOrEqual(44);
+  const dayTops = await page.locator('.week-strip button').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
+  expect(dayTops).toHaveLength(7);
+  expect(Math.max(...dayTops) - Math.min(...dayTops)).toBeLessThan(1);
+  await page.locator('.week-strip button').last().click();
+  await expect(page.locator('.week-strip button').last()).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.locator('.week-strip').evaluate(group => {
+    const selected = group.querySelector('[aria-pressed="true"]')!.getBoundingClientRect(), outer = group.getBoundingClientRect();
+    return selected.left >= outer.left - 1 && selected.right <= outer.right + 1;
+  })).toBeTruthy();
 });
 
 test('component kit exposes typed durations, toggles, destructive confirmation and an accessible Undo', async ({ page }) => {
@@ -161,7 +174,8 @@ test('reserved quick add keeps its skill, and contained work stays selectable at
   await post('/timetable/slots', { title: 'ML reserved window', date, startMin: 600, endMin: 720, layer: 'reserved', skillId: skill.id });
   await post('/timetable/slots', { title: task.title, date, startMin: 630, endMin: 660, layer: 'flexible', taskId: task.id });
   await page.goto(`/plan?date=${date}`);
-  await page.getByLabel('Goal filter', { exact: true }).selectOption(task.goalId);
+  await page.locator('.calendar-filter-disclosure summary').click();
+  await chooseOption(page.getByLabel('Goal filter', { exact: true }), task.goalId);
   await page.getByRole('button', { name: /Add block at 10:00, available until 10:30, reserved skill time/ }).click();
   const panel = page.getByRole('dialog');
   await panel.getByLabel('Block title', { exact: true }).fill('A step inside my reservation');

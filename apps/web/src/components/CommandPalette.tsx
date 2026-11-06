@@ -26,6 +26,7 @@ export function CommandPalette() {
   const [help, setHelp] = useState(false);
   const navigationChord = useRef(0);
   const canAddTask = data.goals.some((goal) => goal.status === "active");
+  const planner = data.user.settings.featurePreset !== "simple";
   useEffect(() => {
     const launch = () => {
       setSearch("");
@@ -59,7 +60,7 @@ export function CommandPalette() {
         setHelp(true);
         return;
       }
-      const paths: Record<string, string> = { t: "/", p: "/plan", g: "/goals" };
+      const paths: Record<string, string> = { t: "/", ...(planner ? { p: "/plan" } : {}), g: "/goals" };
       if (
         navigationChord.current &&
         Date.now() - navigationChord.current < 1000 &&
@@ -96,13 +97,13 @@ export function CommandPalette() {
       window.removeEventListener("kram-command", launch);
       window.removeEventListener("keydown", keyboard);
     };
-  }, [navigate, canAddTask]);
+  }, [navigate, canAddTask, planner]);
   const entries = useMemo(
     () => [
       ...(canAddTask
         ? [{ label: "Add task", kind: "Create", path: "/?add=task" }]
         : []),
-      { label: "Add time block", kind: "Create", path: "/plan?add=block" },
+      ...(planner ? [{ label: "Add time block", kind: "Create", path: "/plan?add=block" }] : []),
       { label: "Add goal", kind: "Create", path: "/goals?add=goal" },
       {
         label: "Add resource",
@@ -110,7 +111,7 @@ export function CommandPalette() {
         path: "/resources?add=resource",
       },
       { label: "Today", kind: "Navigate", path: "/" },
-      { label: "Plan", kind: "Navigate", path: "/plan" },
+      ...(planner ? [{ label: "Plan", kind: "Navigate", path: "/plan" }, { label: "Progress", kind: "Navigate", path: "/progress" }] : []),
       { label: "Profiles and goals", kind: "Navigate", path: "/goals" },
       { label: "Resource library", kind: "Navigate", path: "/resources" },
       { label: "Notifications", kind: "Navigate", path: "/notifications" },
@@ -141,7 +142,7 @@ export function CommandPalette() {
         path: "theme",
       },
     ],
-    [data, canAddTask],
+    [data, canAddTask, planner],
   );
   const results = entries
     .map((entry) => ({

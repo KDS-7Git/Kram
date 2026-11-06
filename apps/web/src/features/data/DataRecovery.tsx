@@ -40,7 +40,7 @@ export function DataRecovery({ embedded = false }: { embedded?: boolean }) {
         {!online && <Banner tone="info">Reconnect to check current recovery health.</Banner>}
         {health.isPending && online ? <DelayedSkeleton height={120} /> : health.isError ? <Banner tone="error" action={<Button onClick={() => void health.refetch()}>Retry</Button>}>{errorMessage(health.error)}</Banner> : health.data && <>
           {health.data.alerts.length > 0 && <Banner tone="warning"><ul>{health.data.alerts.map(alert => <li key={alert}>{alert}</li>)}</ul></Banner>}
-          <dl>{[
+          <dl className="data-facts">{[
             ['Last backup', health.data.backup.lastSuccessAt ? new Date(health.data.backup.lastSuccessAt).toLocaleString() : 'No successful backup recorded'],
             ['Encryption', health.data.backup.encrypted ? 'Enabled' : 'Not configured'],
             ['Off-device copy', health.data.backup.offDeviceAt ? new Date(health.data.backup.offDeviceAt).toLocaleString() : 'Not recorded'],

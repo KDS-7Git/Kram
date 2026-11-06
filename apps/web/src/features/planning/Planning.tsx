@@ -7,7 +7,7 @@ import {CalendarCheck,History,Pause,RefreshCw} from 'lucide-react';
 import {Banner,Button,Card,DelayedSkeleton,EmptyState,Field,PageHeader,Sheet,StatusPill} from '../../components/ui/kit';
 import {api,errorMessage} from '../../shared/api';
 import {useData,useOnline,useRefresh} from '../../shared/data';
-import {calendarDate,clockLabel,duration} from '../../shared/format';
+import {calendarDate,clockLabel,duration,counted} from '../../shared/format';
 import {useUI} from '../../shared/ui';
 export interface SavedPlan {id:string;number:number;state:string;reason:string;fromDate:string;toDate:string;createdAt:string;result:PlanResult;algoVersion:string}
 export interface PlanningResponse {version:number;activeVersionId:string|null;versions:SavedPlan[];breaks:{id:string;fromDate:string;toDate:string;reason:string}[]}
@@ -16,7 +16,7 @@ export function PlanPreview({result,titles={}}:{result:PlanResult;titles?:Record
   const title=(id:string)=>titles[id]??data.tasks.find(t=>t.id===id)?.title??'Task';
   return <div className="stack-lg">
     {result.warnings.map((w,i)=><Banner tone="warning" key={i}>{w.shortfallMin!==undefined?`This plan is short by ${duration(w.shortfallMin)}. `:''}{w.message}</Banner>)}
-    <p className="caption">{result.items.length} time blocks · {result.changes.changes.length} changes · {result.unplaced.length} tasks awaiting time</p>
+    <p className="caption">{counted(result.items.length, 'time block')} · {counted(result.changes.changes.length, 'change')} · {counted(result.unplaced.length, 'task')} awaiting time</p>
     {result.items.length===0&&<p className="muted">No open work fits the available time. Add a task or review the capacity below.</p>}
     <ol className="plan-preview-list" aria-label="Proposed time blocks">{result.items.map((item,i)=>{
       const change=result.changes.changes.find(c=>c.taskId===item.taskId);

@@ -407,7 +407,7 @@ export function TaskPanel({
         event.preventDefault();
         setComposer("skipped");
       }
-      if (event.key.toLowerCase() === "p") {
+      if (event.key.toLowerCase() === "p" && data.user.settings.featurePreset !== "simple") {
         event.preventDefault();
         navigate(`/plan?taskId=${task.id}&pin=true`);
       }
@@ -599,9 +599,9 @@ export function TaskPanel({
               Open resource
             </a>
           )}
-          <Link className="button button-text" to={`/plan?taskId=${task.id}`}>
+          {data.user.settings.featurePreset !== "simple" && <Link className="button button-text" to={`/plan?taskId=${task.id}`}>
             Schedule time
-          </Link>
+          </Link>}
         </div>
       )}
       {!!planning.data?.items.length&&<details><summary>Why here?</summary><div className="stack">{planning.data.items.map((item,i)=><p key={i}>{calendarDate(item.date)} · {item.explanation}</p>)}</div></details>}

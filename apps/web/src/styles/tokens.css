@@ -8,7 +8,7 @@
   --surface-2: #efeae0;
   --surface-3: #e7e1d4;
   --border: #e3ddd0;
-  --control-border: #8a8170;
+  --control-border: #887f6e;
   --text-1: #1f1c17;
   --text-2: #5a5448;
   --text-3: #6f685a;
@@ -37,6 +37,13 @@
   --shadow-card: 0 1px 1px rgb(31 28 23 / 4%);
   --shadow-popover: 0 8px 24px rgb(31 28 23 / 12%);
   --shadow-modal: 0 16px 48px rgb(31 28 23 / 18%);
+  /* Frame, content and overlays have distinct jobs in both themes. */
+  --frame: var(--surface-2);
+  --surface-panel: var(--surface);
+  --surface-floating: var(--surface);
+  --progress-track: var(--surface-2);
+  --frame-hover: var(--surface);
+  --grain-ink: rgb(31 28 23 / 3%);
   --font-body:
     "Source Sans 3 Variable", "Noto Sans Devanagari", "Noto Sans", sans-serif;
   --font-display: "Fraunces Variable", Georgia, serif;
@@ -48,6 +55,7 @@
   --dur-base: 200ms;
   --dur-slow: 280ms;
   --dur-ritual: 400ms;
+  --dur-route: 160ms;
   --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-move: cubic-bezier(0.4, 0, 0.2, 1);
@@ -60,7 +68,7 @@
   --surface-2: #26221d;
   --surface-3: #2f2a24;
   --border: #3a342c;
-  --control-border: #7a7060;
+  --control-border: #7e7464;
   --text-1: #f2eee6;
   --text-2: #b8b0a2;
   --text-3: #9b9385;
@@ -89,6 +97,12 @@
   --shadow-card: none;
   --shadow-popover: none;
   --shadow-modal: none;
+  --frame: var(--surface);
+  --surface-panel: var(--surface-2);
+  --surface-floating: var(--surface-3);
+  --progress-track: var(--surface-2);
+  --frame-hover: var(--surface-2);
+  --grain-ink: rgb(242 238 230 / 3%);
   --body-weight: 380;
 }
 
@@ -123,6 +137,9 @@
     --border: CanvasText;
     --control-border: ButtonText;
     --accent: Highlight;
+    --accent-hover: Highlight;
+    --accent-press: Highlight;
+    --accent-soft: Canvas;
     --on-accent: HighlightText;
   }
 }

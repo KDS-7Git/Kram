@@ -185,8 +185,8 @@ export function Hierarchy() {
         </Link>
         <p className="muted">
           {data.profiles.filter((profile) => !profile.archivedAt).length}{" "}
-          profiles · {data.skills.filter((skill) => !skill.archivedAt).length}{" "}
-          skills
+          {data.profiles.filter((profile) => !profile.archivedAt).length === 1 ? 'profile' : 'profiles'} · {data.skills.filter((skill) => !skill.archivedAt).length}{" "}
+          {data.skills.filter((skill) => !skill.archivedAt).length === 1 ? 'skill' : 'skills'}
         </p>
         <label className="toggle-label">
           <input
@@ -346,8 +346,8 @@ export function Hierarchy() {
                               <div>
                                 <h3>{skill.name}</h3>
                                 <p className="caption">
-                                  {duration(skill.dailyTargetMin)} a day ·{" "}
-                                  {duration(skill.weeklyTargetMin)} a week
+                                  {duration(skill.weeklyTargetMin)} weekly practice budget ·{" "}
+                                  {duration(skill.maxDailyMin)} daily scheduling cap
                                   {skill.archivedAt ? " · Archived" : ""}
                                 </p>
                               </div>
@@ -827,6 +827,7 @@ function SkillEditor({
                   className="input"
                   id={`window-start-${index}`}
                   type="time"
+                  required
                   value={minuteTime(window.startMin)}
                   onChange={(event) =>
                     form.setValue(
@@ -840,7 +841,9 @@ function SkillEditor({
                 <input
                   className="input"
                   id={`window-end-${index}`}
+                  data-allow-midnight="true"
                   type="time"
+                  required
                   value={minuteTime(window.endMin)}
                   onChange={(event) =>
                     form.setValue(

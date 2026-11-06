@@ -307,6 +307,7 @@ function Setup({ auth }: { auth: AuthMe }) {
                 id="setup-rollover"
                 className="input"
                 type="time"
+                  required
                 value={minuteTime(values.dayRollover ?? 240)}
                 onChange={(event) =>
                   form.setValue("dayRollover", timeMinute(event.target.value))
@@ -322,6 +323,7 @@ function Setup({ auth }: { auth: AuthMe }) {
                 className="input"
                 id="setup-waking"
                 type="time"
+                  required
                 value={minuteTime(values.wakingMin ?? 420)}
                 onChange={(event) =>
                   form.setValue("wakingMin", timeMinute(event.target.value))
@@ -330,6 +332,7 @@ function Setup({ auth }: { auth: AuthMe }) {
             </Field>
             <Field
               id="setup-sleeping"
+                  data-allow-midnight="true"
               label="Sleeping time"
               error={form.formState.errors.sleepingMin?.message}
               hint="The planner keeps your rest time clear."
@@ -337,7 +340,9 @@ function Setup({ auth }: { auth: AuthMe }) {
               <input
                 className="input"
                 id="setup-sleeping"
+                  data-allow-midnight="true"
                 type="time"
+                  required
                 value={minuteTime(values.sleepingMin ?? 1380)}
                 onChange={(event) =>
                   form.setValue("sleepingMin", timeMinute(event.target.value))

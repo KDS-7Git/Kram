@@ -1,3 +1,4 @@
+import { chooseOption } from "./helpers/select";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { Bootstrap, Skill } from "@kram/shared";
@@ -211,11 +212,10 @@ test("settings, device theme, sign out and sign in work on desktop and phone", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByLabel("Timezone", { exact: true }).fill("Europe/London");
   await page.getByLabel("Study day ends at", { exact: true }).fill("05:00");
-  await page.getByLabel("Week starts on", { exact: true }).selectOption("7");
-  await page
-    .getByLabel("Desktop density", { exact: true })
-    .selectOption("compact");
-  await page.getByLabel("Clock format", { exact: true }).selectOption("12");
+  await chooseOption(page.getByLabel("Week starts on", { exact: true }), "7");
+  await chooseOption(page
+    .getByLabel("Desktop density", { exact: true }), "compact");
+  await chooseOption(page.getByLabel("Clock format", { exact: true }), "12");
   await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
