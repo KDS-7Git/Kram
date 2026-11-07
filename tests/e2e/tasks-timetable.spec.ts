@@ -547,9 +547,10 @@ test("reserved overlaps count once, reminders edit and pause, and command search
     page.getByText("2 blocks · 2 h allocated", { exact: true }),
   ).toBeVisible();
   await page.goto("/");
-  await expect(
-    page.getByText("14 h free between waking and sleep", { exact: true }),
-  ).toBeVisible();
+  const capacity = page.getByRole("link", { name: "Open the day timetable", exact: true });
+  await expect(capacity.locator(".day-capacity strong")).toHaveText("14 h");
+  await expect(capacity).toContainText("free today");
+  await expect(capacity).toContainText("2 blocks · 2 h allocated");
   await page.goto("/notifications");
   await expect(
     page.getByRole("button", { name: "Send test", exact: true }),

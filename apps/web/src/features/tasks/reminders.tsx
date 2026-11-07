@@ -465,14 +465,14 @@ export function NotificationCenter() {
     ? ntfyTopicAddress(channel.data.baseUrl, channel.data.topic)
     : null;
   return (
-    <>
+    <div className="workspace-page notifications-workspace">
       <PageHeader
         title="Messages, without the noise"
         eyebrow="Notifications"
         description="Control reminders and see whether the channel accepted each message."
       />
       {data.user.settings.featurePreset === "full" && <p><Link className="button" to="/channels">Channels and reminder routing</Link></p>}
-      <div className="stack-lg">
+      <div className="stack-lg notification-workspace-grid">
         <Card className="notification-channel">
           <div className="card-header">
             <h2>
@@ -587,7 +587,7 @@ export function NotificationCenter() {
           )}
         </Card>
       </div>
-    </>
+    </div>
   );
 }
 

@@ -108,7 +108,7 @@ export function Workshop() {
   return (
     <>
       <PageHeader
-        title="Paper and Ink"
+        title="Graphite + violet"
         eyebrow="Component workshop"
         description="One quiet visual language, in light and dark. Controls keep their meaning with colour, shape and words."
       />

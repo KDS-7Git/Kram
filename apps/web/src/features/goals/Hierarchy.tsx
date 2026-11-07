@@ -153,7 +153,7 @@ export function Hierarchy() {
     }
   };
   return (
-    <>
+    <div className="workspace-page hierarchy-workspace">
       <PageHeader
         title="Goals begin with a place"
         eyebrow="Profiles and skills"
@@ -235,7 +235,7 @@ export function Hierarchy() {
           </EmptyState>
         </Card>
       ) : (
-        <div className="stack-lg">
+        <div className="stack-lg profile-list">
           {profiles.map((profile, index) => {
             const skills = [...hierarchy.skills]
               .filter(
@@ -251,7 +251,7 @@ export function Hierarchy() {
               <Card
                 key={profile.id}
                 id={profile.id}
-                className={profile.archivedAt ? "archived-card" : undefined}
+                className={`profile-card${profile.archivedAt ? " archived-card" : ""}`}
               >
                 <div className="profile-heading">
                   <button
@@ -535,7 +535,7 @@ export function Hierarchy() {
           </Button>
         </div>
       </ConfirmDialog>
-    </>
+    </div>
   );
 }
 

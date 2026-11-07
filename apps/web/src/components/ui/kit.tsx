@@ -273,8 +273,19 @@ export function StatusPill({
   status: string;
   detail?: string;
 }) {
+  const previous = useRef(status);
+  const [completionArrival, setCompletionArrival] = useState(false);
+  useEffect(() => {
+    if (previous.current === status) return;
+    previous.current = status;
+    const completed = ["completed", "met", "sent"].includes(status);
+    setCompletionArrival(completed);
+    if (!completed) return;
+    const timer = window.setTimeout(() => setCompletionArrival(false), 280);
+    return () => window.clearTimeout(timer);
+  }, [status]);
   return (
-    <span className={clsx("status", `status-${status}`)}>
+    <span className={clsx("status", `status-${status}`)} data-state-change={completionArrival ? "complete" : undefined}>
       <StatusGlyph status={status} />
       <span className="status-label">
         {labels[status] || status.replaceAll("_", " ")}

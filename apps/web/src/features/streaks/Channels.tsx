@@ -20,7 +20,7 @@ export function ChannelSettings() {
   const invalidate = async () => { await Promise.all([query.invalidateQueries({ queryKey: ['channels'] }), query.invalidateQueries({ queryKey: ['notification-routes'] }), query.invalidateQueries({ queryKey: ['notifications'] })]); };
   const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Channel> }) => api(`/channels/${id}`, { method: 'PATCH', body }), onMutate: ({ id, body }) => { const previous = query.getQueryData<Channel[]>(['channels', profile]); query.setQueryData<Channel[]>(['channels', profile], rows => rows?.map(row => row.id === id ? { ...row, ...body } : row)); return previous; }, onSuccess: async () => { await invalidate(); }, onError: (error, _variables, previous) => { query.setQueryData(['channels', profile], previous); toast(errorMessage(error), undefined, 'error'); } });
   const test = useMutation({ mutationFn: (id: string) => api(`/channels/${id}/test`, { method: 'POST', body: {} }), onSuccess: async () => { await invalidate(); toast('Test queued. Check the delivery history and your receiving device.'); }, onError: error => toast(errorMessage(error), undefined, 'error') });
-  return <div className="stack-lg">
+  return <div className="stack-lg workspace-page channels-workspace">
     <Card>
       <h2>Delivery channels</h2>
       <p className="muted">Choose where reminders go. Telegram is optional and uses private text by default.</p>

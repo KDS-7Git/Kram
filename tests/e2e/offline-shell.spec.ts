@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { DateTime } from 'luxon';
+import { studyDate } from '@kram/time';
 
 const testApi = process.env.E2E_API_URL || 'http://127.0.0.1:8422';
 test.skip(process.env.E2E_SERVE_BUILD !== '1', 'The installable shell is verified against the production build.');
@@ -56,11 +58,19 @@ test('Today starts and pauses offline before a task route or sheet warms validat
   const data = await (await page.request.get('/api/v1/bootstrap')).json(); const headers = { 'X-CSRF-Token': auth.csrfToken };
   const skillResponse = await page.request.post('/api/v1/skills', { headers, data: { profileId: data.profiles[0].id, name: 'Offline Today practice' } }); expect(skillResponse.ok()).toBeTruthy(); const skill = await skillResponse.json();
   const goalResponse = await page.request.post('/api/v1/goals', { headers, data: { skillId: skill.id, type: 'milestone', title: 'Offline Today task', targetQty: 30, unit: 'minutes', startDate: data.studyDate, availableDays: [1, 2, 3, 4, 5, 6, 7] } }); expect(goalResponse.ok()).toBeTruthy(); const goal = await goalResponse.json();
-  const seeded = await (await page.request.get('/api/v1/bootstrap')).json(); const task = seeded.tasks.find((task: { goalId: string }) => task.goalId === goal.id); expect(task).toBeTruthy();
-  // Now offers a timer for scheduled or running work. Seed a real current block
-  // and a deterministic browser time without opening any page or task editor.
-  const slot = await page.request.post('/api/v1/timetable/slots', { headers, data: { taskId: task.id, title: task.title, layer: 'flexible', date: data.studyDate, startMin: 710, endMin: 750 } }); expect(slot.ok(), await slot.text()).toBeTruthy();
-  await page.clock.setFixedTime(new Date(`${data.studyDate}T06:30:00Z`));
+  const seededResponse = await page.request.get('/api/v1/bootstrap');
+  const seeded = await seededResponse.json(); const task = seeded.tasks.find((task: { goalId: string }) => task.goalId === goal.id); expect(task).toBeTruthy();
+  // Freeze the browser at the response's server instant. An arbitrary noon clock
+  // can be ahead of the server and correctly rejected when offline events replay.
+  // The current block uses its civil date; pre-rollover work still belongs to the
+  // prior study date, and the final minute of a day ends at the permitted 24:00.
+  const instant = DateTime.fromHTTP(seededResponse.headers().date!, { setZone: true });
+  expect(instant.isValid).toBeTruthy();
+  const local = instant.setZone(seeded.user.settings.timezone);
+  const minute = local.hour * 60 + local.minute;
+  expect(studyDate(instant.toISO()!, seeded.user.settings.timezone, seeded.user.settings.dayRollover)).toBe(seeded.studyDate);
+  const slot = await page.request.post('/api/v1/timetable/slots', { headers, data: { taskId: task.id, title: task.title, layer: 'flexible', date: local.toISODate(), startMin: minute, endMin: Math.min(1440, minute + 40) } }); expect(slot.ok(), await slot.text()).toBeTruthy();
+  await page.clock.setFixedTime(instant.toJSDate());
   await page.goto('/'); await expect(page.locator('.today-now').getByRole('button', { name: 'Start', exact: true })).toBeEnabled();
   await page.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise<void>(resolve => navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true })); });
   const manifest = await (await page.request.get('/pwa-assets.json')).json();

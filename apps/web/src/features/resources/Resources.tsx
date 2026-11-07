@@ -148,7 +148,7 @@ export function ResourceLibrary() {
     (resource) => !goal || resource.goalIds.includes(goal.id),
   );
   return (
-    <>
+    <div className="workspace-page resources-workspace">
       <Link className="button button-text back-link" to="/goals">
         <ArrowLeft size={18} strokeWidth={1.5} />
         Profiles and goals
@@ -207,11 +207,11 @@ export function ResourceLibrary() {
           <Skeleton height={180} />
         </div>
       ) : visible.length ? (
-        <div className="grid-2">
+        <div className="grid-2 resource-grid">
           {visible.map((resource) => (
             <Card
               key={resource.id}
-              className={resource.archivedAt ? "archived-card" : undefined}
+              className={`resource-card${resource.archivedAt ? " archived-card" : ""}`}
             >
               <p className="eyebrow">{resourceLabels[resource.type]}</p>
               <Link
@@ -267,7 +267,7 @@ export function ResourceLibrary() {
           <ResourceEditor goalId={goal?.id} onDone={() => setEditing(false)} />
         )}
       </Sheet>
-    </>
+    </div>
   );
 }
 
@@ -625,7 +625,7 @@ export function ResourceDetail() {
     resource.goalIds.includes(goal.id),
   );
   return (
-    <>
+    <div className="workspace-page resource-detail-workspace">
       <Link className="button button-text back-link" to="/resources">
         <ArrowLeft size={18} strokeWidth={1.5} />
         Resource library
@@ -920,7 +920,7 @@ export function ResourceDetail() {
           <Banner tone="error">{errorMessage(archiveMutation.error)}</Banner>
         )}
       </ConfirmDialog>
-    </>
+    </div>
   );
 }
 

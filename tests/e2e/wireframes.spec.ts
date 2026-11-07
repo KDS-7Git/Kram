@@ -40,12 +40,14 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   if (minute < 1400) await post('/timetable/slots', { title: task.title, taskId: task.id, layer: 'flexible', date: local.toISODate(), startMin: Math.max(0, minute - 1), endMin: Math.min(1440, minute + 35) });
   await post(`/tasks/${task.id}/events`, { kind: 'started', occurredAt: new Date(Date.now() - 2 * 60 * 60000).toISOString(), clientEventId: crypto.randomUUID() });
   await page.goto('/');
+  const now = page.locator('.today-now');
+  await expect(now.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   if (info.project.name === 'desktop') {
+    await page.mouse.move(500, 20);
+    await settleAppearance(page);
     const positions = await page.locator('.sidebar .nav-link > svg, .sidebar-footer .button-label > svg').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().x));
     expect(Math.max(...positions) - Math.min(...positions)).toBeLessThan(1);
   }
-  const now = page.locator('.today-now');
-  await expect(now.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await now.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/tasks/${task.id}`)).json()).timerStartedAt).toBeNull();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -81,6 +83,41 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   await page.setViewportSize({ width: 320, height: 760 }); await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
   await reflow(page);
   await page.getByRole('button', { name: `Open task ${task.title}`, exact: true }).click(); await reflow(page); await accessible(page);
+});
+
+test('Undo targets the newest saved progress while background refresh is delayed', async ({ page }) => {
+  const { task } = await seed(page);
+  await page.goto(`/tasks/${task.id}`);
+  await page.getByRole('button', { name: '25%', exact: true }).click();
+  await expect(page.getByText('45 min estimated remaining', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '50%', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>(resolve => { releaseRefresh = resolve; });
+  await page.route('**/api/v1/bootstrap', async route => {
+    await refreshGate;
+    await route.continue();
+  });
+  const corrections: { referenceEventId: string }[] = [];
+  page.on('request', request => {
+    if (request.method() !== 'POST' || !request.url().endsWith(`/tasks/${task.id}/events`)) return;
+    const input = request.postDataJSON();
+    if (input.kind === 'correction') corrections.push(input);
+  });
+  try {
+    await page.getByRole('button', { name: '50%', exact: true }).click();
+    await expect(page.getByText('30 min estimated remaining', { exact: true })).toBeVisible();
+    const history = await (await page.request.get(`/api/v1/tasks/${task.id}/events`)).json();
+    const latest = history.filter((event: { kind: string }) => event.kind === 'progress').at(-1);
+    expect(latest).toBeTruthy();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(() => corrections.map(input => input.referenceEventId)).toEqual([latest.id]);
+    await expect.poll(async () => (await (await page.request.get(`/api/v1/tasks/${task.id}`)).json()).actualMinutes).toBe(15);
+    await expect(page.getByText('45 min estimated remaining', { exact: true })).toBeVisible();
+  } finally {
+    releaseRefresh();
+  }
 });
 
 test('count-based quick progress recalculates remaining work by quantity', async ({ page }) => {

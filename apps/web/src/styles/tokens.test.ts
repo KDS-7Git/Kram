@@ -25,7 +25,7 @@ function palette(source: string) {
 }
 const themes = {
   light: palette(sections[0]!),
-  dark: palette(sections[1]!.split("@theme")[0]!),
+  dark: { ...palette(sections[0]!), ...palette(sections[1]!.split("@theme")[0]!) },
 };
 function luminance(hex: string) {
   const rgb = hex
@@ -42,8 +42,15 @@ function contrast(a: string, b: string) {
   return (values[0]! + 0.05) / (values[1]! + 0.05);
 }
 
-describe.each(Object.entries(themes))("%s Paper and Ink", (_name, tokens) => {
-  it("keeps every body-text token readable on its declared paper surfaces", () => {
+describe.each(Object.entries(themes))("%s Graphite and Violet", (_name, tokens) => {
+  it("keeps mixed navigation labels, focus and control edges readable", () => {
+    for (const background of ["nav-bg", "nav-selected"])
+      for (const foreground of ["nav-text", "nav-muted", "nav-accent"])
+        expect(contrast(tokens[foreground]!, tokens[background]!), `${foreground} on ${background}`).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tokens["nav-accent"]!, tokens["nav-bg"]!)).toBeGreaterThanOrEqual(3);
+    expect(contrast(tokens["nav-border"]!, tokens["nav-selected"]!)).toBeGreaterThanOrEqual(3);
+  });
+  it("keeps every body-text token readable on its declared working surfaces", () => {
     for (const background of [
       "bg", "surface", "surface-2", "frame", "surface-panel", "surface-floating",
     ])

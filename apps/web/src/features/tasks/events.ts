@@ -39,8 +39,8 @@ export function useTaskEvents(taskId: string) {
         toast("Progress saved on this device. It will sync when connected.");
         return;
       }
-      client.setQueryData(["tasks", taskId], result.task);
-      await refresh();
+      // Publish the matching Undo before exposing the saved task. Refresh can
+      // take time; replacing its button afterwards can swallow a user's click.
       if (input.kind === "completed" || input.kind === "progress")
         toast(input.kind === "completed" ? "Task completed." : "Progress saved.", async () => {
           await post("correction", {
@@ -62,6 +62,8 @@ export function useTaskEvents(taskId: string) {
                       ? "Task cancelled."
                       : "Correction saved.",
         );
+      client.setQueryData(["tasks", taskId], result.task);
+      await refresh();
     },
     onError: (error) => {
       if (

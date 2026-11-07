@@ -1,0 +1,260 @@
+/* Motion follows a real interaction. Resting cards and background stay still. */
+:root {
+  --motion-arrival: 260ms;
+  --motion-feedback: 180ms;
+  --motion-press: 80ms;
+  --motion-ease: cubic-bezier(.16, 1, .3, 1);
+}
+
+.route-content {
+  animation: workspace-arrival 240ms var(--motion-ease);
+}
+.dialog-overlay[data-state="open"],
+.select-overlay[data-state="open"],
+.temporal-overlay[data-state="open"] {
+  animation: layer-scrim 200ms ease-out;
+}
+.dialog-content[data-state="open"] {
+  animation: dialog-arrival var(--motion-arrival) var(--motion-ease);
+}
+.sheet-content[data-state="open"] {
+  animation: inspector-arrival var(--motion-arrival) var(--motion-ease);
+}
+.dropdown-menu[data-state="open"],
+.select-popover[data-state="open"],
+.temporal-popover[data-state="open"] {
+  animation: chooser-arrival 200ms var(--motion-ease);
+}
+.select-sheet[data-state="open"],
+.temporal-sheet[data-state="open"] {
+  animation: phone-layer-arrival var(--motion-arrival) var(--motion-ease);
+}
+.kit-tooltip[data-state="delayed-open"],
+.kit-tooltip[data-state="instant-open"] {
+  animation: tooltip-arrival 160ms var(--motion-ease);
+}
+
+/* Boundaries, surface and elevation respond together without moving the layout. */
+.button,
+.theme-crossfade .button-primary {
+  transition: background-color var(--motion-feedback) ease-out,
+    color var(--motion-feedback) ease-out,
+    border-color var(--motion-feedback) ease-out,
+    box-shadow var(--motion-feedback) ease-out,
+    transform var(--motion-press) ease-out;
+}
+.button-primary:not(:disabled) {
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.button:focus-visible,
+.select-trigger:focus-visible,
+.temporal-trigger:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.button:active:not(:disabled),
+.button[data-demo-state="pressed"]:not(:disabled) {
+  transform: translateY(1px) scale(.98);
+  box-shadow: none;
+}
+.button-primary:active:not(:disabled) {
+  box-shadow: inset 0 2px 4px color-mix(in srgb, var(--on-accent) 12%, transparent);
+}
+.button:disabled {
+  box-shadow: none;
+  transform: none;
+}
+.nav-link,
+.segmented button,
+.week-strip button,
+.tab-list > button,
+.select-trigger,
+.temporal-trigger {
+  transition: background-color var(--motion-feedback) ease-out,
+    color var(--motion-feedback) ease-out,
+    border-color var(--motion-feedback) ease-out,
+    box-shadow var(--motion-feedback) ease-out,
+    transform var(--motion-feedback) var(--motion-ease);
+}
+.nav-link > svg {
+  transition: transform var(--motion-feedback) var(--motion-ease);
+}
+.nav-link.active > svg {
+  animation: selected-mark 240ms var(--motion-ease);
+}
+.segmented button[aria-pressed="true"],
+.week-strip button[aria-pressed="true"] {
+  animation: selected-control 200ms var(--motion-ease);
+}
+.select-chevron {
+  transition: transform var(--motion-feedback) var(--motion-ease);
+}
+.select-trigger[aria-expanded="true"] .select-chevron {
+  transform: rotate(180deg);
+}
+.input,
+.temporal-control,
+.select-control {
+  transition: border-color var(--motion-feedback) ease-out,
+    box-shadow var(--motion-feedback) ease-out;
+}
+.input:focus,
+.input:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:not(:disabled):not(.button-icon):hover,
+  .button[data-demo-state="hover"]:not(:disabled):not(.button-icon) {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 5px 12px color-mix(in srgb, var(--text-1) 10%, transparent);
+  }
+  .button-primary:not(:disabled):hover {
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .button-icon:not(:disabled):hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .nav-link:hover > svg {
+    transform: translateX(2px);
+  }
+  .task-row-title:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .task-check:not(:disabled):hover {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: var(--accent-soft);
+  }
+  .week-block:not(:disabled):hover,
+  .calendar-block:not(:disabled):hover {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: var(--accent-soft);
+  }
+  .button:not(:disabled):not(.button-icon):active,
+  .button[data-demo-state="pressed"]:not(:disabled) {
+    transform: translateY(1px) scale(.98);
+    box-shadow: none;
+  }
+}
+
+/* A saved result has one arrival. An existing completed record has none. */
+.toast {
+  animation: result-arrival 260ms var(--motion-ease);
+}
+.toast:not(.toast-error) > svg {
+  animation: saved-mark 280ms var(--motion-ease);
+}
+.status[data-state-change="complete"] > svg {
+  animation: saved-mark 280ms var(--motion-ease);
+}
+.status[data-state-change="complete"] > svg path {
+  stroke-dasharray: 14;
+  animation: completion-stroke 220ms ease-out;
+}
+.button-loading-dots i {
+  animation: pending-dot 900ms ease-in-out infinite;
+}
+.button-loading-dots i:nth-child(2) { animation-delay: 120ms; }
+.button-loading-dots i:nth-child(3) { animation-delay: 240ms; }
+
+@keyframes workspace-arrival {
+  from { opacity: .2; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes layer-scrim {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dialog-arrival {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes inspector-arrival {
+  from { opacity: .3; transform: translateX(36px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes phone-layer-arrival {
+  from { opacity: .3; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes chooser-arrival {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes tooltip-arrival {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes selected-mark {
+  0% { transform: scale(.8); }
+  65% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes selected-control {
+  from { opacity: .65; }
+  to { opacity: 1; }
+}
+@keyframes result-arrival {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes saved-mark {
+  0% { opacity: .5; transform: scale(.6); }
+  70% { opacity: 1; transform: scale(1.16); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes completion-stroke {
+  from { stroke-dashoffset: 14; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes pending-dot {
+  0%, 100% { opacity: .45; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (max-width: 599px) {
+  .sheet-content[data-state="open"] {
+    animation-name: phone-layer-arrival;
+  }
+}
+
+/* The OS preference wins over the app's Full setting. Static feedback remains. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .button:hover,
+  .button:active,
+  .button[data-demo-state],
+  .nav-link:hover > svg,
+  .select-trigger[aria-expanded="true"] .select-chevron {
+    transform: none !important;
+  }
+}
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+[data-motion="reduced"] .button:hover,
+[data-motion="reduced"] .button:active,
+[data-motion="reduced"] .button[data-demo-state],
+[data-motion="reduced"] .nav-link:hover > svg,
+[data-motion="reduced"] .select-trigger[aria-expanded="true"] .select-chevron {
+  transform: none !important;
+}
+@media (forced-colors: active) {
+  .button,
+  .button:hover,
+  .button:focus-visible,
+  .input:focus,
+  .task-check,
+  .week-block,
+  .calendar-block {
+    box-shadow: none;
+  }
+}

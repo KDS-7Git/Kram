@@ -592,7 +592,7 @@ export function GoalDetail() {
       "goalIds" in resource && (resource.goalIds as string[]).includes(goal.id),
   );
   return (
-    <>
+    <div className="workspace-page goal-detail-workspace">
       <Link className="button button-text back-link" to="/goals">
         <ArrowLeft size={18} strokeWidth={1.5} />
         Profiles and goals
@@ -924,6 +924,6 @@ export function GoalDetail() {
           <Banner tone="error">{errorMessage(changeStatus.error)}</Banner>
         )}
       </ConfirmDialog>
-    </>
+    </div>
   );
 }

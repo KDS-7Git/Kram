@@ -73,7 +73,7 @@ export function CalendarRange({ view, date, from, to, slots, allSlots = slots, o
                 <span className="week-block-title">{['fixed', 'unavailable'].includes(slot.layer) ? <LockKeyhole size={14} aria-hidden="true" strokeWidth={1.5} /> : slot.layer === 'pinned' ? <Pin size={14} aria-hidden="true" strokeWidth={1.5} /> : null}<strong>{slot.title}</strong></span><span className="caption">{clockLabel(slot.startMin, data.user.settings.clockFormat)} · {layerLabels[slot.layer]}</span>
               </button>;
             })}
-            {day === localNow.toISODate() && minute >= start && minute < end && <div className="week-now" style={{ top: size(minute - start) }} aria-label={`Now ${clockLabel(minute, data.user.settings.clockFormat)}`} />}
+            {day === localNow.toISODate() && minute >= start && minute < end && <div className="week-now" role="img" style={{ top: size(minute - start) }} aria-label={`Now ${clockLabel(minute, data.user.settings.clockFormat)}`} />}
           </div>
           <div className="week-footnotes">{!!blocks.length && <span className="caption">{blocks.length} {blocks.length === 1 ? 'block' : 'blocks'} · {duration(allocatedMinutes(blocks))}</span>}<RecurringWork items={occurrences.filter(item => item.localDate === day && item.series.kind === 'goal' && item.status === 'scheduled')} />{goals.filter(goal => goal.dueDate === day && goal.status === 'active').map(goal => <Link className="calendar-deadline" key={goal.id} to={`/goals/${goal.id}`}>Due: {goal.title}</Link>)}</div>
         </section>;

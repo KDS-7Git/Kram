@@ -269,7 +269,7 @@ export function Timetable() {
     ...conflictDetails(move.error).map((slot) => slot.id),
   ]);
   return (
-    <>
+    <div className="workspace-page timetable-workspace">
       <PageHeader
         title="Your timetable"
         eyebrow={`Plan · ${view} timetable`}
@@ -529,7 +529,7 @@ export function Timetable() {
           <Banner tone="error">{errorMessage(removeBlock.error)}</Banner>
         )}
       </ConfirmDialog>
-    </>
+    </div>
   );
 }
 

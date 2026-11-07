@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/app.css";
+import "./styles/modern.css";
+import "./styles/workspace.css";
+import "./styles/motion.css";
 import { App } from "./App";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 

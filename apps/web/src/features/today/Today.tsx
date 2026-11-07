@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { weekday } from "@kram/time";
-import { Clock3, Plus, Target, Pause, Play, Check } from "lucide-react";
+import { Clock3, Plus, Target, Pause, Play, Check, ArrowRight, CalendarDays } from "lucide-react";
 import type { Task, TodayResponse, TimeSlot } from "@kram/shared";
 import {
   Banner,
@@ -97,7 +97,7 @@ export function Today() {
   const simple = data.user.settings.featurePreset === "simple";
   const taskDestination = data.goals.length ? "#today-tasks" : "/goals";
   const chooseTask = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!simple || !data.goals.length) return;
+    if (!data.goals.length || !event.currentTarget.getAttribute("href")?.endsWith("#today-tasks")) return;
     event.preventDefault();
     const list = document.getElementById("today-tasks");
     list?.scrollIntoView({ block: "start", behavior: "instant" });
@@ -176,10 +176,10 @@ export function Today() {
     0,
   );
   return (
-    <>
+    <div className="today-page">
       <PageHeader
-        title={calendarDate(today.studyDate)}
-        eyebrow="Today"
+        title="Today"
+        eyebrow={calendarDate(today.studyDate)}
         description={
           rest
             ? "A planned rest day. Keep the day gentle."
@@ -218,63 +218,11 @@ export function Today() {
       )}
       {!simple && !!today.proposalCount&&<Banner>{today.proposalCount} plan {today.proposalCount === 1 ? 'proposal awaits' : 'proposals await'} your review. <Link className="button button-text" to="/planning">Review changes</Link></Banner>}
       {!simple && !!today.unverifiedReviews?.length&&<Banner>Some previous days still need confirmation. <Link className="button button-text" to={`/review?date=${today.unverifiedReviews[0]}`}>Reconcile {calendarDate(today.unverifiedReviews[0]!)}</Link></Banner>}
-            {!simple && <Card className="day-ribbon-card">
-          <div className="row between">
-            <h2 className="sr-only">Your day at a glance</h2>
-            <span className="caption">
-              {duration(free)} free between waking and sleep
-              {rest ? " · Rest day" : ""}
-            </span>
-          </div>
-          <Link
-            className={`day-ribbon${rest ? " day-ribbon-rest" : ""}`}
-            to="/plan"
-            aria-label="Open the day timetable"
-          >
-            {ribbonSlots.map((slot) => {
-              const start = Math.max(wake, slot.startMin);
-              const end = Math.min(sleep, slot.endMin);
-              if (end <= start) return null;
-              const profile = data.profiles.find(
-                (profile) => profile.id === slot.profileId,
-              );
-              return (
-                <span
-                  className={`ribbon-block ribbon-${slot.layer}`}
-                  key={slot.id}
-                  style={{
-                    left: `${((start - wake) / span) * 100}%`,
-                    width: `${((end - start) / span) * 100}%`,
-                    borderInlineStartColor: profile
-                      ? `var(--profile-${profile.color})`
-                      : undefined,
-                  }}
-                  title={`${slot.title}: ${clockLabel(slot.startMin)}–${clockLabel(slot.endMin)}`}
-                >
-                  <span className="sr-only">
-                    {slot.title}, {clockLabel(slot.startMin)} to{" "}
-                    {clockLabel(slot.endMin)}, {slot.layer}.
-                  </span>
-                </span>
-              );
-            })}
-            {sameDate && minute >= wake && minute <= sleep && (
-              <i
-                className="ribbon-now"
-                style={{ left: `${((minute - wake) / span) * 100}%` }}
-                aria-hidden="true"
-              />
-            )}
-          </Link>
-          <div className="row between caption">
-            <time>{clockLabel(wake, data.user.settings.clockFormat)}</time>
-            <time>{clockLabel(sleep, data.user.settings.clockFormat)}</time>
-          </div>
-        </Card>}
+
       <div className="today-grid">
         <div className="today-execution">
         <Card className={`today-now${running ? " today-now-running" : ""}`}>
-          <p className="eyebrow">{today.review?.state==='closed'?'Day closed':'Now'}</p>
+          <div className="focus-heading"><p className="eyebrow"><span className={`focus-indicator${running ? " focus-indicator-running" : ""}`} aria-hidden="true" />{today.review?.state==='closed'?'Day closed':running ? 'In focus' : 'Now'}</p><span className="focus-clock"><Clock3 size={14} aria-hidden="true" />{clockLabel(minute, data.user.settings.clockFormat)}</span></div>
           {today.review?.state==='closed'?<><h2>Your day is recorded</h2><p className="muted">Progress is preserved. You can correct an earlier log from its task history.</p>{today.tomorrowFirst&&<p>Tomorrow: {today.tomorrowFirst.title} · {clockLabel(today.tomorrowFirst.startMin,data.user.settings.clockFormat)}</p>}{!simple && <Link className="button" to="/review">See closing summary</Link>}</>:nowTask ? (
             <>
               <button type="button" className="now-task-title" aria-label={`Open focused task ${nowTask.title}`} onClick={() => setSelected({ id: nowTask.id })}><h2>{nowTask.title}</h2></button>
@@ -313,20 +261,15 @@ export function Today() {
             </>
           ) : (
             <>
-              <h2>{rest ? "Room to rest" : "A little open space"}</h2>
-              <p className="muted">
-                {nextSlot
-                  ? `Free until ${clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}.`
-                  : "No block is happening now."}
-              </p>
-              <Link className="button button-text" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
-                {simple ? (data.goals.length ? "Choose a task" : "Create a goal") : "Choose a time for something"}
-              </Link>
+              <h2>{rest ? "Room to rest" : "Choose your next step"}</h2>
+              {nextSlot && <p className="muted">Free until {clockLabel(nextSlot.startMin, data.user.settings.clockFormat)}.</p>}
+              <div className="focus-empty-actions"><Link className="button button-primary" to={taskDestination} onClick={chooseTask}>
+                {data.goals.length ? "Choose a task" : "Create a goal"}<ArrowRight size={16} aria-hidden="true" />
+              </Link>{!simple && <Link className="button" to="/plan"><CalendarDays size={16} aria-hidden="true" />Plan time</Link>}</div>
             </>
           )}
-        </Card>
-        <Card className="today-next">
-          <p className="eyebrow">Next</p>
+        <div className="today-next">
+          <p className="eyebrow">Up next</p>
           {nextSlot ? (
             <>
               <h2>{nextSlot.title}</h2>
@@ -351,13 +294,10 @@ export function Today() {
             </>
           ) : (
             <>
-              <h2>No next block</h2>
-              <p className="muted">The next stretch is yours to shape.</p>
-              <Link className="button button-text" to={simple ? taskDestination : "/plan"} onClick={chooseTask}>
-                {simple ? (data.goals.length ? "Choose a task" : "Create a goal") : "Plan a time block"}
-              </Link>
+              <p className="next-empty">No upcoming block.</p>
             </>
           )}
+        </div>
         </Card>
         <Card className="today-tasks" id="today-tasks" tabIndex={-1} aria-labelledby="today-task-heading">
           <div className="card-header">
@@ -420,9 +360,60 @@ export function Today() {
             Open a task for its timer and notes.<span className="desktop-shortcuts"> On desktop: J and K move, D completes, S controls the timer, E defers, X skips.</span>
           </p>
         </Card>
-      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
+      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="today-review row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
         </div>
         <div className="today-aside">
+            {!simple && <Card className="day-ribbon-card">
+          <Link className="day-overview-link" to="/plan" aria-label="Open the day timetable">
+          <div className="row between">
+            <h2 className="sr-only">Your day at a glance</h2>
+            <span className="day-capacity"><strong>{duration(free)}</strong> free today{rest ? " · Rest day" : ""}</span>
+            <span className="caption">{ribbonSlots.length} {ribbonSlots.length === 1 ? "block" : "blocks"} · {duration(occupied)} allocated</span>
+          </div>
+          <div
+            className={`day-ribbon${rest ? " day-ribbon-rest" : ""}`}
+          >
+            {ribbonSlots.map((slot) => {
+              const start = Math.max(wake, slot.startMin);
+              const end = Math.min(sleep, slot.endMin);
+              if (end <= start) return null;
+              const profile = data.profiles.find(
+                (profile) => profile.id === slot.profileId,
+              );
+              return (
+                <span
+                  className={`ribbon-block ribbon-${slot.layer}`}
+                  key={slot.id}
+                  style={{
+                    left: `${((start - wake) / span) * 100}%`,
+                    width: `${((end - start) / span) * 100}%`,
+                    borderInlineStartColor: profile
+                      ? `var(--profile-${profile.color})`
+                      : undefined,
+                  }}
+                  title={`${slot.title}: ${clockLabel(slot.startMin)}–${clockLabel(slot.endMin)}`}
+                >
+                  <span className="sr-only">
+                    {slot.title}, {clockLabel(slot.startMin)} to{" "}
+                    {clockLabel(slot.endMin)}, {slot.layer}.
+                  </span>
+                </span>
+              );
+            })}
+            {sameDate && minute >= wake && minute <= sleep && (
+              <i
+                className="ribbon-now"
+                style={{ left: `${((minute - wake) / span) * 100}%` }}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+          <div className="row between caption">
+            <time>{clockLabel(wake, data.user.settings.clockFormat)}</time>
+            <time>{clockLabel(sleep, data.user.settings.clockFormat)}</time>
+          </div>
+          </Link>
+        </Card>}
           {!simple && <TodayTimeline slots={ribbonSlots} wake={wake} sleep={sleep} minute={sameDate ? minute : -1} />}
           <Card>
             <p className="eyebrow">This week</p>
@@ -512,7 +503,7 @@ export function Today() {
           /></Suspense>
         )}
       </Sheet>
-    </>
+    </div>
   );
 }
 
@@ -679,6 +670,8 @@ function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction
 function TodayTimeline({ slots, wake, sleep, minute }: { slots: TimeSlot[]; wake: number; sleep: number; minute: number }) {
   const data = useData();
   if (!slots.some(slot => slot.startMin < sleep && slot.endMin > wake)) return <Card className="today-live today-live-empty"><h2>Timeline</h2><p className="muted">No blocks planned today.</p><Link className="button button-text" to="/plan">Open timetable</Link></Card>;
+  const visibleSlots = slots.filter(slot => slot.startMin < sleep && slot.endMin > wake);
+  if (visibleSlots.length <= 3) return <Card className="today-live today-live-compact"><div className="card-header"><h2>Today’s schedule</h2><Link to="/plan" className="schedule-open" aria-label="Open today's live timetable"><ArrowRight size={18} aria-hidden="true" /></Link></div><ul className="today-agenda">{visibleSlots.map(slot => <li key={slot.id} className={slot.startMin <= minute && slot.endMin > minute ? 'agenda-current' : undefined}><span className="agenda-times"><time>{clockLabel(slot.startMin, data.user.settings.clockFormat)}</time><span>{clockLabel(slot.endMin, data.user.settings.clockFormat)}</span></span><Link to={`/plan?date=${slot.date}`}><strong>{slot.title}</strong><span className="caption">{layerLabels[slot.layer]} · {duration(slot.endMin - slot.startMin)}</span></Link></li>)}</ul></Card>;
   const span = sleep - wake, scale = 32 / 60, height = span * scale + 28, lanes = blockLanes(slots);
   return <Card className="today-live">
     <h2>Timeline</h2>

@@ -64,9 +64,10 @@ test("Today columns size to their content and calendar query changes preserve th
     const now = await page.locator(".today-now").boundingBox();
     const next = await page.locator(".today-next").boundingBox();
     const tasks = await page.locator(".today-tasks").boundingBox();
-    expect(now!.height).toBeLessThan(240);
+    expect(next!.y).toBeGreaterThan(now!.y);
+    expect(next!.y + next!.height).toBeLessThanOrEqual(now!.y + now!.height + 1);
     expect(next!.height).toBeLessThan(220);
-    expect(tasks!.y).toBeLessThan(now!.y + 470);
+    expect(tasks!.y).toBeLessThan(page.viewportSize()!.height - 100);
   }
   await page.goto("/plan");
   await expect(page.getByLabel("Calendar date", { exact: true })).toBeVisible();
