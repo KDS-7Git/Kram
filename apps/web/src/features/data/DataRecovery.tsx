@@ -32,10 +32,10 @@ export function DataRecovery({ embedded = false }: { embedded?: boolean }) {
     } catch (error) { setIssue(errorMessage(error)); } finally { setExporting(null); }
   };
   return <>{!embedded && <PageHeader eyebrow="Settings" title="Your data, kept recoverable" description="Export your history, inspect recovery health, and review progress waiting on this device." />}
-    <div style={{ display: 'grid', gap: '1.5rem', marginBlock: '1.5rem' }}>
-      <Card><h2><Download size={22} aria-hidden="true" /> Export your data</h2><p className="muted">Includes archived work, progress history, plans, reviews and settings. JSON preserves structured data; CSV uses one row for each field. Credentials are excluded.</p><div className="row" style={{ flexWrap: 'wrap' }}><Button disabled={!online || exporting !== null} loading={exporting === 'json'} onClick={() => void exportData('json')}>Download JSON</Button><Button disabled={!online || exporting !== null} loading={exporting === 'csv'} onClick={() => void exportData('csv')}>Download CSV</Button></div>{issue && <Banner tone="error">{issue}</Banner>}</Card>
+    <div className="workspace-page recovery-workspace stack-lg">
+      <Card className="stack-lg"><div className="recovery-card-heading"><span className="recovery-icon" aria-hidden="true"><Download size={20} strokeWidth={1.5} /></span><div><h2>Export your data</h2><p className="muted">Includes archived work, progress history, plans, reviews and settings. JSON preserves structured data; CSV uses one row for each field. Credentials are excluded.</p></div></div><div className="row wrap"><Button disabled={!online || exporting !== null} loading={exporting === 'json'} onClick={() => void exportData('json')}>Download JSON</Button><Button disabled={!online || exporting !== null} loading={exporting === 'csv'} onClick={() => void exportData('csv')}>Download CSV</Button></div>{issue && <Banner tone="error">{issue}</Banner>}</Card>
       <OfflineStatus />
-      <Card><h2><ShieldCheck size={22} aria-hidden="true" /> Recovery health</h2><p className="muted">Recovery targets: at most 24 hours of lost data and a return to service within 2 hours. A clean-machine restore confirms whether your setup meets them.</p>
+      <Card className="stack-lg"><div className="recovery-card-heading"><span className="recovery-icon" aria-hidden="true"><ShieldCheck size={20} strokeWidth={1.5} /></span><div><h2>Recovery health</h2><p className="muted">Recovery targets: at most 24 hours of lost data and a return to service within 2 hours. A clean-machine restore confirms whether your setup meets them.</p></div></div>
         <Button disabled={!online || backupBusy} loading={backupBusy} onClick={() => void queueBackup()}>Run backup</Button>{backupMessage && <p role="status">{backupMessage}</p>}
         {!online && <Banner tone="info">Reconnect to check current recovery health.</Banner>}
         {health.isPending && online ? <DelayedSkeleton height={120} /> : health.isError ? <Banner tone="error" action={<Button onClick={() => void health.refetch()}>Retry</Button>}>{errorMessage(health.error)}</Banner> : health.data && <>
@@ -48,9 +48,9 @@ export function DataRecovery({ embedded = false }: { embedded?: boolean }) {
             ['Database size', `${Math.round(health.data.databaseBytes / 1024 / 1024 * 10) / 10} MB`],
             ['Disk used', health.data.disk ? `${health.data.disk.usedPercent}%` : 'Unavailable'],
             ['Background queue', health.data.queue ? `${health.data.queue.pending} due jobs · oldest ${Math.round(health.data.queue.lagSeconds / 60)} min` : 'Unavailable'],
-          ].map(([label, value]) => <div className="row between" style={{ flexWrap: 'wrap', gap: '.5rem', paddingBlock: '.5rem' }} key={label}><dt>{label}</dt><dd style={{ margin: 0, overflowWrap: 'anywhere' }}>{value}</dd></div>)}</dl>
-          <details><summary className="button button-text">Recent background jobs</summary>{health.data.latestJobs.length ? health.data.latestJobs.map(job => <p key={job.jobName}>{job.jobName}: {job.status} · {new Date(job.finishedAt).toLocaleString()}</p>) : <p className="muted">No completed background jobs recorded.</p>}</details>
-          <p className="muted">Checked {new Date(health.data.checkedAt).toLocaleTimeString()}</p>
+          ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+          <details className="disclosure recovery-jobs"><summary>Recent background jobs</summary>{health.data.latestJobs.length ? <ul>{health.data.latestJobs.map(job => <li key={job.jobName}><span>{job.jobName}</span><span className="caption">{job.status} · <time dateTime={new Date(job.finishedAt).toISOString()}>{new Date(job.finishedAt).toLocaleString()}</time></span></li>)}</ul> : <p className="caption">Completed jobs will appear here after the worker runs.</p>}</details>
+          <p className="caption">Checked <time dateTime={health.data.checkedAt}>{new Date(health.data.checkedAt).toLocaleTimeString()}</time></p>
         </>}
       </Card>
     </div>

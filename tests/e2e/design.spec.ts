@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 for (const theme of ["light", "dark"] as const) {
-  test(`Graphite + violet: ${theme}, keyboard and accessible controls`, async ({
+  test(`Stone and graphite: ${theme}, keyboard and accessible controls`, async ({
     page,
   }, testInfo) => {
     await page.addInitScript(
@@ -15,7 +15,7 @@ for (const theme of ["light", "dark"] as const) {
     );
     await page.goto("/workshop");
     await expect(
-      page.getByRole("heading", { name: "Graphite + violet", exact: true }),
+      page.getByRole("heading", { name: "Stone & graphite", exact: true }),
     ).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
@@ -45,7 +45,7 @@ for (const theme of ["light", "dark"] as const) {
   });
 }
 
-test("Graphite + violet reflows at 320 pixels", async ({ page }) => {
+test("Stone and graphite reflows at 320 pixels", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.goto("/workshop");
   expect(

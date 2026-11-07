@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { weekday } from "@kram/time";
-import { Clock3, Plus, Target, Pause, Play, Check, ArrowRight, CalendarDays } from "lucide-react";
+import { Clock3, Plus, Target, Pause, Play, Check, ArrowRight, CalendarDays, GripVertical } from "lucide-react";
 import type { Task, TodayResponse, TimeSlot } from "@kram/shared";
+import { AnimatePresence, LayoutGroup, m } from "framer-motion";
 import {
   Banner,
   Button,
@@ -14,11 +15,16 @@ import {
   PageHeader,
   Sheet,
   StatusPill,
+  Shortcut,
+  TaskCheckbox,
+  Truncate,
+  IconButton,
 } from "../../components/ui/kit";
 import { TimerDigits } from "../../components/ui/TimerDigits";
 import { SelectControl } from "../../components/ui/SelectControl";
 import { api, errorMessage } from "../../shared/api";
-import { useData, useOnline } from "../../shared/data";
+import { useData, useOnline, useRefresh } from "../../shared/data";
+import { useUI } from "../../shared/ui";
 import { useWallClock } from "../../shared/clock";
 import {
   calendarDate,
@@ -30,13 +36,17 @@ import {
 import type { TaskAction } from "../tasks/Tasks";
 const TaskEditor = lazy(() => import('../tasks/Tasks').then(module => ({ default: module.TaskEditor })));
 const TaskPanel = lazy(() => import('../tasks/Tasks').then(module => ({ default: module.TaskPanel })));
+const TaskOrderList = lazy(() => import('./TaskOrderList').then(module => ({ default: module.TaskOrderList })));
 import { blockLanes, layerLabels } from "../timetable/layout";
 import { useTaskEvents } from "../tasks/events";
+import { listSpring, useMotionPreference } from "../../shared/motion";
 
 const closed = new Set(["completed", "cancelled", "skipped"]);
 export function Today() {
   const data = useData();
   const online = useOnline();
+  const refresh = useRefresh();
+  const { toast } = useUI();
   const [params, setParams] = useSearchParams();
   const now = useWallClock(
     data.tasks.some((task) => task.timerStartedAt) ? 1000 : 60000,
@@ -47,10 +57,29 @@ export function Today() {
     action?: TaskAction;
   } | null>(null);
   const [filter, setFilter] = useState("all");
+  const [manual, setManual] = useState(false);
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
   const query = useQuery({
     queryKey: ["today"],
     queryFn: () => api<TodayResponse>("/today"),
     refetchInterval: 10000,
+  });
+  const mergeOrder = (ids: string[]) => {
+    const base = [...(query.data?.tasks || [])].sort((a, b) => a.sortOrder - b.sortOrder).map(task => task.id);
+    const all = [...manualOrder.filter(id => base.includes(id)), ...base.filter(id => !manualOrder.includes(id))];
+    const visible = new Set(ids);
+    let index = 0;
+    return all.map(id => visible.has(id) ? ids[index++]! : id);
+  };
+  const saveOrder = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const [sortOrder, id] of ids.entries()) {
+        const task = query.data?.tasks.find(row => row.id === id);
+        if (task && task.sortOrder !== sortOrder) await api(`/tasks/${id}`, { method: "PATCH", body: { sortOrder } });
+      }
+    },
+    onSuccess: async () => { await query.refetch(); await refresh(); setManualOrder([]); toast("Task order saved."); },
+    onError: async error => { await query.refetch(); await refresh(); setManualOrder([]); toast(errorMessage(error), undefined, "error"); },
   });
   useEffect(() => {
     if (params.get("add") === "task") {
@@ -161,6 +190,7 @@ export function Today() {
     )
     .sort(
       (a, b) =>
+        manual ? (manualOrder.indexOf(a.id) >= 0 ? manualOrder.indexOf(a.id) : manualOrder.length + a.sortOrder) - (manualOrder.indexOf(b.id) >= 0 ? manualOrder.indexOf(b.id) : manualOrder.length + b.sortOrder) :
         (slots.find(slot => slot.taskId === a.id)?.date ?? '9999').localeCompare(slots.find(slot => slot.taskId === b.id)?.date ?? '9999') ||
         (slots.find(slot => slot.taskId === a.id)?.startMin ?? 1440) -
           (slots.find(slot => slot.taskId === b.id)?.startMin ?? 1440) ||
@@ -188,6 +218,7 @@ export function Today() {
         action={
           <Button
             variant="primary"
+            shortcut={["N"]}
             disabled={
               !online || !data.goals.some((goal) => goal.status === "active")
             }
@@ -301,8 +332,8 @@ export function Today() {
         </Card>
         <Card className="today-tasks" id="today-tasks" tabIndex={-1} aria-labelledby="today-task-heading">
           <div className="card-header">
-            <h2 id="today-task-heading">Your tasks</h2>
-            <div className="task-filter">
+            <div className="task-list-heading"><h2 id="today-task-heading">Your tasks</h2><span className="task-count" aria-label={`${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`}>{tasks.length}</span></div>
+            <div className="row task-list-controls"><div className="task-filter">
               <SelectControl label="Task view" select={<select
                 className="input"
                 aria-label="Task view"
@@ -313,34 +344,40 @@ export function Today() {
                 <option value="open">Open tasks</option>
                 <option value="finished">Finished tasks</option>
               </select>} />
-            </div>
+            </div><IconButton label="Arrange tasks" aria-pressed={manual} disabled={!online || saveOrder.isPending || !today.tasks.length}
+              onClick={() => { setManual(value => !value); setManualOrder([]); }}><GripVertical size={17} strokeWidth={1.6} /></IconButton></div>
           </div>
+          {manual && <p className="caption task-order-help" id="task-order-help">Your order · drag a handle, or use <Shortcut keys={["↑", "↓"]} /> on a focused handle. Scheduled times stay visible.</p>}
           {filter !== "all" && (
             <Banner tone="info">
               Showing {filter} tasks. Your task records are unchanged.
             </Banner>
           )}
-          {tasks.length ? (
+          {manual ? <Suspense fallback={<DelayedSkeleton height={160} />}><TaskOrderList tasks={tasks} disabled={!online || saveOrder.isPending}
+            onReorder={ids => setManualOrder(mergeOrder(ids))} onCommit={ids => saveOrder.mutate(mergeOrder(ids))}
+            renderRow={id => <TaskRow task={tasks.find(task => task.id === id)!} slot={slots.find(slot => slot.taskId === id)}
+              onOpen={action => setSelected({ id, action })} asListItem={false} />} /></Suspense> : <LayoutGroup id="today-tasks">
             <ul className="today-task-list">
-              {tasks.map((task) => (
+              <AnimatePresence initial={false}>{tasks.map((task) => (
                 <TaskRow
                   key={task.id}
                   task={task}
                   slot={slots.find(slot => slot.taskId === task.id)}
                   onOpen={(action) => setSelected({ id: task.id, action })}
                 />
-              ))}
+              ))}</AnimatePresence>
             </ul>
-          ) : (
+          </LayoutGroup>}
+          {!tasks.length && (
             <EmptyState
               title={
-                data.goals.length
+                filter === "open" ? "All clear for now" : filter === "finished" ? "Progress starts with one task" : data.goals.length
                   ? "One small task is enough"
                   : "Start with a goal"
               }
               icon={<Target strokeWidth={1} />}
               action={
-                data.goals.length ? (
+                filter !== "all" ? <Button variant="text" onClick={() => setFilter("all")}>Show all tasks</Button> : data.goals.length ? (
                   <Button disabled={!online} onClick={() => setAdding(true)}>
                     Add a task
                   </Button>
@@ -351,13 +388,13 @@ export function Today() {
                 )
               }
             >
-              {data.goals.length
+              {filter === "open" ? "There’s no open work in this view. Take a breath, or choose your next step." : filter === "finished" ? "Completed and skipped tasks will appear here. Your next step is waiting in the full list." : data.goals.length
                 ? "Tasks for this study day belong here. Future tasks stay on their own dates."
                 : "Give a skill a measurable goal, then turn it into a manageable step."}
             </EmptyState>
           )}
           <p className="caption task-keyboard-help">
-            Open a task for its timer and notes.<span className="desktop-shortcuts"> On desktop: J and K move, D completes, S controls the timer, E defers, X skips.</span>
+            Open a task for its timer and notes.<span className="desktop-shortcuts"> <Shortcut keys={["J", "K"]} /> move · <Shortcut keys={["D"]} /> complete · <Shortcut keys={["S"]} /> timer · <Shortcut keys={["E"]} /> defer · <Shortcut keys={["X"]} /> skip</span>
           </p>
         </Card>
       {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="today-review row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
@@ -511,14 +548,17 @@ function TaskRow({
   task,
   slot,
   onOpen,
+  asListItem = true,
 }: {
   task: Task;
   slot?: TimeSlot;
   onOpen: (action?: TaskAction) => void;
+  asListItem?: boolean;
 }) {
   const data = useData();
   const online = useOnline();
   const writer = useTaskEvents(task.id);
+  const reduced = useMotionPreference();
   const touch = useRef<{ x: number; y: number } | null>(null);
   const goal = data.goals.find((goal) => goal.id === task.goalId);
   const skill = data.skills.find((skill) => skill.id === goal?.skillId);
@@ -528,10 +568,17 @@ function TaskRow({
   const finished = closed.has(task.status);
   const scopeLabel = goal?.title?.trim().toLocaleLowerCase() === task.title.trim().toLocaleLowerCase() ? "" : goal?.title || "Goal";
   const quantityLabel = goal && goal.unit.toLowerCase() !== "minutes" ? `${task.completedQty} of ${task.qty} ${goal.unit}` : "";
+  const Row = asListItem ? m.li : m.div;
   return (
-    <li
+    <Row
+      layout={reduced || !asListItem ? false : "position"}
+      initial={reduced ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduced ? undefined : { opacity: 0, height: 0, paddingBlock: 0 }}
+      transition={reduced ? { duration: 0 } : { ...listSpring, opacity: { duration: .16 }, height: { duration: .18 } }}
       className={`today-task-row${finished ? " task-finished" : ""}`}
       data-task-id={task.id}
+      data-status={task.status}
       onKeyDown={(event) => {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         const key = event.key.toLowerCase();
@@ -591,15 +638,13 @@ function TaskRow({
         }
       }}
     >
-      <button
-        type="button"
-        className="task-check"
+      <TaskCheckbox
+        status={task.status}
+        label={finished ? `Open ${task.title}` : `Complete ${task.title}`}
+        shortcut={finished ? undefined : ["D"]}
         onClick={() => onOpen(finished ? undefined : "completed")}
-        aria-label={finished ? `Open ${task.title}` : `Complete ${task.title}`}
         disabled={writer.mutation.isPending}
-      >
-        <StatusPill status={task.status} />
-      </button>
+      />
       <button
         type="button"
         className="task-row-title"
@@ -615,14 +660,13 @@ function TaskRow({
               aria-hidden="true"
             />
           )}
-          <strong>{task.title}</strong>
+          <strong className="task-title-text"><Truncate>{task.title}</Truncate></strong>
         </span>
-        <span id={`task-state-${task.id}`}>
+        <span id={`task-state-${task.id}`} className="task-row-metadata">
           <StatusPill status={task.status} />
+          {scopeLabel && <span className="task-scope"><Truncate>{scopeLabel}</Truncate></span>}
+          {quantityLabel && <span className="task-quantity caption">{quantityLabel}</span>}
         </span>
-        {(scopeLabel || quantityLabel) && <span className="caption">
-          {[scopeLabel, quantityLabel].filter(Boolean).join(" · ")}
-        </span>}
         {task.overdue && <StatusPill status="overdue" />}
       </button>
       <span className="task-row-time">
@@ -646,7 +690,7 @@ function TaskRow({
           </Banner>
         </div>
       )}
-    </li>
+    </Row>
   );
 }
 

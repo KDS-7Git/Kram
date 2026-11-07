@@ -34,6 +34,7 @@ import {
   Sheet,
   DelayedSkeleton as Skeleton,
   StatusPill as Status,
+  TabBar,
 } from "../../components/ui/kit";
 import { api, apiList, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
@@ -632,23 +633,7 @@ export function GoalDetail() {
         </div>
       )}
       <Tabs.Root value={tab} onValueChange={setTab}>
-        <Tabs.List className="tab-list" aria-label="Goal details">
-          {["overview", "tasks", "history", "resources", "rules"].map(
-            (value) => (
-              <Tabs.Trigger value={value} key={value}>
-                {value === "rules"
-                  ? "Rule history"
-                  : value === "resources"
-                    ? "Resources"
-                    : value === "tasks"
-                      ? "Tasks"
-                      : value === "history"
-                        ? "History"
-                        : "Overview"}
-              </Tabs.Trigger>
-            ),
-          )}
-        </Tabs.List>
+        <TabBar value={tab} label="Goal details" options={[{ value: "overview", label: "Overview" }, { value: "tasks", label: "Tasks" }, { value: "history", label: "History" }, { value: "resources", label: "Resources" }, { value: "rules", label: "Rule history" }]} />
         <Tabs.Content value="overview" className="stack-lg">
           <>
             <div className="grid-2">

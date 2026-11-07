@@ -342,9 +342,7 @@ test("resource outline, page ranges, prerequisites and keyboard tree edits persi
     .getByRole("button", { name: "Arrange Chapter Two", exact: true })
     .focus();
   await page.keyboard.press("Tab");
-  await expect(page.locator(".toast")).toContainText(
-    "nested under Chapter One",
-  );
+  await expect(page.locator(".toast").filter({ hasText: "nested under Chapter One" })).toBeVisible();
   items = await list();
   expect(items.find((item) => item.title === "Chapter Two")?.parentItemId).toBe(
     chapter.id,
@@ -353,7 +351,7 @@ test("resource outline, page ranges, prerequisites and keyboard tree edits persi
     .getByRole("button", { name: "Arrange Chapter Two", exact: true })
     .focus();
   await page.keyboard.press("Shift+Tab");
-  await expect(page.locator(".toast")).toContainText("moved out one level");
+  await expect(page.locator(".toast").filter({ hasText: "moved out one level" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Arrange items", exact: true }),
@@ -394,9 +392,7 @@ test("resource outline, page ranges, prerequisites and keyboard tree edits persi
       steps: 12,
     });
     await page.mouse.up();
-    await expect(page.locator(".toast")).toContainText(
-      "Chapter Two moved before Chapter One",
-    );
+    await expect(page.locator(".toast").filter({ hasText: "Chapter Two moved before Chapter One" })).toBeVisible();
     await page
       .getByRole("button", { name: "Move Chapter Two later", exact: true })
       .click();
@@ -433,9 +429,12 @@ test("resource outline, page ranges, prerequisites and keyboard tree edits persi
     .check();
   await expect(page.getByText("Foundations", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 720 });
-  await page
-    .getByRole("button", { name: "Dismiss message", exact: true })
-    .click();
+  const dismiss = page.getByRole("button", { name: "Dismiss message", exact: true });
+  while (await dismiss.count()) {
+    const count = await dismiss.count();
+    await dismiss.first().click();
+    await expect.poll(() => dismiss.count()).toBeLessThan(count);
+  }
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
   });

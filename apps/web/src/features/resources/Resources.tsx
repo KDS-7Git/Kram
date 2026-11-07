@@ -1,4 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
+import { AnimatePresence, LayoutGroup, m } from "framer-motion";
+import { listSpring, useMotionPreference } from "../../shared/motion";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +30,9 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
+  FlaskConical,
+  FolderKanban,
+  GraduationCap,
   GripVertical,
   ListPlus,
   Pencil,
@@ -54,6 +59,7 @@ import {
   Sheet,
   DelayedSkeleton as Skeleton,
   StatusPill as Status,
+  Truncate,
 } from "../../components/ui/kit";
 import { api, apiList, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
@@ -66,6 +72,7 @@ const resourceLabels = {
   lab: "Lab",
   project: "Project",
 };
+const resourceIcons = { course: GraduationCap, book: BookOpen, lab: FlaskConical, project: FolderKanban };
 const siblingsOf = (items: ResourceItem[], parentId: string | null) =>
   items
     .filter((item) => item.parentItemId === parentId)
@@ -125,6 +132,7 @@ function placements(
 }
 
 export function ResourceLibrary() {
+  const reduced = useMotionPreference();
   const data = useData();
   const online = useOnline();
   const [params, setParams] = useSearchParams();
@@ -207,10 +215,14 @@ export function ResourceLibrary() {
           <Skeleton height={180} />
         </div>
       ) : visible.length ? (
-        <div className="grid-2 resource-grid">
-          {visible.map((resource) => (
+        <LayoutGroup id="resources"><div className="grid-2 resource-grid">
+          <AnimatePresence initial={false}>{visible.map((resource) => {
+            const ResourceIcon = resourceIcons[resource.type];
+            return (
+            <m.div key={resource.id} layout={reduced ? false : "position"}
+              initial={reduced ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? undefined : { opacity: 0, scale: .98 }} transition={reduced ? { duration: 0 } : listSpring}>
             <Card
-              key={resource.id}
               className={`resource-card${resource.archivedAt ? " archived-card" : ""}`}
             >
               <p className="eyebrow">{resourceLabels[resource.type]}</p>
@@ -218,8 +230,8 @@ export function ResourceLibrary() {
                 to={`/resources/${resource.id}`}
                 className="resource-card-title"
               >
-                <BookOpen size={24} strokeWidth={1.5} />
-                <h2>{resource.title}</h2>
+                <ResourceIcon size={24} strokeWidth={1.5} />
+                <h2><Truncate>{resource.title}</Truncate></h2>
               </Link>
               <p className="caption">
                 {data.skills.find((skill) => skill.id === resource.skillId)
@@ -228,9 +240,9 @@ export function ResourceLibrary() {
                 {resource.goalIds.length === 1 ? "goal" : "goals"}
               </p>
               {resource.archivedAt && <Status status="archived" />}
-            </Card>
-          ))}
-        </div>
+            </Card></m.div>
+          ); })}</AnimatePresence>
+        </div></LayoutGroup>
       ) : (
         <Card>
           <EmptyState
@@ -777,12 +789,12 @@ export function ResourceDetail() {
               items={rows.map((row) => row.item.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div
+              <LayoutGroup id="resource-tree"><div
                 className="resource-tree"
                 aria-label="Resource items"
                 role="list"
               >
-                {rows.map(({ item, depth }) => (
+                <AnimatePresence initial={false}>{rows.map(({ item, depth }) => (
                   <TreeItem
                     key={item.id}
                     item={item}
@@ -826,8 +838,8 @@ export function ResourceDetail() {
                       saveEstimate.mutate({ id: item.id, minutes })
                     }
                   />
-                ))}
-              </div>
+                ))}</AnimatePresence>
+              </div></LayoutGroup>
             </SortableContext>
           </DndContext>
         )}
@@ -955,6 +967,7 @@ function TreeItem({
   onKeyboard: (event: KeyboardEvent<HTMLButtonElement>) => void;
   onEstimate: (minutes: number) => void;
 }) {
+  const reduced = useMotionPreference();
   const [estimate, setEstimate] = useState(item.estMinutes);
   useEffect(() => setEstimate(item.estMinutes), [item.estMinutes]);
   const {
@@ -964,14 +977,15 @@ function TreeItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled: !arranging || !editable || busy });
+  } = useSortable({ id: item.id, disabled: !arranging || !editable || busy, transition: { duration: reduced ? 0 : 260, easing: "cubic-bezier(.16, 1, .3, 1)" } });
   const children = items.some((peer) => peer.parentItemId === item.id);
   const peers = siblingsOf(items, item.parentItemId);
   const index = peers.findIndex((peer) => peer.id === item.id);
   return (
+    <m.div role="listitem" layout={reduced || isDragging ? false : "position"} transition={reduced ? { duration: 0 } : listSpring}
+      initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduced ? undefined : { opacity: 0, height: 0 }}>
     <div
       ref={setNodeRef}
-      role="listitem"
       className={`tree-item${isDragging ? " tree-item-dragging" : ""}${item.archivedAt ? " archived-card" : ""}`}
       style={
         {
@@ -1014,7 +1028,7 @@ function TreeItem({
           )}
           <span>
             <span className="sr-only">Level {depth + 1}. </span>
-            <strong>{item.title}</strong>
+            <strong><Truncate>{item.title}</Truncate></strong>
             <span className="caption">
               {item.kind}
               {item.pagesFrom ? ` · pp. ${item.pagesFrom}–${item.pagesTo}` : ""}
@@ -1093,7 +1107,7 @@ function TreeItem({
           </a>
         )}
       </div>
-    </div>
+    </div></m.div>
   );
 }
 

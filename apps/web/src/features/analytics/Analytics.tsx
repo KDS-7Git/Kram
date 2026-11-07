@@ -47,9 +47,10 @@ export function Analytics() {
         {skills.length ? <div className="grid-2">{skills.map(skill => <Card key={skill.id}>
           <h3>{skill.name}</h3><p><strong>{duration(skill.minutes)}</strong> credited · {duration(skill.weeklyTargetMin)} weekly practice target</p>
           <progress className="time-progress" max={Math.max(skill.weeklyTargetMin, skill.minutes, 1)} value={skill.minutes} aria-label={`${skill.name}: ${duration(skill.minutes)} of ${duration(skill.weeklyTargetMin)} weekly practice target`} />
+          <DailyRhythm days={skill.days} name={skill.name} />
           <div className="row" style={{ flexWrap: 'wrap', gap: '.5rem 1rem', marginBlock: '.75rem' }}>{skill.units.map(unit => <span key={unit.unit}>{unit.credited} {unit.unit}</span>)}</div>
           <details><summary className="button button-text">Daily credited time</summary><dl className="credit-list">{skill.days.map(day => <div key={day.date}><dt>{calendarDate(day.date)}</dt><dd>{duration(day.minutes)}</dd></div>)}</dl></details>
-        </Card>)}</div> : <EmptyState icon={<BarChart3 />} title="A little practice will appear here">Start a task and record progress to build a useful weekly picture.</EmptyState>}
+        </Card>)}</div> : <EmptyState icon={<BarChart3 />} title="A little practice will appear here" action={<Link className="button" to="/">Choose your next task</Link>}>Start a task and record progress to build a useful weekly picture.</EmptyState>}
       </section>
       <section className="analytics-section" style={{ marginBlock: '2rem' }}><h2>Goals in their own units</h2><p className="muted">This week’s credit follows the selected calendar dates. Quotas keep their original period dates, including weeks created before a week-start change.</p>
         <div className="grid-2">{goals.map(goal => <Card key={goal.id}>
@@ -69,8 +70,19 @@ export function Analytics() {
       {data.user.settings.featurePreset==='full'&&<section className="analytics-section" style={{ marginBlock: '2rem' }}><h2>Estimate calibration</h2><p className="muted">The scheduler uses the median actual-to-estimate ratio of the last 10 completed tasks for each skill and task kind. Five samples are needed; the multiplier stays between 0.7× and 2×.</p>
         {calibration.length ? <div className="grid-2">{calibration.map(row => <Card key={`${row.skillId}:${row.kind}`}><h3>{row.skillName} · {row.kind}</h3><p><strong>{row.multiplier}×</strong> {row.ready ? 'calibration multiplier' : 'default multiplier'}</p><p className="muted">{row.sampleCount} of 10 recent samples{row.ready ? '' : ` · ${Math.max(0, 5 - row.sampleCount)} more needed`}{row.observedMedian !== null ? ` · observed median ${row.observedMedian}×` : ''}</p>
           {row.samples.length > 0 && <details><summary className="button button-text">Inspect completed samples</summary>{row.samples.map(sample => <div key={sample.taskId} style={{ borderTop: '1px solid var(--border)', paddingBlock: '.75rem' }}><p>{sample.title}</p><p className="muted">Estimated {duration(sample.estimateMinutes)} · actual {duration(sample.actualMinutes)} · {sample.ratio}×</p></div>)}</details>}
-        </Card>)}</div> : <EmptyState title="Estimates learn from completed work">Complete tasks with recorded time to build calibration samples.</EmptyState>}
+        </Card>)}</div> : <EmptyState title="Estimates learn from completed work" action={<Link className="button button-text" to="/">Return to your tasks</Link>}>Complete tasks with recorded time to build calibration samples.</EmptyState>}
       </section>}
     </>}
   </div>;
+}
+
+function DailyRhythm({ days, name }: { days: { date: string; minutes: number }[]; name: string }) {
+  const peak = Math.max(1, ...days.map(day => day.minutes));
+  return <figure aria-label={`Daily credited time for ${name}`}>
+    <div className="practice-week-bars" aria-hidden="true">{days.map(day => <div key={day.date} title={`${calendarDate(day.date)} · ${duration(day.minutes)}`}>
+      <span className="practice-bar-track">{day.minutes > 0 && <i style={{ height: `${day.minutes / peak * 100}%` }} />}</span>
+      <time dateTime={day.date}>{new Date(`${day.date}T12:00:00Z`).toLocaleDateString("en", { weekday: "narrow", timeZone: "UTC" })}</time>
+    </div>)}</div>
+    <figcaption className="sr-only">Exact daily values are available in Daily credited time below.</figcaption>
+  </figure>;
 }

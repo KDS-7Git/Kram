@@ -10,6 +10,7 @@ import "./styles/workspace.css";
 import "./styles/motion.css";
 import { App } from "./App";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
+import { MotionProvider } from "./shared/motion";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ScreenErrorBoundary><App /></ScreenErrorBoundary>
+        <MotionProvider><ScreenErrorBoundary><App /></ScreenErrorBoundary></MotionProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

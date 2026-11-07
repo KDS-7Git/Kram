@@ -3,18 +3,21 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { v7 as newId } from 'uuid';
 import { CalendarDays, Copy, Plus, Repeat2, Trash2 } from 'lucide-react';
+import { AnimatePresence, m } from 'framer-motion';
 import { addDays, weekStartDate } from '@kram/time';
 import type { Holiday, Occurrence, RecurrenceSeries, ScheduleTemplate } from '@kram/shared';
-import { Banner, Button, Card, DelayedSkeleton, EmptyState, Field, IconButton, PageHeader, Segments, Sheet } from '../../components/ui/kit';
+import { Banner, Button, Card, DelayedSkeleton, EmptyState, Field, IconButton, PageHeader, Segments, Sheet, Truncate } from '../../components/ui/kit';
 import { api, apiList, errorMessage } from '../../shared/api';
 import { useData, useOnline, useRefresh } from '../../shared/data';
 import { calendarDate, clockLabel, minuteTime, timeMinute, weekdays } from '../../shared/format';
 import { useUI } from '../../shared/ui';
+import { listSpring, useMotionPreference } from '../../shared/motion';
 import { RecurrenceFields, recurrenceWords } from '../goals/RecurrenceFields';
 
 type Editor = { mode: 'new' | 'future' | 'modify' | 'move' | 'pause' | 'resume'; series?: RecurrenceSeries; occurrence?: Occurrence; date?: string };
 export function Schedules() {
   const data = useData(), online = useOnline(), refresh = useRefresh(), { toast } = useUI();
+  const reduced = useMotionPreference();
   const [params] = useSearchParams();
   const [tab, setTab] = useState<'recurring' | 'templates' | 'holidays'>(params.get('tab') === 'templates' ? 'templates' : params.get('tab') === 'holidays' ? 'holidays' : 'recurring');
   const [from, setFrom] = useState(params.get('date') || data.studyDate), [to, setTo] = useState(addDays(params.get('date') || data.studyDate, 20));
@@ -24,20 +27,20 @@ export function Schedules() {
   const skip = useMutation({ mutationFn: (item: Occurrence) => api(`/recurrence/series/${item.seriesId}/exceptions`, { method: 'POST', headers: { 'If-Match': `"${item.series.version}"` }, body: { date: item.originalDate, kind: 'skip' } }), onSuccess: async () => { await refresh(); toast('Occurrence skipped. The repeating rhythm stays anchored.'); } });
   const active = (series.data || []).filter(item => !item.until || item.until >= data.studyDate);
   const visible = (occurrences.data || []).filter(item => (selected === 'all' || item.seriesId === selected) && item.status !== 'suppressed');
-  return <>
+  return <div className="workspace-page schedules-workspace">
     <PageHeader eyebrow="Plan · schedules" title="Keep a rhythm, leave room for change" description="Repeating commitments, weekly templates and daily edits share one timetable." action={<Link className="button" to="/plan">Back to timetable</Link>} />
     <Segments label="Schedule tools" value={tab} onChange={setTab} options={[{ value: 'recurring', label: 'Repeating schedules' }, { value: 'templates', label: 'Templates and copy' }, { value: 'holidays', label: 'Holidays' }]} />
     <div className="stack-lg schedule-page">
       {tab === 'recurring' && <>
         <div className="row between wrap"><p className="muted">Recurring goals create their series from the rules in Goals.</p><Button variant="primary" disabled={!online} onClick={() => setEditor({ mode: 'new' })}><Plus size={18} /> Add repeating commitment</Button></div>
-        {series.isPending ? <DelayedSkeleton height={120} /> : series.isError ? <Banner tone="error">{errorMessage(series.error)}</Banner> : <div className="grid-2">
+        {series.isPending ? <DelayedSkeleton height={120} /> : series.isError ? <Banner tone="error" action={<Button onClick={() => void series.refetch()}>Retry</Button>}>{errorMessage(series.error)}</Banner> : <div className="grid-2">
           {active.map(item => <Card key={item.id} className="stack"><div><h2>{item.title}</h2><p className="caption">{recurrenceWords(item.rrule)} · anchored {calendarDate(item.dtstartLocal)} · {item.tz}</p><p className="caption">{item.kind === 'goal' ? 'Goal tasks' : `${item.layer === 'unavailable' ? 'Unavailable' : 'Fixed'} commitment`} · {item.status}</p></div><div className="row wrap">
             <Button onClick={() => setSelected(item.id)}>View occurrences</Button>
             <Button disabled={!online} onClick={() => setEditor({ mode: item.status === 'paused' ? 'resume' : 'pause', series: item })}>{item.status === 'paused' ? 'Resume series' : 'Pause series'}</Button>
             <Button disabled={!online} onClick={() => setEditor({ mode: 'future', series: item })}>Edit future</Button>
             {item.goalId && <Link className="button button-text" to={`/goals/${item.goalId}`}>Open goal</Link>}
           </div></Card>)}
-          {!active.length && <Card><EmptyState title="Start with a regular commitment" icon={<Repeat2 />}>Add a class or appointment here, or create a recurring goal in Goals.</EmptyState></Card>}
+          {!active.length && <Card className="schedule-empty"><EmptyState title="Start with a regular commitment" icon={<Repeat2 />} action={<Button disabled={!online} onClick={() => setEditor({ mode: 'new' })}><Plus size={16} /> Add a commitment</Button>}>Give a class or appointment a rhythm. You can always make room for changes.</EmptyState></Card>}
         </div>}
         <Card className="stack-lg"><div className="schedule-range">
           <Field id="occurrence-from" label="Occurrences from"><input className="input" id="occurrence-from" type="date" value={from} onChange={event => { if (event.target.value) { setFrom(event.target.value); if (event.target.value > to) setTo(addDays(event.target.value, 20)); } }} /></Field>
@@ -45,17 +48,17 @@ export function Schedules() {
           <Field id="occurrence-series" label="Series filter"><select className="input" id="occurrence-series" value={selected} onChange={event => setSelected(event.target.value)}><option value="all">All series</option>{(series.data || []).map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></Field>
         </div>
           {skip.isError && <Banner tone="error">{errorMessage(skip.error)}</Banner>}
-          {occurrences.isPending ? <DelayedSkeleton height={160} /> : occurrences.isError ? <Banner tone="error">{errorMessage(occurrences.error)}</Banner> : <div className="stack">
-            {visible.map(item => { const editable = online && item.originalDate >= data.studyDate && !item.manualOverride && !item.tasks.some(task => task.actualMinutes > 0 || task.manualOverride || !['pending', 'unverified'].includes(task.status)); return <article className="occurrence-row" key={item.id}>
-              <div><strong>{item.fields.title}</strong><p className="caption">{calendarDate(item.localDate)}{item.fields.startMin !== undefined ? ` · ${clockLabel(item.fields.startMin, data.user.settings.clockFormat)}` : ''} · {item.status}{item.virtual ? ' · upcoming' : ''}</p>
+          {occurrences.isPending ? <DelayedSkeleton height={160} /> : occurrences.isError ? <Banner tone="error" action={<Button onClick={() => void occurrences.refetch()}>Retry</Button>}>{errorMessage(occurrences.error)}</Banner> : <div className="stack">
+            <AnimatePresence initial={false}>{visible.map(item => { const editable = online && item.originalDate >= data.studyDate && !item.manualOverride && !item.tasks.some(task => task.actualMinutes > 0 || task.manualOverride || !['pending', 'unverified'].includes(task.status)); return <m.article layout={reduced ? false : 'position'} initial={reduced ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduced ? undefined : { opacity: 0 }} transition={reduced ? { duration: 0 } : listSpring} className="occurrence-row" key={item.id}>
+              <div><strong><Truncate>{item.fields.title}</Truncate></strong><p className="caption">{calendarDate(item.localDate)}{item.fields.startMin !== undefined ? ` · ${clockLabel(item.fields.startMin, data.user.settings.clockFormat)}` : ''} · {item.status}{item.virtual ? ' · upcoming' : ''}</p>
                 {item.moved && <p className="caption">Moved from {calendarDate(item.originalDate)}; original occurrence retained.</p>}{(item.adjusted || item.ambiguous) && <p className="caption">Local time resolved for a daylight-saving change.</p>}{item.manualOverride && <p className="caption">Your timetable edit is preserved.</p>}{item.status === 'conflict' && <p className="caption">Overlaps {Array.isArray(item.conflict) ? item.conflict.map((row: { title?: string }) => row.title || 'another block').join(', ') : 'another block'}. Move or edit this occurrence to choose another time.</p>}
               </div><div className="row wrap">
                 <Button disabled={!editable} onClick={() => setEditor({ mode: 'modify', occurrence: item, series: item.series })}>Edit one</Button>
                 <Button disabled={!editable} onClick={() => setEditor({ mode: 'move', occurrence: item, series: item.series })}>Move one</Button>
                 <Button disabled={!editable || skip.isPending} onClick={() => skip.mutate(item)}>Skip one</Button>
               </div>
-            </article>; })}
-            {!visible.length && <p className="muted">No occurrences in this range. Try another date or series.</p>}
+            </m.article>; })}</AnimatePresence>
+            {!visible.length && <EmptyState title="Room in this part of your calendar" icon={<CalendarDays />} action={<Button variant="text" onClick={() => { setSelected('all'); setFrom(data.studyDate); setTo(addDays(data.studyDate, 20)); }}>Reset date range</Button>}>No occurrences match these dates and this series. Try another range to see what's ahead.</EmptyState>}
           </div>}
         </Card>
       </>}
@@ -65,7 +68,7 @@ export function Schedules() {
     <Sheet open={!!editor} onOpenChange={open => { if (!open) setEditor(null); }} title={editor ? ({ new: 'A repeating commitment', future: 'Change future occurrences', modify: 'Edit this occurrence', move: 'Move this occurrence', pause: 'Pause this series', resume: 'Resume this series' })[editor.mode] : ''} description="Past work keeps its history. Moving one occurrence preserves its recorded work.">
       {editor && <SeriesEditor key={`${editor.mode}:${editor.series?.id || 'new'}:${editor.occurrence?.originalDate || ''}`} action={editor} onDone={() => setEditor(null)} />}
     </Sheet>
-  </>;
+  </div>;
 }
 
 function SeriesEditor({ action, onDone }: { action: Editor; onDone: () => void }) {
@@ -117,7 +120,7 @@ function TemplateTools() {
   const apply = useMutation({ mutationFn: (row: ScheduleTemplate) => api<{ reused: boolean }>(`/timetable/templates/${row.id}/apply`, { method: 'POST', headers: { 'If-Match': `"${row.version}"` }, body: { anchor: row.kind === 'week' ? weekStartDate(anchor, data.user.settings.weekStart) : anchor } }), onSuccess: async result => { await refresh(); toast(result.reused ? 'This template is already applied to that date.' : 'Template applied. Daily edits stay independent.'); } });
   const archive = useMutation({ mutationFn: (row: ScheduleTemplate) => api(`/timetable/templates/${row.id}`, { method: 'DELETE', headers: { 'If-Match': `"${row.version}"` } }), onSuccess: async () => { await refresh(); toast('Template archived. Existing weeks stay available.'); } });
   return <><Card className="stack-lg"><div className="row between wrap"><div><h2>Weekly and daily templates</h2><p className="caption">Apply a template to create concrete blocks. Later template edits affect later applications.</p></div><Button variant="primary" disabled={!online} onClick={() => setEditor({})}><Plus size={18} /> Create template</Button></div><Field id="template-anchor" label="Apply to date or week" hint={`Weekly templates use your ${data.user.settings.weekStart === 1 ? 'Monday' : 'Sunday'} week start.`}><input className="input" id="template-anchor" type="date" value={anchor} onChange={event => { if (event.target.value) setAnchor(event.target.value); }} /></Field>
-    {rows.isPending ? <DelayedSkeleton height={120} /> : rows.isError ? <Banner tone="error">{errorMessage(rows.error)}</Banner> : <div className="stack">{(rows.data || []).map(row => <article className="occurrence-row" key={row.id}><div><strong>{row.name}</strong><p className="caption">{row.kind === 'week' ? 'Weekly' : 'Daily'} · {row.entries.length} {row.entries.length === 1 ? 'block' : 'blocks'}</p></div><div className="row wrap"><Button disabled={!online || apply.isPending} onClick={() => apply.mutate(row)}>Apply template</Button><Button disabled={!online} onClick={() => setEditor({ row })}>Edit template</Button><Button disabled={!online || archive.isPending} onClick={() => archive.mutate(row)}>Archive template</Button></div></article>)}{!rows.data?.length && <p className="muted">Save a regular week here, including reserved time for each skill.</p>}</div>}
+    {rows.isPending ? <DelayedSkeleton height={120} /> : rows.isError ? <Banner tone="error" action={<Button onClick={() => void rows.refetch()}>Retry</Button>}>{errorMessage(rows.error)}</Banner> : <div className="stack">{(rows.data || []).map(row => <article className="occurrence-row" key={row.id}><div><strong><Truncate>{row.name}</Truncate></strong><p className="caption">{row.kind === 'week' ? 'Weekly' : 'Daily'} · {row.entries.length} {row.entries.length === 1 ? 'block' : 'blocks'}</p></div><div className="row wrap"><Button disabled={!online || apply.isPending} onClick={() => apply.mutate(row)}>Apply template</Button><Button disabled={!online} onClick={() => setEditor({ row })}>Edit template</Button><Button disabled={!online || archive.isPending} onClick={() => archive.mutate(row)}>Archive template</Button></div></article>)}{!rows.data?.length && <EmptyState title="A good week, ready to repeat" icon={<Copy />} action={<Button disabled={!online} onClick={() => setEditor({})}><Plus size={16} /> Create your first template</Button>}>Save your regular time blocks once, then bring them into a day or week when you need them.</EmptyState>}</div>}
     {apply.isError && <Banner tone="error">{errorMessage(apply.error)}</Banner>}{archive.isError && <Banner tone="error">{errorMessage(archive.error)}</Banner>}
   </Card><CopyTools /><Sheet open={!!editor} onOpenChange={open => { if (!open) setEditor(null); }} title={editor?.row ? 'Edit a template' : 'A reusable template'} description="Reserve study time for a skill, or add fixed and unavailable blocks.">{editor && <TemplateEditor key={editor.row?.id || 'new'} row={editor.row} onDone={() => setEditor(null)} />}</Sheet></>;
 }
@@ -153,6 +156,6 @@ function HolidayTools() {
   const save = useMutation({ mutationFn: () => api('/holidays', { method: 'POST', body: { date, title } }), onSuccess: async () => { await refresh(); toast('Holiday saved. Recorded work is preserved.'); setTitle(''); } });
   const remove = useMutation({ mutationFn: (id: string) => api(`/holidays/${id}`, { method: 'DELETE' }), onSuccess: async () => { await refresh(); toast('Holiday removed.'); } });
   return <Card className="stack-lg"><div className="row"><CalendarDays size={24} /><div><h2>Holidays</h2><p className="caption">Suppress repeating occurrences on these dates while preserving recorded work.</p></div></div><form className="stack" onSubmit={event => { event.preventDefault(); save.mutate(); }}><div className="grid-2"><Field id="holiday-date" label="Holiday date"><input className="input" id="holiday-date" type="date" required min={data.studyDate} value={date} onChange={event => setDate(event.target.value)} /></Field><Field id="holiday-title" label="Holiday name"><input className="input" id="holiday-title" required maxLength={200} value={title} onChange={event => setTitle(event.target.value)} /></Field></div>{save.isError && <Banner tone="error">{errorMessage(save.error)}</Banner>}<Button type="submit" disabled={!online} loading={save.isPending}>Add holiday</Button></form>
-    {rows.isPending ? <DelayedSkeleton height={80} /> : rows.isError ? <Banner tone="error">{errorMessage(rows.error)}</Banner> : (rows.data || []).map(row => <article className="occurrence-row" key={row.id}><div><strong>{row.title}</strong><p className="caption">{calendarDate(row.date)}</p></div><Button disabled={!online || remove.isPending || row.date < data.studyDate} onClick={() => remove.mutate(row.id)}>Remove holiday</Button></article>)}{remove.isError && <Banner tone="error">{errorMessage(remove.error)}</Banner>}
+    {rows.isPending ? <DelayedSkeleton height={80} /> : rows.isError ? <Banner tone="error" action={<Button onClick={() => void rows.refetch()}>Retry</Button>}>{errorMessage(rows.error)}</Banner> : rows.data?.length ? rows.data.map(row => <article className="occurrence-row" key={row.id}><div><strong><Truncate>{row.title}</Truncate></strong><p className="caption"><time dateTime={row.date}>{calendarDate(row.date)}</time></p></div><Button disabled={!online || remove.isPending || row.date < data.studyDate} onClick={() => remove.mutate(row.id)}>Remove holiday</Button></article>) : <EmptyState title="Keep a day open" icon={<CalendarDays />} action={<Button variant="text" onClick={() => document.getElementById('holiday-title')?.focus()}>Name a holiday</Button>}>Add a holiday to pause your repeating schedule for that day. Your recorded progress stays safe.</EmptyState>}{remove.isError && <Banner tone="error">{errorMessage(remove.error)}</Banner>}
   </Card>;
 }

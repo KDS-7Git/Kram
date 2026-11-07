@@ -1,6 +1,8 @@
 import { OfflineStatus } from "../data/OfflineStatus";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LayoutGroup, m } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { settingsSchema, type Settings } from "@kram/shared";
@@ -19,9 +21,30 @@ import { useData, useOnline, useRefresh } from "../../shared/data";
 import { useAppearance, type ThemeChoice } from "../../shared/theme";
 import { minuteTime, timeMinute, weekdays } from "../../shared/format";
 import { useUI } from "../../shared/ui";
+import { spring, useMotionPreference } from "../../shared/motion";
 
 export function SettingsPage() {
   const data = useData();
+  const reduced = useMotionPreference();
+  const { hash } = useLocation();
+  const settingsForm = useRef<HTMLFormElement>(null);
+  const [activeSection, setActiveSection] = useState(hash.slice(1) || "appearance");
+  const sections = useMemo(() => [
+    { id: "appearance", label: "Appearance" }, { id: "day-and-time", label: "Day and time" }, { id: "features", label: "Features" },
+    ...(data.user.settings.featurePreset !== "simple" ? [{ id: "planning-preferences", label: "Planning" }] : []),
+    { id: "quiet-hours", label: "Quiet hours" }, { id: "sample-week", label: "Sample week" },
+  ], [data.user.settings.featurePreset]);
+  useEffect(() => {
+    if (hash) setActiveSection(hash.slice(1));
+  }, [hash]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActiveSection(visible[0].target.id);
+    }, { rootMargin: "-5% 0px -60% 0px", threshold: 0 });
+    sections.forEach(section => { const node = document.getElementById(section.id); if (node) observer.observe(node); });
+    return () => observer.disconnect();
+  }, [sections]);
   const refresh = useRefresh();
   const online = useOnline();
   const { toast } = useUI();
@@ -41,6 +64,15 @@ export function SettingsPage() {
       form.reset(input);
     },
   });
+  useEffect(() => {
+    const keyboard = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s" || document.querySelector('[role="dialog"][data-state="open"]')) return;
+      event.preventDefault();
+      if (online && !save.isPending) settingsForm.current?.requestSubmit();
+    };
+    window.addEventListener("keydown", keyboard);
+    return () => window.removeEventListener("keydown", keyboard);
+  }, [online, save.isPending]);
   const sample = useMutation({mutationFn:(remove:boolean)=>api(remove?'/demo/remove':'/demo/load',{method:'POST',body:{}}),onSuccess:async()=>{await refresh();toast('Sample week updated.');}});
   const appearanceChange = (patch: Partial<Settings>) => {
     if (patch.theme) setAppearance({ theme: patch.theme });
@@ -61,17 +93,16 @@ export function SettingsPage() {
       />
       <OfflineStatus/>
       <div className="settings-layout">
-      <nav className="settings-sections" aria-label="Settings sections">
+      <LayoutGroup id="settings-sections"><nav className="settings-sections" aria-label="Settings sections">
         <p className="eyebrow">Preferences</p>
-        <a href="#appearance">Appearance</a>
-        <a href="#day-and-time">Day and time</a>
-        <a href="#features">Features</a>
-        {data.user.settings.featurePreset !== "simple" && <a href="#planning-preferences">Planning</a>}
-        <a href="#quiet-hours">Quiet hours</a>
-        <a href="#sample-week">Sample week</a>
+        {sections.map(section => <a key={section.id} href={`#${section.id}`} aria-current={activeSection === section.id ? "location" : undefined} onClick={() => setActiveSection(section.id)}>
+          {activeSection === section.id && <m.span className="selection-pill" layoutId="section" layout={!reduced} transition={reduced ? { duration: 0 } : spring} aria-hidden="true" />}
+          <span>{section.label}</span>
+        </a>)}
         <Link to="/data">Data and recovery</Link>
-      </nav>
+      </nav></LayoutGroup>
       <form
+        ref={settingsForm}
         className="stack-lg settings-form"
         onSubmit={form.handleSubmit((input) => save.mutate(input))}
         noValidate
@@ -368,6 +399,7 @@ export function SettingsPage() {
           <Button
             variant="primary"
             type="submit"
+            shortcut={["Mod", "S"]}
             loading={save.isPending}
             disabled={!online}
           >

@@ -117,7 +117,7 @@ test("localhost and the configured numeric address share data with separate brow
   ]);
   expect((await saved.request().allHeaders()).origin).toBe(localOrigin);
   expect(saved.status(), await saved.text()).toBe(200);
-  await expect(page.locator(".toast")).toContainText("Settings saved.");
+  await expect(page.locator(".toast").filter({ hasText: "Settings saved." })).toBeVisible();
 
   // A host-only localhost cookie must not authenticate this fresh numeric-host
   // page. Its successful login must still reveal the same persisted account.

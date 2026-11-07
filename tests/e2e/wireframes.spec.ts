@@ -68,7 +68,7 @@ test('Today exposes timer actions; quick progress saves cumulative targets with 
   await page.getByRole('button', { name: `Open task ${task.title}`, exact: true }).click();
   await panel.getByRole('button', { name: '50%', exact: true }).click();
   await expect(panel.getByText('30 min estimated remaining', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.locator('.toast').filter({ hasText: 'Progress saved.' }).first().getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(panel.getByText('45 min estimated remaining', { exact: true })).toBeVisible();
   await panel.getByRole('button', { name: 'Other', exact: true }).click();
   await panel.getByLabel('Additional minutes', { exact: true }).fill('1h20');
@@ -111,7 +111,7 @@ test('Undo targets the newest saved progress while background refresh is delayed
     const history = await (await page.request.get(`/api/v1/tasks/${task.id}/events`)).json();
     const latest = history.filter((event: { kind: string }) => event.kind === 'progress').at(-1);
     expect(latest).toBeTruthy();
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await page.locator('.toast').filter({ hasText: 'Progress saved.' }).first().getByRole('button', { name: 'Undo', exact: true }).click();
     await expect.poll(() => corrections.map(input => input.referenceEventId)).toEqual([latest.id]);
     await expect.poll(async () => (await (await page.request.get(`/api/v1/tasks/${task.id}`)).json()).actualMinutes).toBe(15);
     await expect(page.getByText('45 min estimated remaining', { exact: true })).toBeVisible();

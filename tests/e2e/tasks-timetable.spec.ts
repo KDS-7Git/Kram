@@ -99,6 +99,7 @@ async function createTask(
   return task;
 }
 async function assertAccessible(page: Page) {
+  await settleAppearance(page);
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();
@@ -109,7 +110,11 @@ async function captureThemes(page: Page, testInfo: TestInfo, screen: string) {
     name: "Dismiss message",
     exact: true,
   });
-  if (await dismiss.count()) await dismiss.click();
+  while (await dismiss.count()) {
+    const count = await dismiss.count();
+    await dismiss.first().click();
+    await expect.poll(() => dismiss.count()).toBeLessThan(count);
+  }
   await page.evaluate(() => {
     window.scrollTo(0, 0);
     if (document.activeElement instanceof HTMLElement)
@@ -204,7 +209,7 @@ test("partial minutes, total completion, undo and scoped goal history remain acc
     remainingMinutes: 0,
     status: "completed",
   });
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.locator(".toast").filter({ hasText: "Task completed." }).getByRole("button", { name: "Undo", exact: true }).click();
   await expect(
     dialog.getByText("20 min estimated remaining", { exact: true }),
   ).toBeVisible();

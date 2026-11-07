@@ -22,5 +22,15 @@ export default defineConfig({
     port: 5173,
     proxy: { "/api": process.env.VITE_API_TARGET || "http://127.0.0.1:8420" },
   },
-  build: { outDir: "../../dist/web", emptyOutDir: true, sourcemap: true },
+  build: {
+    outDir: "../../dist/web", emptyOutDir: true, sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (/\/node_modules\/(?:react|react-dom|scheduler)\//.test(id)) return 'react-core';
+          if (/\/node_modules\/(?:framer-motion|motion-dom|motion-utils)\//.test(id)) return 'motion';
+        },
+      },
+    },
+  },
 });

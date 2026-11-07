@@ -40,6 +40,8 @@ import {
   PageHeader,
   Sheet,
   StatusPill,
+  TabBar,
+  EmptyState,
 } from "../../components/ui/kit";
 import { TimerDigits } from "../../components/ui/TimerDigits";
 import { api, apiList, errorMessage } from "../../shared/api";
@@ -664,11 +666,7 @@ export function TaskPanel({
         </Card>
       )}
       <Tabs.Root value={tab} onValueChange={setTab}>
-        <Tabs.List className="tab-list" aria-label="Task details">
-          <Tabs.Trigger value="details">Details</Tabs.Trigger>
-          <Tabs.Trigger value="history">History</Tabs.Trigger>
-          <Tabs.Trigger value="reminders">Reminders</Tabs.Trigger>
-        </Tabs.List>
+        <TabBar value={tab} label="Task details" options={[{ value: "details", label: "Details" }, { value: "history", label: "History" }, { value: "reminders", label: "Reminders" }]} />
         <Tabs.Content value="details" className="stack">
           <p className="muted">
             Earliest {calendarDate(task.earliestDate)} · Estimated{" "}
@@ -723,9 +721,7 @@ export function TaskPanel({
           ) : history.data?.length ? (
             <TaskEventHistory events={history.data} unit={unit} />
           ) : (
-            <p className="muted">
-              Timer actions, progress and corrections will appear here.
-            </p>
+            <EmptyState icon={<History />} title="A fresh start">Timer actions, progress and corrections will appear here as you work.</EmptyState>
           )}
         </Tabs.Content>
         <Tabs.Content value="reminders">

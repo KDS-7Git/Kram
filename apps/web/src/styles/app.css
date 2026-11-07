@@ -4,13 +4,19 @@
 html {
   font-size: 16px;
   background: var(--bg);
+  scrollbar-color: var(--scrollbar) transparent;
+  scrollbar-width: thin;
 }
+* { scrollbar-color: var(--scrollbar) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--scrollbar); }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
 body {
   margin: 0;
   color: var(--text-1);
   background: var(--bg);
-  background-image: radial-gradient(var(--grain-ink) .6px, transparent .8px);
-  background-size: 10px 10px;
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: var(--body-weight);
@@ -1390,48 +1396,6 @@ textarea.input {
 .notification-history .row {
   flex-wrap: wrap;
 }
-.command-search {
-  position: relative;
-}
-.command-search > svg {
-  position: absolute;
-  inset-inline-start: 0.75rem;
-  inset-block-start: 1rem;
-}
-.command-search input {
-  padding-inline-start: 2.25rem;
-}
-.command-results {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.command-result {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  text-align: start;
-  padding: 0.75rem;
-  color: var(--text-1);
-  background: transparent;
-  border: 0;
-  border-block-end: 1px solid var(--border);
-  transition: background-color var(--dur-fast);
-}
-.command-result:hover {
-  background: var(--surface-2);
-}
-.command-result > span {
-  min-width: 0;
-  display: grid;
-  gap: 0.25rem;
-  overflow-wrap: anywhere;
-}
-.command-result > svg {
-  flex: 0 0 18px;
-}
 .day-navigation {
   flex-wrap: wrap;
   margin-block-end: 1.5rem;
@@ -2309,7 +2273,7 @@ textarea.input {
 .toast { position: relative; overflow: hidden; }
 .toast-window { position: absolute; inset-inline: 0; inset-block-end: 0; height: 3px; background: var(--accent); transform-origin: left; animation: undo-window 5s linear forwards; }
 .toast-window-paused { animation-play-state: paused; }
-@keyframes undo-window { to { transform: scaleX(0); } }
+@keyframes undo-window { from { transform: scaleX(var(--toast-progress, 1)); } to { transform: scaleX(0); } }
 
 /* Native week time grid stays on the calendar route; phone uses the day view. */
 .calendar-filter-banner { margin-block-end: 1rem; overflow-wrap: anywhere; }

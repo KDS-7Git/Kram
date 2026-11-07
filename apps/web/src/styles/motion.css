@@ -1,260 +1,119 @@
-/* Motion follows a real interaction. Resting cards and background stay still. */
+/* Short, interruptible feedback. The spring model lives in shared/motion.tsx. */
 :root {
   --motion-arrival: 260ms;
-  --motion-feedback: 180ms;
-  --motion-press: 80ms;
+  --motion-feedback: 160ms;
+  --motion-press: 90ms;
   --motion-ease: cubic-bezier(.16, 1, .3, 1);
 }
+.route-content { animation: workspace-arrival 240ms var(--motion-ease); }
+.dialog-overlay[data-state="open"], .select-overlay[data-state="open"], .temporal-overlay[data-state="open"] { animation: layer-scrim 180ms ease-out; }
+.dialog-overlay[data-state="closed"], .select-overlay[data-state="closed"], .temporal-overlay[data-state="closed"] { animation: layer-fade-out 140ms ease-in; }
+.dialog-content[data-state="open"] { animation: dialog-arrival var(--motion-arrival) var(--motion-ease); }
+.dialog-content[data-state="closed"] { animation: dialog-departure 140ms ease-in; }
+.sheet-content[data-state="open"] { animation: inspector-arrival var(--motion-arrival) var(--motion-ease); }
+.sheet-content[data-state="closed"] { animation: inspector-departure 140ms ease-in; }
+.dropdown-menu[data-state="open"], .select-popover[data-state="open"], .temporal-popover[data-state="open"] { animation: chooser-arrival 200ms var(--motion-ease); }
+.dropdown-menu[data-state="closed"], .select-popover[data-state="closed"], .temporal-popover[data-state="closed"] { animation: chooser-departure 120ms ease-in; }
+.select-sheet[data-state="open"], .temporal-sheet[data-state="open"] { animation: phone-layer-arrival var(--motion-arrival) var(--motion-ease); }
+.select-sheet[data-state="closed"], .temporal-sheet[data-state="closed"] { animation: phone-layer-departure 140ms ease-in; }
+.kit-tooltip[data-state="delayed-open"], .kit-tooltip[data-state="instant-open"] { animation: tooltip-arrival 140ms var(--motion-ease); }
+.kit-tooltip[data-state="closed"] { animation: layer-fade-out 100ms ease-in; }
 
-.route-content {
-  animation: workspace-arrival 240ms var(--motion-ease);
-}
-.dialog-overlay[data-state="open"],
-.select-overlay[data-state="open"],
-.temporal-overlay[data-state="open"] {
-  animation: layer-scrim 200ms ease-out;
-}
-.dialog-content[data-state="open"] {
-  animation: dialog-arrival var(--motion-arrival) var(--motion-ease);
-}
-.sheet-content[data-state="open"] {
-  animation: inspector-arrival var(--motion-arrival) var(--motion-ease);
-}
-.dropdown-menu[data-state="open"],
-.select-popover[data-state="open"],
-.temporal-popover[data-state="open"] {
-  animation: chooser-arrival 200ms var(--motion-ease);
-}
-.select-sheet[data-state="open"],
-.temporal-sheet[data-state="open"] {
-  animation: phone-layer-arrival var(--motion-arrival) var(--motion-ease);
-}
-.kit-tooltip[data-state="delayed-open"],
-.kit-tooltip[data-state="instant-open"] {
-  animation: tooltip-arrival 160ms var(--motion-ease);
-}
-
-/* Boundaries, surface and elevation respond together without moving the layout. */
-.button,
-.theme-crossfade .button-primary {
+button, .button, .theme-crossfade .button-primary, .nav-link, .segmented button, .week-strip button,
+.tab-list > button, .select-trigger, .temporal-trigger, .select-option, .dropdown-item,
+.profile-chip, .goal-row, .resource-link-row, .command-result, .task-row-title,
+.task-check, .schedule-open, .calendar-cell-button, .week-block, .calendar-block {
   transition: background-color var(--motion-feedback) ease-out,
-    color var(--motion-feedback) ease-out,
-    border-color var(--motion-feedback) ease-out,
-    box-shadow var(--motion-feedback) ease-out,
-    transform var(--motion-press) ease-out;
+    color var(--motion-feedback) ease-out, border-color var(--motion-feedback) ease-out,
+    box-shadow var(--motion-feedback) ease-out, transform var(--motion-press) var(--motion-ease);
 }
-.button-primary:not(:disabled) {
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--accent) 20%, transparent);
+button:active:not(:disabled):not([aria-disabled="true"]), .button:active:not(:disabled), .button[data-demo-state="pressed"]:not(:disabled),
+.nav-link:active, .segmented button:active, .tab-list > button:active,
+.profile-chip:active, .select-trigger:active, .temporal-trigger:active,
+.task-check:active:not(:disabled), .task-row-title:active, .command-result:active,
+.select-option:active:not(:disabled), .dropdown-item:active, .schedule-open:active,
+.goal-row:active, .resource-card-title:active, .resource-link-row:active,
+.day-overview-link:active, .today-agenda li > a:active {
+  transform: scale(.98);
 }
-.button:focus-visible,
-.select-trigger:focus-visible,
-.temporal-trigger:focus-visible {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.button:active:not(:disabled),
-.button[data-demo-state="pressed"]:not(:disabled) {
-  transform: translateY(1px) scale(.98);
-  box-shadow: none;
-}
-.button-primary:active:not(:disabled) {
-  box-shadow: inset 0 2px 4px color-mix(in srgb, var(--on-accent) 12%, transparent);
-}
-.button:disabled {
-  box-shadow: none;
-  transform: none;
-}
-.nav-link,
-.segmented button,
-.week-strip button,
-.tab-list > button,
-.select-trigger,
-.temporal-trigger {
-  transition: background-color var(--motion-feedback) ease-out,
-    color var(--motion-feedback) ease-out,
-    border-color var(--motion-feedback) ease-out,
-    box-shadow var(--motion-feedback) ease-out,
-    transform var(--motion-feedback) var(--motion-ease);
-}
-.nav-link > svg {
-  transition: transform var(--motion-feedback) var(--motion-ease);
-}
-.nav-link.active > svg {
-  animation: selected-mark 240ms var(--motion-ease);
-}
-.segmented button[aria-pressed="true"],
-.week-strip button[aria-pressed="true"] {
-  animation: selected-control 200ms var(--motion-ease);
-}
-.select-chevron {
-  transition: transform var(--motion-feedback) var(--motion-ease);
-}
-.select-trigger[aria-expanded="true"] .select-chevron {
-  transform: rotate(180deg);
-}
-.input,
-.temporal-control,
-.select-control {
-  transition: border-color var(--motion-feedback) ease-out,
-    box-shadow var(--motion-feedback) ease-out;
-}
-.input:focus,
-.input:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
-}
+.button-primary:active:not(:disabled) { background: var(--accent-press); box-shadow: inset 0 1px 3px rgb(0 0 0 / 12%); }
+.button:disabled { box-shadow: none; transform: none; }
+.button[aria-disabled="true"]:active { transform: none; }
+.button:focus-visible, .select-trigger:focus-visible, .temporal-trigger:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+.input, .temporal-control, .select-control { transition: border-color var(--motion-feedback), box-shadow var(--motion-feedback); }
+.input:focus, .input:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.select-chevron { transition: transform 200ms var(--motion-ease); }
+.select-trigger[aria-expanded="true"] .select-chevron { transform: rotate(180deg); }
+.today-task-row, .tree-item, .occurrence-row, .notification-history > li { transition: background-color var(--motion-feedback); }
+.toggle-track i { transition: transform 260ms var(--motion-ease), background-color var(--motion-feedback); }
 
 @media (hover: hover) and (pointer: fine) {
-  .button:not(:disabled):not(.button-icon):hover,
-  .button[data-demo-state="hover"]:not(:disabled):not(.button-icon) {
-    transform: translateY(-2px);
-    border-color: var(--accent);
-    box-shadow: 0 5px 12px color-mix(in srgb, var(--text-1) 10%, transparent);
-  }
-  .button-primary:not(:disabled):hover {
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-  .button-icon:not(:disabled):hover {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  .nav-link:hover > svg {
-    transform: translateX(2px);
-  }
-  .task-row-title:hover {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  .task-check:not(:disabled):hover {
-    box-shadow: inset 0 0 0 1px var(--accent);
-    background: var(--accent-soft);
-  }
-  .week-block:not(:disabled):hover,
-  .calendar-block:not(:disabled):hover {
-    box-shadow: inset 0 0 0 1px var(--accent);
-    background: var(--accent-soft);
-  }
-  .button:not(:disabled):not(.button-icon):active,
-  .button[data-demo-state="pressed"]:not(:disabled) {
-    transform: translateY(1px) scale(.98);
-    box-shadow: none;
-  }
+  .button:not(:disabled):not(.button-icon):not(.button-text):hover:not(:active):not([data-demo-state="pressed"]),
+  .button[data-demo-state="hover"]:not(:disabled):not(.button-icon):not(.button-text):not(:active) { transform: translateY(-1px); }
+  .button:not(:disabled):active, .button[data-demo-state="pressed"]:not(:disabled) { transform: scale(.98); }
+  .task-check:not(:disabled):hover { color: var(--accent); background: var(--accent-soft); }
+  .task-check[data-status="completed"]:hover { color: var(--done); background: color-mix(in srgb, var(--done) 8%, transparent); }
+  .task-row-title:hover { color: var(--text-1); background: transparent; }
+  .week-block:not(:disabled):hover, .calendar-block:not(:disabled):hover { border-color: var(--border-hover); filter: brightness(1.02); }
+  .goal-row:hover, .resource-link-row:hover, .command-result:hover { background: var(--surface-2); }
+  .profile-chip:hover { border-color: var(--border-hover); }
 }
-
-/* A saved result has one arrival. An existing completed record has none. */
-.toast {
-  animation: result-arrival 260ms var(--motion-ease);
-}
-.toast:not(.toast-error) > svg {
-  animation: saved-mark 280ms var(--motion-ease);
-}
-.status[data-state-change="complete"] > svg {
-  animation: saved-mark 280ms var(--motion-ease);
-}
-.status[data-state-change="complete"] > svg path {
-  stroke-dasharray: 14;
-  animation: completion-stroke 220ms ease-out;
-}
-.button-loading-dots i {
-  animation: pending-dot 900ms ease-in-out infinite;
-}
+.task-check[data-state-change="complete"] .task-check-mark { animation: checkbox-complete 420ms var(--motion-ease); }
+.task-check[data-state-change="complete"] .task-check-stroke { stroke-dasharray: 16; animation: completion-stroke 260ms var(--motion-ease); }
+.status[data-state-change="complete"] > svg, .toast:not(.toast-error) > svg { animation: saved-mark 320ms var(--motion-ease); }
+.status[data-state-change="complete"] > svg path { stroke-dasharray: 16; animation: completion-stroke 220ms ease-out; }
+.toast { animation: none; }
+.button-loading-dots i { animation: pending-dot 1000ms ease-in-out infinite; }
 .button-loading-dots i:nth-child(2) { animation-delay: 120ms; }
 .button-loading-dots i:nth-child(3) { animation-delay: 240ms; }
+details[open] > :not(summary) { animation: detail-arrival 180ms var(--motion-ease); }
+[data-state="active"][role="tabpanel"] { animation: detail-arrival 180ms var(--motion-ease); }
 
-@keyframes workspace-arrival {
-  from { opacity: .2; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes layer-scrim {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes dialog-arrival {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(.96); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-@keyframes inspector-arrival {
-  from { opacity: .3; transform: translateX(36px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes phone-layer-arrival {
-  from { opacity: .3; transform: translateY(40px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes chooser-arrival {
-  from { opacity: 0; transform: translateY(-6px) scale(.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes tooltip-arrival {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes selected-mark {
-  0% { transform: scale(.8); }
-  65% { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
-@keyframes selected-control {
-  from { opacity: .65; }
-  to { opacity: 1; }
-}
-@keyframes result-arrival {
-  from { opacity: 0; transform: translateY(12px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes saved-mark {
-  0% { opacity: .5; transform: scale(.6); }
-  70% { opacity: 1; transform: scale(1.16); }
-  100% { opacity: 1; transform: scale(1); }
-}
-@keyframes completion-stroke {
-  from { stroke-dashoffset: 14; }
-  to { stroke-dashoffset: 0; }
-}
-@keyframes pending-dot {
-  0%, 100% { opacity: .45; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-3px); }
-}
+@keyframes workspace-arrival { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes layer-scrim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes layer-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dialog-arrival { from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)) scale(.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes dialog-departure { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) scale(.98); } }
+@keyframes inspector-arrival { from { opacity: 0; transform: translateX(24px) scale(.98); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes inspector-departure { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(16px); } }
+@keyframes phone-layer-arrival { from { opacity: .3; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes phone-layer-departure { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(20px); } }
+@keyframes chooser-arrival { from { opacity: 0; transform: translateY(-4px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes chooser-departure { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.98); } }
+@keyframes tooltip-arrival { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes detail-arrival { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes checkbox-complete { 0% { transform: scale(.85); } 45% { transform: scale(1.16); } 72% { transform: scale(.97); } 100% { transform: scale(1); } }
+@keyframes saved-mark { 0% { opacity: .4; transform: scale(.75); } 65% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes completion-stroke { from { stroke-dashoffset: 16; } to { stroke-dashoffset: 0; } }
+@keyframes pending-dot { 0%, 100% { opacity: .4; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 
 @media (max-width: 599px) {
-  .sheet-content[data-state="open"] {
-    animation-name: phone-layer-arrival;
-  }
+  .sheet-content[data-state="open"] { animation-name: phone-layer-arrival; }
+  .sheet-content[data-state="closed"] { animation-name: phone-layer-departure; }
 }
-
-/* The OS preference wins over the app's Full setting. Static feedback remains. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-  .button:hover,
-  .button:active,
-  .button[data-demo-state],
-  .nav-link:hover > svg,
-  .select-trigger[aria-expanded="true"] .select-chevron {
-    transform: none !important;
-  }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  button:active, .goal-row:active, .resource-card-title:active, .resource-link-row:active, .day-overview-link:active, .today-agenda li > a:active,
+  .button:hover, .button:active, .button[data-demo-state], .nav-link:active,
+  .segmented button:active, .tab-list > button:active, .profile-chip:active,
+  .select-trigger:active, .temporal-trigger:active, .task-check:active,
+  .task-row-title:active, .command-result:active, .select-option:active,
+  .dropdown-item:active, .schedule-open:active,
+  .select-trigger[aria-expanded="true"] .select-chevron { transform: none !important; }
 }
-[data-motion="reduced"] *,
-[data-motion="reduced"] *::before,
-[data-motion="reduced"] *::after {
-  animation: none !important;
-  transition: none !important;
-}
-[data-motion="reduced"] .button:hover,
-[data-motion="reduced"] .button:active,
-[data-motion="reduced"] .button[data-demo-state],
-[data-motion="reduced"] .nav-link:hover > svg,
-[data-motion="reduced"] .select-trigger[aria-expanded="true"] .select-chevron {
-  transform: none !important;
-}
+[data-motion="reduced"] *, [data-motion="reduced"] *::before, [data-motion="reduced"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+[data-motion="reduced"] button:active, [data-motion="reduced"] .goal-row:active,
+[data-motion="reduced"] .resource-card-title:active, [data-motion="reduced"] .resource-link-row:active,
+[data-motion="reduced"] .day-overview-link:active, [data-motion="reduced"] .today-agenda li > a:active,
+[data-motion="reduced"] .button:hover, [data-motion="reduced"] .button:active,
+[data-motion="reduced"] .button[data-demo-state], [data-motion="reduced"] .nav-link:active,
+[data-motion="reduced"] .segmented button:active, [data-motion="reduced"] .tab-list > button:active,
+[data-motion="reduced"] .profile-chip:active, [data-motion="reduced"] .select-trigger:active,
+[data-motion="reduced"] .temporal-trigger:active, [data-motion="reduced"] .task-check:active,
+[data-motion="reduced"] .task-row-title:active, [data-motion="reduced"] .command-result:active,
+[data-motion="reduced"] .select-option:active, [data-motion="reduced"] .dropdown-item:active,
+[data-motion="reduced"] .schedule-open:active,
+[data-motion="reduced"] .select-trigger[aria-expanded="true"] .select-chevron { transform: none !important; }
 @media (forced-colors: active) {
-  .button,
-  .button:hover,
-  .button:focus-visible,
-  .input:focus,
-  .task-check,
-  .week-block,
-  .calendar-block {
-    box-shadow: none;
-  }
+  .button, .button:hover, .button:focus-visible, .input:focus, .task-check, .week-block, .calendar-block { box-shadow: none; }
 }

@@ -1,4 +1,5 @@
 import { chooseOption } from "./helpers/select";
+import { settleAppearance } from "./helpers/appearance";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { Bootstrap, Skill } from "@kram/shared";
@@ -68,6 +69,7 @@ test("owner onboarding persists account, time choices and first profile", async 
   await expect(
     page.getByRole("heading", { name: "Your tasks", exact: true }),
   ).toBeVisible();
+  await settleAppearance(page);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();
@@ -191,6 +193,7 @@ test("profiles, arbitrary practice days, windows, ordering and archive persist",
   await expect(
     page.getByRole("heading", { name: "Computer Networks", exact: true }),
   ).toBeVisible();
+  await settleAppearance(page);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();
@@ -219,7 +222,7 @@ test("settings, device theme, sign out and sign in work on desktop and phone", a
   await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
-  await expect(page.locator(".toast")).toContainText("Settings saved.");
+  await expect(page.locator(".toast").filter({ hasText: "Settings saved." })).toBeVisible();
   const data = await snapshotData(page);
   expect(data.user.settings).toMatchObject({
     timezone: "Europe/London",
@@ -234,6 +237,7 @@ test("settings, device theme, sign out and sign in work on desktop and phone", a
     page.getByRole("heading", { name: "Make room your way", exact: true }),
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await settleAppearance(page);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();

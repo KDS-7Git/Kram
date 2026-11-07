@@ -18,7 +18,11 @@ import {
   Plus,
   ChartNoAxesColumn,
   CalendarCheck,
+  ChevronRight,
+  Search,
+  type LucideIcon,
 } from "lucide-react";
+import { LayoutGroup, m } from "framer-motion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   useIsMutating,
@@ -34,6 +38,7 @@ import {
   IconButton,
   PageHeader,
   Skeleton,
+  Shortcut,
 } from "./components/ui/kit";
 const Workshop = lazy(() =>
   import("./components/Workshop").then((module) => ({
@@ -109,6 +114,7 @@ import { offline, listQueued, subscribeOffline, replayProgress, registerOfflineS
 import { api, ApiIssue, errorMessage, type AuthMe } from "./shared/api";
 import { DataProvider, useBootstrap, useOnline } from "./shared/data";
 import { UIProvider, useUI } from "./shared/ui";
+import { spring, useMotionPreference } from "./shared/motion";
 
 function DelayedLoading() {
   const [visible, setVisible] = useState(false);
@@ -128,6 +134,18 @@ function DelayedLoading() {
   );
 }
 
+function NavigationLink({ to, label, icon: Icon, shortcut }: { to: string; label: string; icon: LucideIcon; shortcut?: string[] }) {
+  const reduced = useMotionPreference();
+  return <NavLink to={to} end={to === "/"} className="nav-link">
+    {({ isActive }) => <>
+      {isActive && <m.span className="nav-active-pill" layoutId="navigation" layout={!reduced} transition={reduced ? { duration: 0 } : spring} aria-hidden="true" />}
+      <Icon size={20} strokeWidth={1.65} aria-hidden="true" />
+      <span>{label}</span>
+      {shortcut && <Shortcut keys={shortcut} className="nav-shortcut" />}
+    </>}
+  </NavLink>;
+}
+
 function Shell({
   children,
   user,
@@ -138,6 +156,8 @@ function Shell({
   workshop?: boolean;
 }) {
   const { resolvedTheme, setAppearance } = useAppearance();
+  const { pathname } = useLocation();
+  const destination = pathname === "/" ? "Today" : pathname.startsWith("/plan") ? "Plan" : pathname.startsWith("/goals") ? "Goals" : pathname.startsWith("/progress") || pathname.startsWith("/streaks") ? "Progress" : pathname.startsWith("/tasks") ? "Task" : pathname.startsWith("/resources") ? "Resources" : pathname.startsWith("/review") ? "Review" : pathname.startsWith("/settings") ? "Settings" : pathname.startsWith("/notifications") || pathname.startsWith("/channels") ? "Notifications" : pathname.startsWith("/data") ? "Data & recovery" : "Design workshop";
   const online = useOnline();
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -191,44 +211,38 @@ function Shell({
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <aside className="sidebar">
+      <LayoutGroup id="sidebar-navigation"><aside className="sidebar">
         <NavLink to="/" className="wordmark">
-          <BookOpen size={24} strokeWidth={1.5} />
+          <span className="brand-mark"><BookOpen size={18} strokeWidth={1.65} /></span>
           <span>Kram</span>
         </NavLink>
         {user && (
           <Button
+            className="sidebar-command"
+            shortcut={["Mod", "K"]}
             onClick={() => window.dispatchEvent(new Event("kram-command"))}
           >
-            <Plus size={18} strokeWidth={1.5} />
+            <Search size={18} strokeWidth={1.5} />
             <span>Add or search</span>
           </Button>
         )}
         <nav className="nav-list" aria-label="Main navigation">
           {links.map((link) => (
-            <NavLink
+            <NavigationLink
               key={link.to}
-              end={link.to === "/"}
               to={link.to}
-              className="nav-link"
-            >
-              <link.icon size={20} strokeWidth={1.5} />
-              <span>{link.label}</span>
-            </NavLink>
+              label={link.label}
+              icon={link.icon}
+              shortcut={link.to === "/" ? ["G", "T"] : link.to === "/plan" ? ["G", "P"] : link.to === "/goals" ? ["G", "G"] : undefined}
+            />
           ))}
         </nav>
-        {user && user.settings.featurePreset!=="simple" && <NavLink className="nav-link" to="/review"><CalendarCheck size={20} strokeWidth={1.5}/><span>Review</span></NavLink>}
+        {user && user.settings.featurePreset!=="simple" && <NavigationLink to="/review" label="Review" icon={CalendarCheck} />}
         <div className="sidebar-footer">
           {user && (
             <>
-              <NavLink className="nav-link" to="/settings">
-                <Settings2 size={20} strokeWidth={1.5} />
-                <span>Settings</span>
-              </NavLink>
-              <NavLink className="nav-link" to="/notifications">
-                <Bell size={20} strokeWidth={1.5} />
-                <span>Notifications</span>
-              </NavLink>
+              <NavigationLink to="/settings" label="Settings" icon={Settings2} />
+              <NavigationLink to="/notifications" label="Notifications" icon={Bell} />
               <Button
                 variant="text"
                 onClick={() => logout.mutate()}
@@ -252,12 +266,16 @@ function Shell({
             <br />A little progress, every day.
           </p>
         </div>
-      </aside>
+      </aside></LayoutGroup>
       <div className="app-body">
         <header className="topbar">
+          <div className="topbar-location" aria-label="Current workspace">
+            <span className="topbar-workspace">Your workspace</span><ChevronRight size={12} aria-hidden="true" /><span>{workshop ? "Design workshop" : destination}</span>
+          </div>
+          <div className="topbar-actions">
           <span className="topbar-title">
             {user ? (
-              <span className="sync-label">
+              <span className="sync-label" data-pending={!online || pending > 0 || queued > 0}>
                 {!online ? (
                   <WifiOff size={14} strokeWidth={1.5} aria-hidden="true" />
                 ) : pending ? (
@@ -272,10 +290,9 @@ function Shell({
                 {!online ? "Offline" : queued ? "Waiting to sync" : cachedPage ? "Saved copy" : pending ? "Syncing" : "Saved"}
               </span>
             ) : (
-              "A planner of your own"
+              null
             )}
           </span>
-          <div className="topbar-actions">
             <IconButton
               label="Toggle light and dark theme"
               onClick={toggleTheme}
@@ -350,22 +367,17 @@ function Shell({
           {children}
         </main>
       </div>
-      <nav
+      <LayoutGroup id="mobile-navigation"><nav
         className={user ? `mobile-nav mobile-nav-owner${user.settings.featurePreset==='simple'?' mobile-nav-simple':''}` : "mobile-nav"}
         aria-label="Mobile navigation"
       >
         {links.map((link) => (
-          <NavLink
+          <NavigationLink
             key={link.to}
-            end={link.to === "/"}
             to={link.to}
-            className="nav-link"
-          >
-            <link.icon size={20} strokeWidth={1.5} />
-            <span>
-              {workshop && link.to === "/workshop" ? "Workshop" : link.label}
-            </span>
-          </NavLink>
+            icon={link.icon}
+            label={workshop && link.to === "/workshop" ? "Workshop" : link.label}
+          />
         ))}
         {user && (
           <button
@@ -377,7 +389,7 @@ function Shell({
             <Plus size={24} strokeWidth={1.5} />
           </button>
         )}
-      </nav>
+      </nav></LayoutGroup>
     </div>
   );
 }

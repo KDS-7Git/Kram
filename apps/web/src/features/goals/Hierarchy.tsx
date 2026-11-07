@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, LayoutGroup, m } from "framer-motion";
+import { listSpring, useMotionPreference } from "../../shared/motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,6 +33,7 @@ import {
   IconButton,
   PageHeader,
   Sheet,
+  Truncate,
 } from "../../components/ui/kit";
 import { useData, useOnline, useRefresh } from "../../shared/data";
 import { api, apiList, errorMessage } from "../../shared/api";
@@ -60,6 +63,7 @@ type Editor =
   | { kind: "skill"; skill?: Skill; profileId: string };
 
 export function Hierarchy() {
+  const reduced = useMotionPreference();
   const data = useData();
   const online = useOnline();
   const refresh = useRefresh();
@@ -235,8 +239,8 @@ export function Hierarchy() {
           </EmptyState>
         </Card>
       ) : (
-        <div className="stack-lg profile-list">
-          {profiles.map((profile, index) => {
+        <LayoutGroup id="profiles"><div className="stack-lg profile-list">
+          <AnimatePresence initial={false}>{profiles.map((profile, index) => {
             const skills = [...hierarchy.skills]
               .filter(
                 (skill) =>
@@ -248,8 +252,10 @@ export function Hierarchy() {
               );
             const isCollapsed = collapsed.has(profile.id);
             return (
+              <m.div key={profile.id} layout={reduced ? false : "position"}
+                initial={reduced ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                exit={reduced ? undefined : { opacity: 0, height: 0 }} transition={reduced ? { duration: 0 } : listSpring}>
               <Card
-                key={profile.id}
                 id={profile.id}
                 className={`profile-card${profile.archivedAt ? " archived-card" : ""}`}
               >
@@ -274,7 +280,7 @@ export function Hierarchy() {
                       {initials(profile.name)}
                     </span>
                     <span>
-                      <h2>{profile.name}</h2>
+                      <h2><Truncate>{profile.name}</Truncate></h2>
                       <span className="caption">
                         {skills.length}{" "}
                         {skills.length === 1 ? "skill" : "skills"}
@@ -326,8 +332,10 @@ export function Hierarchy() {
                     )}
                   </div>
                 </div>
-                {!isCollapsed && (
-                  <div className="profile-skills">
+                <AnimatePresence initial={false}>{!isCollapsed && (
+                  <m.div className="profile-skills" initial={reduced ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }} exit={reduced ? undefined : { height: 0, opacity: 0 }}
+                    transition={{ duration: reduced ? 0 : .22, ease: [.16, 1, .3, 1] }}>
                     {skills.length ? (
                       skills.map((skill, skillIndex) => (
                         <div
@@ -429,12 +437,12 @@ export function Hierarchy() {
                         Add skill
                       </Button>
                     )}
-                  </div>
-                )}
-              </Card>
+                  </m.div>
+                )}</AnimatePresence>
+              </Card></m.div>
             );
-          })}
-        </div>
+          })}</AnimatePresence>
+        </div></LayoutGroup>
       )}
       <Sheet
         open={newGoal}

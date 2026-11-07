@@ -1,10 +1,12 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import { LayoutGroup, m } from 'framer-motion';
+import { spring, useMotionPreference } from '../../shared/motion';
 import { Link } from 'react-router-dom';
 import { DateTime } from 'luxon';
 import { dateRange, weekStartDate, weekday } from '@kram/time';
 import { AlertCircle, LockKeyhole, Pin } from 'lucide-react';
 import type { Goal, Occurrence, TimeSlot } from '@kram/shared';
-import { Card, Button } from '../../components/ui/kit';
+import { Card, Button, Truncate } from '../../components/ui/kit';
 import { useData } from '../../shared/data';
 import { allocatedMinutes, calendarDate, clockLabel, duration } from '../../shared/format';
 
@@ -21,6 +23,8 @@ export function calendarWindow(date: string, view: CalendarView, weekStart: 1 | 
 
 export function WeekStrip({ date, onDate }: { date: string; onDate: (value: string) => void }) {
   const data = useData();
+  const group = useId();
+  const reduced = useMotionPreference();
   const strip = useRef<HTMLDivElement>(null);
   const range = calendarWindow(date, 'week', data.user.settings.weekStart);
   useEffect(() => {
@@ -38,9 +42,9 @@ export function WeekStrip({ date, onDate }: { date: string; onDate: (value: stri
     resize.observe(selected);
     return () => resize.disconnect();
   }, [date, data.user.settings.weekStart]);
-  return <div ref={strip} className="week-strip" role="group" aria-label="Choose a day this week">
-    {dateRange(range.from, range.to).map(day => <button type="button" key={day} aria-pressed={day === date} aria-label={`Show ${calendarDate(day)}`} onClick={() => onDate(day)}><span>{DateTime.fromISO(day).toFormat('ccc')}</span><strong>{DateTime.fromISO(day).day}</strong>{data.user.settings.restDays.includes(weekday(day)) && <span className="sr-only">Rest day</span>}</button>)}
-  </div>;
+  return <LayoutGroup id={group}><div ref={strip} className="week-strip" role="group" aria-label="Choose a day this week">
+    {dateRange(range.from, range.to).map(day => <button type="button" key={day} aria-pressed={day === date} aria-label={`Show ${calendarDate(day)}`} onClick={() => onDate(day)}>{day === date && <m.span className="selection-pill" layoutId="day" layout={!reduced} transition={reduced ? { duration: 0 } : spring} aria-hidden="true" />}<span>{DateTime.fromISO(day).toFormat('ccc')}</span><strong>{DateTime.fromISO(day).day}</strong>{data.user.settings.restDays.includes(weekday(day)) && <span className="sr-only">Rest day</span>}</button>)}
+  </div></LayoutGroup>;
 }
 export function RecurringWork({ items }: { items: Occurrence[] }) {
   return items.length ? <ul className="calendar-work">{items.map(item => <li key={item.id}><Link to={`/schedules?seriesId=${item.seriesId}&date=${item.originalDate}`}>{item.fields.title}</Link><span className="caption">Repeating goal · {duration(item.fields.estMinutes)}{item.virtual ? ' · upcoming' : ''}</span></li>)}</ul> : null;
@@ -50,7 +54,7 @@ export function CalendarRange({ view, date, from, to, slots, allSlots = slots, o
 }) {
   const data = useData();
   const days = dateRange(from, to).filter(day => view !== 'agenda' || slots.some(slot => slot.date === day) || occurrences.some(item => item.localDate === day && item.status !== 'suppressed') || goals.some(goal => goal.dueDate === day));
-  const profileColor = (slot: TimeSlot): CSSProperties => { const profile = data.profiles.find(profile => profile.id === slot.profileId); return profile ? { borderInlineStartColor: `var(--profile-${profile.color})` } : {}; };
+  const profileColor = (slot: TimeSlot): CSSProperties => { const profile = data.profiles.find(profile => profile.id === slot.profileId); return profile ? { borderInlineStartColor: `var(--profile-${profile.color})`, '--block-color': `var(--profile-${profile.color})` } as CSSProperties : {}; };
   const localNow = DateTime.fromMillis(now).setZone(data.user.settings.timezone), minute = localNow.hour * 60 + localNow.minute;
   const start = Math.floor(Math.min(data.user.settings.wakingMin, ...allSlots.map(slot => slot.startMin)) / 60) * 60;
   const end = Math.ceil(Math.max(data.user.settings.sleepingMin, ...allSlots.map(slot => slot.endMin)) / 60) * 60;
@@ -70,7 +74,7 @@ export function CalendarRange({ view, date, from, to, slots, allSlots = slots, o
               const lane = lanes.get(slot.id)!;
               const current = day === localNow.toISODate() && minute >= slot.startMin && minute < slot.endMin;
               return <button type="button" key={slot.id} className={`week-block timeline-${slot.layer}${current ? ' block-current' : ''}`} style={{ ...profileColor(slot), top: size(slot.startMin - start), height: size(slot.endMin - slot.startMin), insetInlineStart: `calc(${lane.lane / lane.count * 100}% + 2px)`, width: `calc(${100 / lane.count}% - 4px)` }} onClick={() => onEdit(slot)} aria-label={`Edit block ${slot.title} on ${calendarDate(day)}, ${clockLabel(slot.startMin, data.user.settings.clockFormat)} to ${clockLabel(slot.endMin, data.user.settings.clockFormat)}, ${layerLabels[slot.layer]}${current ? ', current' : ''}${slot.taskId ? `, ${data.tasks.find(task => task.id === slot.taskId)?.status.replaceAll('_', ' ') || 'task'}` : ''}`}>
-                <span className="week-block-title">{['fixed', 'unavailable'].includes(slot.layer) ? <LockKeyhole size={14} aria-hidden="true" strokeWidth={1.5} /> : slot.layer === 'pinned' ? <Pin size={14} aria-hidden="true" strokeWidth={1.5} /> : null}<strong>{slot.title}</strong></span><span className="caption">{clockLabel(slot.startMin, data.user.settings.clockFormat)} · {layerLabels[slot.layer]}</span>
+                <span className="week-block-title">{['fixed', 'unavailable'].includes(slot.layer) ? <LockKeyhole size={14} aria-hidden="true" strokeWidth={1.5} /> : slot.layer === 'pinned' ? <Pin size={14} aria-hidden="true" strokeWidth={1.5} /> : null}<strong><Truncate>{slot.title}</Truncate></strong></span><span className="caption">{clockLabel(slot.startMin, data.user.settings.clockFormat)} · {layerLabels[slot.layer]}</span>
               </button>;
             })}
             {day === localNow.toISODate() && minute >= start && minute < end && <div className="week-now" role="img" style={{ top: size(minute - start) }} aria-label={`Now ${clockLabel(minute, data.user.settings.clockFormat)}`} />}

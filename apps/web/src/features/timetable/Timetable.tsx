@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +38,7 @@ import {
   PageHeader,
   Sheet,
   Segments,
+  Truncate,
 } from "../../components/ui/kit";
 import { api, apiList, ApiIssue, errorMessage } from "../../shared/api";
 import { useData, useOnline, useRefresh } from "../../shared/data";
@@ -575,7 +576,8 @@ function TimelineBlock({
         borderInlineStartColor: profile
           ? `var(--profile-${profile.color})`
           : undefined,
-      }}
+        "--block-color": profile ? `var(--profile-${profile.color})` : "var(--accent)",
+      } as CSSProperties}
     >
       <div className="timeline-block-heading">
         {fixed ? (
@@ -600,7 +602,7 @@ function TimelineBlock({
           aria-describedby={`slot-description-${slot.id}`}
           disabled={!editable}
         >
-          <strong>{slot.title}</strong>
+          <strong><Truncate>{slot.title}</Truncate></strong>
           <span className={lane.count > 1 ? "sr-only" : "caption"} id={`slot-description-${slot.id}`}>
             {clockLabel(slot.startMin, data.user.settings.clockFormat)}–
             {clockLabel(slot.endMin, data.user.settings.clockFormat)} ·{" "}

@@ -66,7 +66,7 @@ export function AuthScreen({ auth }: { auth: AuthMe }) {
                 Public registration is disabled. Each Kram installation has one
                 owner.
               </p>
-              <NavLink to="/workshop">Explore Graphite + violet</NavLink>
+              <NavLink to="/workshop">Explore the component workshop</NavLink>
             </div>
           )
         ) : (

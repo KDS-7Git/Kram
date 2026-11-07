@@ -42,7 +42,7 @@ function contrast(a: string, b: string) {
   return (values[0]! + 0.05) / (values[1]! + 0.05);
 }
 
-describe.each(Object.entries(themes))("%s Graphite and Violet", (_name, tokens) => {
+describe.each(Object.entries(themes))("%s workspace palette", (_name, tokens) => {
   it("keeps mixed navigation labels, focus and control edges readable", () => {
     for (const background of ["nav-bg", "nav-selected"])
       for (const foreground of ["nav-text", "nav-muted", "nav-accent"])

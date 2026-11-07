@@ -17,6 +17,8 @@ import {
   Sheet,
   Skeleton,
   StatusPill,
+  TaskCheckbox,
+  Truncate,
 } from "./ui/kit";
 
 import { useUI } from "../shared/ui";
@@ -104,13 +106,14 @@ export function Workshop() {
   const [enabled, setEnabled] = useState(false);
   const [profile, setProfile] = useState('academic');
   const [minutes, setMinutes] = useState(30);
+  const [taskDone, setTaskDone] = useState(false);
   const { toast } = useUI();
   return (
     <>
       <PageHeader
-        title="Graphite + violet"
+        title="Stone & graphite"
         eyebrow="Component workshop"
-        description="One quiet visual language, in light and dark. Controls keep their meaning with colour, shape and words."
+        description="Thoughtful surfaces, clear type and responsive controls. One quiet visual language, in light and dark."
       />
       <div className="stack-lg">
         <Card>
@@ -154,6 +157,11 @@ export function Workshop() {
             <Field id="kit-minutes" label="Minutes" hint="Type minutes or 1h20; hold plus or minus to repeat."><DurationStepper id="kit-minutes" label="Minutes" value={minutes} onChange={setMinutes} describedBy="kit-minutes-hint" /></Field>
             <Field id="kit-time" label="Local time"><input className="input" id="kit-time" type="time" step="300" defaultValue="18:00" /></Field>
             <div className="row wrap" role="group" aria-label="Task check shapes">{['pending', 'completed', 'partial'].map(status => <button type="button" key={status} className="button button-text" onClick={() => toast(`Example ${status === 'pending' ? 'to do' : status === 'completed' ? 'done' : 'partial'} state.`)}><StatusPill status={status} /></button>)}</div>
+            <div className={`today-task-row workshop-task-preview${taskDone ? ' task-finished' : ''}`} data-status={taskDone ? 'completed' : 'pending'}>
+              <TaskCheckbox status={taskDone ? 'completed' : 'pending'} label={taskDone ? 'Reopen example task' : 'Complete example task'} aria-pressed={taskDone} onClick={() => setTaskDone(value => !value)} />
+              <div className="task-row-title"><strong className="task-title-text"><Truncate>Make room for one small thing</Truncate></strong><span className="caption">Example task · try the checkbox</span></div>
+              <StatusPill status={taskDone ? 'completed' : 'pending'} />
+            </div>
           </div>
         </Card>
         <TemporalFormExample />
@@ -161,8 +169,8 @@ export function Workshop() {
         <Card>
           <h2>Feedback</h2>
           <p className="muted">Undo stays available for 5 seconds and pauses while hovered or focused.</p>
-          <div className="row wrap"><Button onClick={() => toast('Marked done · example.', () => { toast('Example undone.'); })}>Preview Undo toast</Button><IconButton label="Preview feedback" onClick={() => toast('Example feedback.') }><Check size={18} strokeWidth={1.5} /></IconButton></div>
-          <Banner>Offline example · reconnect to save progress and planning.</Banner>
+          <div className="row wrap"><Button onClick={() => toast('Marked done · example.', () => { toast('Example undone.'); })}>Preview Undo toast</Button><Button onClick={() => { toast('First example saved.'); toast('Second example saved.'); }}>Preview stacked toasts</Button><Button onClick={() => toast('Example could not be saved. Try again.', undefined, 'error')}>Preview error toast</Button><IconButton label="Preview feedback" onClick={() => toast('Example feedback.') }><Check size={18} strokeWidth={1.5} /></IconButton></div>
+          <Banner>Offline example · progress saves on this device and syncs when you reconnect. Planning edits need a connection.</Banner>
         </Card>
         <div className="grid-2">
           <Card>

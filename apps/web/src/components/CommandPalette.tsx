@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Plus, Search } from "lucide-react";
-import { Field, Sheet } from "./ui/kit";
+import { ArrowRight, Plus, Search, CalendarDays, Target, BookOpen, Settings2, Command, CircleCheck } from "lucide-react";
+import { Button, EmptyState, Field, Sheet, Shortcut, Truncate } from "./ui/kit";
 import { useData } from "../shared/data";
 import { useAppearance } from "../shared/theme";
 
@@ -24,7 +24,11 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [help, setHelp] = useState(false);
+  const [active, setActive] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const resultRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const navigationChord = useRef(0);
+  useEffect(() => setActive(0), [search, open]);
   const canAddTask = data.goals.some((goal) => goal.status === "active");
   const planner = data.user.settings.featurePreset !== "simple";
   useEffect(() => {
@@ -168,6 +172,8 @@ export function CommandPalette() {
         onOpenChange={setOpen}
         title="A small next step"
         description="Add something or search profiles, skills, goals and tasks. Ctrl or Cmd plus K opens this menu."
+        presentation="dialog"
+        className="command-palette"
       >
         <div className="stack">
           <Field id="command-search" label="Search or choose an action">
@@ -176,61 +182,63 @@ export function CommandPalette() {
               <input
                 className="input"
                 id="command-search"
+                ref={searchRef}
+                type="search"
+                placeholder="Search your workspace…"
+                autoComplete="off"
                 autoFocus
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "ArrowDown") {
                     event.preventDefault();
-                    document
-                      .querySelector<HTMLButtonElement>(".command-result")
-                      ?.focus();
+                    resultRefs.current[0]?.focus();
                   }
+                  if (event.key === "ArrowUp") { event.preventDefault(); resultRefs.current[results.length - 1]?.focus(); }
                   if (event.key === "Enter" && results[0]) run(results[0].path);
                 }}
               />
             </div>
           </Field>
-          <ul className="command-results">
-            {results.map((entry, index) => (
-              <li key={`${entry.kind}:${entry.path}:${entry.label}`}>
+          <ul className="command-results" aria-label="Commands and search results">
+            {results.map((entry, index) => {
+              const Icon = entry.kind === "Create" ? Plus : entry.kind === "Task" ? CircleCheck : entry.kind === "Goal" ? Target : entry.kind === "Profile" || entry.kind === "Skill" ? BookOpen : entry.path === "/" || entry.path === "/plan" ? CalendarDays : entry.path === "/settings" ? Settings2 : entry.kind === "Appearance" ? Command : ArrowRight;
+              const shortcut = entry.path === "/?add=task" ? ["N"] : entry.path === "/" ? ["G", "T"] : entry.path === "/plan" ? ["G", "P"] : entry.path === "/goals" ? ["G", "G"] : undefined;
+              return <li key={`${entry.kind}:${entry.path}:${entry.label}`}>
+                {results[index - 1]?.kind !== entry.kind && <p className="command-group-label">{entry.kind}</p>}
                 <button
                   type="button"
                   className="command-result"
+                  aria-label={`${entry.label} ${entry.kind}`}
+                  ref={node => { resultRefs.current[index] = node; }}
+                  data-active={active === index || undefined}
+                  onFocus={() => setActive(index)}
+                  onMouseEnter={() => setActive(index)}
                   onClick={() => run(entry.path)}
                   onKeyDown={(event) => {
-                    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
                       event.preventDefault();
-                      const rows = [
-                        ...document.querySelectorAll<HTMLButtonElement>(
-                          ".command-result",
-                        ),
-                      ];
-                      rows[
-                        (index +
-                          (event.key === "ArrowDown" ? 1 : -1) +
-                          rows.length) %
-                          rows.length
-                      ]?.focus();
+                      const next = event.key === "Home" ? 0 : event.key === "End" ? results.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length;
+                      resultRefs.current[next]?.focus();
+                    }
+                    if (!event.ctrlKey && !event.metaKey && !event.altKey && ((event.key.length === 1 && event.key !== " ") || event.key === "Backspace")) {
+                      event.preventDefault();
+                      setSearch(previous => event.key === "Backspace" ? previous.slice(0, -1) : previous + event.key);
+                      searchRef.current?.focus();
                     }
                   }}
                 >
-                  {entry.kind === "Create" ? (
-                    <Plus size={18} strokeWidth={1.5} />
-                  ) : (
-                    <ArrowRight size={18} strokeWidth={1.5} />
-                  )}
-                  <span>
-                    <strong>{entry.label}</strong>
-                    <span className="caption">{entry.kind}</span>
-                  </span>
+                  <span className="command-result-icon"><Icon size={17} strokeWidth={1.6} aria-hidden="true" /></span>
+                  <span className="command-result-title"><Truncate>{entry.label}</Truncate></span>
+                  {shortcut ? <Shortcut keys={shortcut} /> : <Shortcut keys={["↵"]} className="command-enter-hint" />}
                 </button>
-              </li>
-            ))}
+              </li>;
+            })}
           </ul>
           {!results.length && (
-            <p className="muted">No matching item. Try a shorter name.</p>
+            <EmptyState icon={<Search />} title="Nothing by that name" action={<Button variant="text" onClick={() => { setSearch(""); searchRef.current?.focus(); }}>Clear search</Button>}>Try a shorter name, or clear your search to browse all actions.</EmptyState>
           )}
+          <div className="command-footer"><span><Shortcut keys={["↑", "↓"]} /> Navigate</span><span><Shortcut keys={["↵"]} /> Open</span><span><Shortcut keys={["Esc"]} /> Close</span></div>
         </div>
       </Sheet>
       <Sheet
@@ -240,23 +248,23 @@ export function CommandPalette() {
         description="Use these shortcuts when you are outside a form field."
       >
         <dl className="shortcut-list">
-          <dt>Ctrl or Cmd + K, /</dt>
+          <dt><Shortcut keys={["Mod", "K"]} /> <Shortcut keys={["/"]} /></dt>
           <dd>Add or search</dd>
-          <dt>N</dt>
+          <dt><Shortcut keys={["N"]} /></dt>
           <dd>Add a task</dd>
-          <dt>G then T, P, G</dt>
-          <dd>Go to Today, Plan, Goals</dd>
-          <dt>J / K</dt>
+          <dt><Shortcut keys={["G"]} /> then <Shortcut keys={planner ? ["T", "P", "G"] : ["T", "G"]} /></dt>
+          <dd>{planner ? "Go to Today, Plan, Goals" : "Go to Today or Goals"}</dd>
+          <dt><Shortcut keys={["J", "K"]} /></dt>
           <dd>Move between tasks</dd>
-          <dt>Enter</dt>
+          <dt><Shortcut keys={["↵"]} /></dt>
           <dd>Open the focused task</dd>
-          <dt>D / S / E / X</dt>
+          <dt><Shortcut keys={["D", "S", "E", "X"]} /></dt>
           <dd>Complete, start or stop timer, defer, skip</dd>
-          <dt>P in a task panel</dt>
+          <dt><Shortcut keys={["P"]} /> in a task panel</dt>
           <dd>Place a pinned time block</dd>
-          <dt>Left / Right, T in Plan</dt>
+          <dt><Shortcut keys={["←", "→", "T"]} /> in Plan</dt>
           <dd>Change day, return to the study day</dd>
-          <dt>Esc</dt>
+          <dt><Shortcut keys={["Esc"]} /></dt>
           <dd>Close the current panel</dd>
         </dl>
       </Sheet>

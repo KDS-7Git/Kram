@@ -52,7 +52,7 @@ test("real controls acknowledge pointer and keyboard actions without shifting ne
   expect(bounds.height).toBeGreaterThanOrEqual(44);
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   if (info.project.name === "desktop") {
-    await expect.poll(async () => (await transform(open)).y).toBeLessThan(-1);
+    await expect.poll(async () => (await transform(open)).y).toBeCloseTo(-1, 1);
   } else {
     // A touch device does not need hover to recognise or operate the control.
     expect((await transform(open)).y).toBe(0);
@@ -116,6 +116,7 @@ test("switching palettes preserves typed work and keyboard chooser state", async
   await expect(choices).toBeVisible();
   const week = choices.getByRole("option", { name: "Week", exact: true });
   await expect(week).toBeFocused();
+  await settled(page);
   expect((await week.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Escape");
   await expect(choices).toBeHidden();
