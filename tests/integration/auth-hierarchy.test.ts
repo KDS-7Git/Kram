@@ -14,6 +14,7 @@ const ownerPassword = 'kram-integration-owner-private-42';
 let container: StartedTestContainer;
 let db: PrismaClient;
 let app: Express;
+let appConfig: typeof import('../../apps/api/src/config').config;
 let ownerAgent: Agent;
 let ownerEmail = '';
 let ownerId = '';
@@ -88,6 +89,7 @@ beforeAll(async () => {
   execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'apps/api/prisma/schema.prisma'], { env: { ...process.env, DATABASE_URL: url }, stdio: 'pipe' });
   ({ db } = await import('../../apps/api/src/db'));
   const { createApp } = await import('../../apps/api/src/app');
+  ({ config: appConfig } = await import('../../apps/api/src/config'));
   app = createApp();
 }, 120000);
 
@@ -153,13 +155,62 @@ describe('single-owner authentication and hierarchy', () => {
     expect(await db.user.count({ where: { isOwner: true } })).toBe(1);
   });
 
-  it('requires both the session CSRF token and the configured origin for mutations', async () => {
+  it('requires the session CSRF token and rejects disallowed browser origins for mutations', async () => {
     await refreshOwnerAuth();
     const missing = await ownerAgent.post('/api/v1/profiles').set('Origin', origin).send({ name: 'No CSRF' });
     expect(missing.status).toBe(403);
     const crossOrigin = await ownerAgent.post('/api/v1/profiles').set('Origin', 'https://foreign.example.test').set('X-CSRF-Token', csrfToken).send({ name: 'Foreign origin' });
     expect(crossOrigin.status).toBe(403);
     expect(await db.profile.count({ where: { userId: ownerId, name: { in: ['No CSRF', 'Foreign origin'] } } })).toBe(0);
+  });
+
+  it('supports production loopback and changing LAN addresses while rejecting forged origins and missing tokens', async () => {
+    const previous = { appUrl: appConfig.appUrl, production: appConfig.production, trustProxy: app.get('trust proxy') };
+    const { resetAuthLimiterForTests } = await import('../../apps/api/src/modules/auth/router');
+    const local = request.agent(app);
+    try {
+      appConfig.appUrl = 'https://planner.example.test';
+      appConfig.production = true;
+      app.set('trust proxy', 1);
+      for (const host of ['localhost:8420', '127.0.0.1:9100', '[::1]:8420', '192.168.1.20:8420', '172.18.33.243:9100']) {
+        const state = (await local.get('/api/v1/auth/me').set('Host', host).expect(200)).body as AuthState;
+        const login = await local.post('/api/v1/auth/login').set('Host', host).set('Origin', `http://${host}`).set('X-CSRF-Token', state.csrfToken).send({ email: ownerEmail, password: ownerPassword }).expect(200);
+        expect(login.body.user.id).toBe(ownerId);
+        await local.patch('/api/v1/settings').set('Host', host).set('Origin', `http://${host}`).set('X-CSRF-Token', login.body.csrfToken).send({ weekStart: 1 }).expect(200);
+        expect((await local.get('/api/v1/auth/me').set('Host', host).expect(200)).body.user.id).toBe(ownerId);
+      }
+      const state = (await local.get('/api/v1/auth/me').expect(200)).body as AuthState;
+      for (const csrfHeader of [undefined, 'incorrect-session-token']) {
+        const operation = local.patch('/api/v1/settings').set('Host', 'localhost:8420').set('Origin', 'http://localhost:8420');
+        if (csrfHeader) operation.set('X-CSRF-Token', csrfHeader);
+        const blocked = await operation.send({ weekStart: 7 }).expect(403);
+        expect(blocked.body.error.code).toBe('CSRF_REJECTED');
+      }
+      for (const [host, origin] of [
+        ['192.168.1.20:8420', 'http://192.168.1.21:8420'],
+        ['localhost:8420', 'http://localhost:9100'],
+        ['localhost:8420', 'https://localhost:8420'],
+        ['app.internal:8420', 'http://localhost:8420'],
+        ['evil.example.test:8420', 'http://evil.example.test:8420'],
+        ['localhost:8420', 'null'],
+      ]) {
+        const blocked = await local.patch('/api/v1/settings').set('Host', host!).set('Origin', origin!)
+          .set('X-Forwarded-Host', 'localhost:8420').set('X-Forwarded-Proto', 'https')
+          .set('Forwarded', 'host=localhost:8420;proto=https').set('X-CSRF-Token', state.csrfToken)
+          .send({ weekStart: 7 }).expect(403);
+        expect(blocked.body.error.code).toBe('CSRF_REJECTED');
+      }
+      // A configured HTTPS proxy origin still works over its internal HTTP hop.
+      await local.patch('/api/v1/settings').set('Host', 'app.internal:8420').set('Origin', appConfig.appUrl)
+        .set('X-Forwarded-Host', 'planner.example.test').set('X-Forwarded-Proto', 'https')
+        .set('X-CSRF-Token', state.csrfToken).send({ weekStart: 1 }).expect(200);
+      expect((await db.user.findUniqueOrThrow({ where: { id: ownerId } })).settings).toMatchObject({ weekStart: 1 });
+    } finally {
+      appConfig.appUrl = previous.appUrl;
+      appConfig.production = previous.production;
+      app.set('trust proxy', previous.trustProxy);
+      await resetAuthLimiterForTests();
+    }
   });
 
   it('creates, orders and edits profiles and per-skill targets', async () => {

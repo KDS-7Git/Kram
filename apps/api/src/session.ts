@@ -3,11 +3,13 @@ import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import type { Express, Request, Response, NextFunction } from "express";
+import type { TLSSocket } from "node:tls";
 import { db } from "./db";
 import { config } from "./config";
 import { ApiError } from "./errors";
 import { audit } from "./repository";
 import { getUser } from "./modules/hierarchy/service";
+import { isAllowedRequestOrigin } from "./request-origin";
 const idleMs = 7 * 86400000,
   absoluteMs = 30 * 86400000;
 export const token = () => randomBytes(32).toString("hex");
@@ -53,18 +55,12 @@ export function csrf(req: Request, _res: Response, next: NextFunction) {
     next();
     return;
   }
-  const origin = req.get("Origin"),
-    allowed = new Set([
-      new URL(config.appUrl).origin,
-      ...(config.production
-        ? []
-        : ["http://localhost:5173", "http://127.0.0.1:5173"]),
-    ]);
-  if (origin && !allowed.has(origin)) {
+  const origin = req.get("Origin");
+  if (origin && !isAllowedRequestOrigin(origin, req.get("Host"), Boolean((req.socket as TLSSocket).encrypted), config)) {
     next(
       new ApiError(
         "CSRF_REJECTED",
-        "Open this app from its configured address.",
+        "This request did not come from an allowed app address. Open Kram directly and try again.",
         403,
       ),
     );
