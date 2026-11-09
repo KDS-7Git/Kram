@@ -36,7 +36,7 @@ button:active:not(:disabled):not([aria-disabled="true"]), .button:active:not(:di
 .day-overview-link:active, .today-agenda li > a:active {
   transform: scale(.98);
 }
-.button-primary:active:not(:disabled) { background: var(--accent-press); box-shadow: inset 0 1px 3px rgb(0 0 0 / 12%); }
+.button-primary:active:not(:disabled) { background: var(--primary-press); box-shadow: inset 0 1px 3px rgb(0 0 0 / 12%); }
 .button:disabled { box-shadow: none; transform: none; }
 .button[aria-disabled="true"]:active { transform: none; }
 .button:focus-visible, .select-trigger:focus-visible, .temporal-trigger:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }

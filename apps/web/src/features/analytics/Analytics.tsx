@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { addDays } from '@kram/time';
 import { BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AnalyticsReport } from '../../../../api/src/analytics/report';
-import { Banner, Button, Card, DelayedSkeleton, EmptyState, Field, IconButton, PageHeader } from '../../components/ui/kit';
+import { Banner, Button, DelayedSkeleton, EmptyState, Field, IconButton, PageHeader } from '../../components/ui/kit';
 import { api, errorMessage } from '../../shared/api';
 import { useData } from '../../shared/data';
 import { calendarDate, duration } from '../../shared/format';
@@ -39,21 +39,21 @@ export function Analytics() {
     </div>
     {report.isError && <Banner tone="error" action={<Button onClick={() => void report.refetch()}>Retry</Button>}>{errorMessage(report.error)}</Banner>}
     {report.isPending ? <DelayedSkeleton height={220} /> : !report.data ? null : <>
-      <div className="grid-2 analytics-overview">
-        <Card><p className="eyebrow">Credited work this week</p><h2>{duration(skills.reduce((sum, skill) => sum + skill.minutes, 0))}</h2><p className="muted">Time you recorded through progress and completion. Running timers are separate.</p></Card>
-        <Card><p className="eyebrow">Completed tasks</p><h2>{goals.reduce((sum, goal) => sum + goal.weeklyCompletions, 0)}</h2><p className="muted">Recorded completions, with corrected events removed.</p><Link className="button button-text" to="/review">Open review</Link></Card>
+      <div className="analytics-overview">
+        <section><p className="eyebrow">Credited work this week</p><h2>{duration(skills.reduce((sum, skill) => sum + skill.minutes, 0))}</h2><p className="muted">Time you recorded through progress and completion. Running timers are separate.</p></section>
+        <section><p className="eyebrow">Completed tasks</p><h2>{goals.reduce((sum, goal) => sum + goal.weeklyCompletions, 0)}</h2><p className="muted">Recorded completions, with corrected events removed.</p><Link className="button button-text" to="/review">Open review</Link></section>
       </div>
       <section className="analytics-section" style={{ marginBlock: '2rem' }}><h2>Practice by skill</h2><p className="muted">Minutes share a scale. Quantities remain in their own unit.</p>
-        {skills.length ? <div className="grid-2">{skills.map(skill => <Card key={skill.id}>
+        {skills.length ? <div className="analytics-list">{skills.map(skill => <article className="analytics-skill-row" key={skill.id}>
           <h3>{skill.name}</h3><p><strong>{duration(skill.minutes)}</strong> credited · {duration(skill.weeklyTargetMin)} weekly practice target</p>
           <progress className="time-progress" max={Math.max(skill.weeklyTargetMin, skill.minutes, 1)} value={skill.minutes} aria-label={`${skill.name}: ${duration(skill.minutes)} of ${duration(skill.weeklyTargetMin)} weekly practice target`} />
           <DailyRhythm days={skill.days} name={skill.name} />
           <div className="row" style={{ flexWrap: 'wrap', gap: '.5rem 1rem', marginBlock: '.75rem' }}>{skill.units.map(unit => <span key={unit.unit}>{unit.credited} {unit.unit}</span>)}</div>
           <details><summary className="button button-text">Daily credited time</summary><dl className="credit-list">{skill.days.map(day => <div key={day.date}><dt>{calendarDate(day.date)}</dt><dd>{duration(day.minutes)}</dd></div>)}</dl></details>
-        </Card>)}</div> : <EmptyState icon={<BarChart3 />} title="A little practice will appear here" action={<Link className="button" to="/">Choose your next task</Link>}>Start a task and record progress to build a useful weekly picture.</EmptyState>}
+        </article>)}</div> : <EmptyState icon={<BarChart3 />} title="A little practice will appear here" action={<Link className="button" to="/">Choose your next task</Link>}>Start a task and record progress to build a useful weekly picture.</EmptyState>}
       </section>
       <section className="analytics-section" style={{ marginBlock: '2rem' }}><h2>Goals in their own units</h2><p className="muted">This week’s credit follows the selected calendar dates. Quotas keep their original period dates, including weeks created before a week-start change.</p>
-        <div className="grid-2">{goals.map(goal => <Card key={goal.id}>
+        <div className="analytics-list">{goals.map(goal => <article key={goal.id}>
           <h3>{goal.title}</h3><p><strong>{goal.weeklyCredited} {goal.unit}</strong> this week</p>
           <p className="muted">All recorded: {goal.credited} {goal.unit}{['milestone', 'adaptive'].includes(goal.type) ? ` · Goal target: ${goal.targetQty} ${goal.unit}` : ''}</p>
           {goal.periodOutcomes.length > 0 && <details>
@@ -65,12 +65,12 @@ export function Analytics() {
             </div>)}
           </details>}
           <Link className="button button-text" to={`/goals/${goal.id}`}>View goal</Link>
-        </Card>)}</div>
+        </article>)}</div>
       </section>
       {data.user.settings.featurePreset==='full'&&<section className="analytics-section" style={{ marginBlock: '2rem' }}><h2>Estimate calibration</h2><p className="muted">The scheduler uses the median actual-to-estimate ratio of the last 10 completed tasks for each skill and task kind. Five samples are needed; the multiplier stays between 0.7× and 2×.</p>
-        {calibration.length ? <div className="grid-2">{calibration.map(row => <Card key={`${row.skillId}:${row.kind}`}><h3>{row.skillName} · {row.kind}</h3><p><strong>{row.multiplier}×</strong> {row.ready ? 'calibration multiplier' : 'default multiplier'}</p><p className="muted">{row.sampleCount} of 10 recent samples{row.ready ? '' : ` · ${Math.max(0, 5 - row.sampleCount)} more needed`}{row.observedMedian !== null ? ` · observed median ${row.observedMedian}×` : ''}</p>
+        {calibration.length ? <div className="analytics-list">{calibration.map(row => <article key={`${row.skillId}:${row.kind}`}><h3>{row.skillName} · {row.kind}</h3><p><strong>{row.multiplier}×</strong> {row.ready ? 'calibration multiplier' : 'default multiplier'}</p><p className="muted">{row.sampleCount} of 10 recent samples{row.ready ? '' : ` · ${Math.max(0, 5 - row.sampleCount)} more needed`}{row.observedMedian !== null ? ` · observed median ${row.observedMedian}×` : ''}</p>
           {row.samples.length > 0 && <details><summary className="button button-text">Inspect completed samples</summary>{row.samples.map(sample => <div key={sample.taskId} style={{ borderTop: '1px solid var(--border)', paddingBlock: '.75rem' }}><p>{sample.title}</p><p className="muted">Estimated {duration(sample.estimateMinutes)} · actual {duration(sample.actualMinutes)} · {sample.ratio}×</p></div>)}</details>}
-        </Card>)}</div> : <EmptyState title="Estimates learn from completed work" action={<Link className="button button-text" to="/">Return to your tasks</Link>}>Complete tasks with recorded time to build calibration samples.</EmptyState>}
+        </article>)}</div> : <EmptyState title="Estimates learn from completed work" action={<Link className="button button-text" to="/">Return to your tasks</Link>}>Complete tasks with recorded time to build calibration samples.</EmptyState>}
       </section>}
     </>}
   </div>;

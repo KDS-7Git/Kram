@@ -15,7 +15,9 @@ test.beforeEach(async ({ request }) => {
 
 async function appearance(page: Page, motion: 'full' | 'reduced' = 'reduced') {
   await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
-  await page.addInitScript(value => localStorage.setItem('kram-appearance', JSON.stringify({ theme: 'light', motion: value })), motion);
+  await page.addInitScript(value => {
+    if (!localStorage.getItem('kram-appearance')) localStorage.setItem('kram-appearance', JSON.stringify({ theme: 'light', motion: value }));
+  }, motion);
 }
 
 async function bootstrap(page: Page): Promise<Bootstrap> {
@@ -59,6 +61,54 @@ const progressFacts = (tasks: Task[]) => tasks.map(task => ({
 const visibleOrder = (page: Page) => page.locator('.task-order-row').evaluateAll(rows =>
   rows.map(row => row.querySelector('[data-task-id]')!.getAttribute('data-task-id')),
 );
+
+test('Simple uses compact navigation and shared account actions have one visible home', async ({ page }, info) => {
+  await appearance(page);
+  const { goal } = await seed(page);
+  const headers = { 'X-CSRF-Token': (await (await page.request.get('/api/v1/auth/me')).json()).csrfToken };
+  for (const featurePreset of ['full', 'simple'] as const) {
+    const response = await page.request.patch('/api/v1/settings', { headers, data: { featurePreset } });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(value => {
+        localStorage.setItem('kram-appearance', JSON.stringify({ theme: value, motion: 'reduced' }));
+      }, theme);
+      await page.goto('/');
+      await expect(page.getByRole('heading', { name: 'Your tasks', exact: true })).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await settleAppearance(page);
+      await expect(page.getByRole('button', { name: /theme/i })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: 'Add or search', exact: true })).toHaveCount(1);
+      expect(await page.locator('.today-tasks').evaluate(element => element.classList.contains('card'))).toBe(false);
+      if (featurePreset === 'simple') {
+        await expect(page.locator('.sidebar')).toHaveCount(0);
+        expect(await page.locator('.app-body').evaluate(element => getComputedStyle(element).marginInlineStart)).toBe('0px');
+        const navigation = info.project.name === 'desktop' ? '.topbar-navigation' : '.mobile-nav';
+        await page.locator(`${navigation} a[href="/goals"]`).click();
+        await expect(page.getByRole('link', { name: new RegExp(goal.title) })).toBeVisible();
+        await page.goto('/');
+        await expect(page.getByRole('heading', { name: 'Your tasks', exact: true })).toBeVisible();
+        await settleAppearance(page);
+      }
+      const account = page.getByRole('button', { name: 'Owner account', exact: true });
+      await account.click();
+      await expect(page.locator('a[href="/settings"]:visible')).toHaveCount(1);
+      await expect(page.locator('a[href="/notifications"]:visible')).toHaveCount(1);
+      await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('menu')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(account).toBeFocused();
+    }
+  }
+  await page.setViewportSize({ width: 320, height: 760 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+  await page.getByRole('button', { name: 'Owner account', exact: true }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Make room your way', exact: true })).toBeVisible();
+});
 
 test('keyboard and pointer task ordering persist without altering progress or scheduled times', async ({ page }, info) => {
   await appearance(page, 'full');

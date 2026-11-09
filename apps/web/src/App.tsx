@@ -156,6 +156,7 @@ function Shell({
   workshop?: boolean;
 }) {
   const { resolvedTheme, setAppearance } = useAppearance();
+  const compactNavigation = workshop || user?.settings.featurePreset === "simple";
   const { pathname } = useLocation();
   const destination = pathname === "/" ? "Today" : pathname.startsWith("/plan") ? "Plan" : pathname.startsWith("/goals") ? "Goals" : pathname.startsWith("/progress") || pathname.startsWith("/streaks") ? "Progress" : pathname.startsWith("/tasks") ? "Task" : pathname.startsWith("/resources") ? "Resources" : pathname.startsWith("/review") ? "Review" : pathname.startsWith("/settings") ? "Settings" : pathname.startsWith("/notifications") || pathname.startsWith("/channels") ? "Notifications" : pathname.startsWith("/data") ? "Data & recovery" : "Design workshop";
   const online = useOnline();
@@ -207,11 +208,11 @@ function Shell({
         ...(user?.settings.featurePreset === "simple" ? [] : [{ to: "/progress", label: "Progress", icon: ChartNoAxesColumn }]),
       ];
   return (
-    <div className="app-shell">
+    <div className={`app-shell${compactNavigation ? " app-shell-compact" : ""}`}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <LayoutGroup id="sidebar-navigation"><aside className="sidebar">
+      {!compactNavigation && <LayoutGroup id="sidebar-navigation"><aside className="sidebar">
         <NavLink to="/" className="wordmark">
           <span className="brand-mark"><BookOpen size={18} strokeWidth={1.65} /></span>
           <span>Kram</span>
@@ -239,40 +240,24 @@ function Shell({
         </nav>
         {user && user.settings.featurePreset!=="simple" && <NavigationLink to="/review" label="Review" icon={CalendarCheck} />}
         <div className="sidebar-footer">
-          {user && (
-            <>
-              <NavigationLink to="/settings" label="Settings" icon={Settings2} />
-              <NavigationLink to="/notifications" label="Notifications" icon={Bell} />
-              <Button
-                variant="text"
-                onClick={() => logout.mutate()}
-                disabled={!online || logout.isPending}
-              >
-                <LogOut size={20} strokeWidth={1.5} />
-                <span>Sign out</span>
-              </Button>
-            </>
-          )}
-          <Button variant="text" onClick={toggleTheme}>
-            {resolvedTheme === "dark" ? (
-              <Sun size={20} strokeWidth={1.5} />
-            ) : (
-              <Moon size={20} strokeWidth={1.5} />
-            )}
-            <span>Change theme</span>
-          </Button>
           <p className="sidebar-note">
             Private by design.
             <br />A little progress, every day.
           </p>
         </div>
-      </aside></LayoutGroup>
+      </aside></LayoutGroup>}
       <div className="app-body">
         <header className="topbar">
-          <div className="topbar-location" aria-label="Current workspace">
+          {compactNavigation ? <div className="topbar-leading">
+            <NavLink to="/" className="wordmark compact-wordmark" aria-label="Kram home"><span className="brand-mark"><BookOpen size={18} strokeWidth={1.65} aria-hidden="true" /></span><span>Kram</span></NavLink>
+            <LayoutGroup id="topbar-navigation"><nav className="topbar-navigation" aria-label="Main navigation">
+              {links.map(link => <NavigationLink key={link.to} to={link.to} label={link.to === "/workshop" ? "Workshop" : link.label} icon={link.icon} />)}
+            </nav></LayoutGroup>
+          </div> : <div className="topbar-location" aria-label="Current workspace">
             <span className="topbar-workspace">Your workspace</span><ChevronRight size={12} aria-hidden="true" /><span>{workshop ? "Design workshop" : destination}</span>
-          </div>
+          </div>}
           <div className="topbar-actions">
+            {compactNavigation && user && <IconButton label="Add or search" className="compact-command" onClick={() => window.dispatchEvent(new Event("kram-command"))}><Search size={18} strokeWidth={1.65} aria-hidden="true" /></IconButton>}
           <span className="topbar-title">
             {user ? (
               <span className="sync-label" data-pending={!online || pending > 0 || queued > 0}>

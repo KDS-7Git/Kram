@@ -181,12 +181,19 @@
 /* Credited facts lead; the daily rhythm and detailed evidence follow. */
 .analytics-workspace .analytics-toolbar { padding: .75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .analytics-workspace .analytics-toolbar > .field { flex: 0 1 14rem; }
-.analytics-workspace .analytics-overview > .card { display: grid; align-content: start; gap: .625rem; }
+.analytics-workspace .analytics-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; padding-block: .5rem 1.5rem; border-block-end: 1px solid var(--border); }
+.analytics-workspace .analytics-overview > section { display: grid; align-content: start; gap: .625rem; }
+.analytics-workspace .analytics-overview > section + section { padding-inline-start: 2rem; border-inline-start: 1px solid var(--border); }
 .analytics-workspace .analytics-overview h2 { font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 550; letter-spacing: -.04em; }
 .analytics-workspace .analytics-overview .button { justify-self: start; }
 .analytics-workspace .analytics-section > p { max-width: 65ch; margin-block: .5rem 1.125rem; }
-.analytics-workspace .analytics-section > .grid-2 { gap: 1rem; }
-.analytics-workspace .analytics-section > .grid-2 > .card { display: grid; align-content: start; gap: .75rem; }
+.analytics-list { display: grid; }
+.analytics-list > article { display: grid; align-content: start; gap: .75rem; padding-block: 1.25rem; border-block-start: 1px solid var(--border); min-width: 0; }
+.analytics-list > article > .button { justify-self: start; }
+.analytics-list > .analytics-skill-row { grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem); column-gap: 2rem; }
+.analytics-skill-row > h3, .analytics-skill-row > p, .analytics-skill-row > .time-progress, .analytics-skill-row > .row { grid-column: 1; }
+.analytics-skill-row > figure { grid-column: 2; grid-row: 1 / span 4; align-self: center; }
+.analytics-skill-row > details { grid-column: 1 / -1; }
 .analytics-workspace .analytics-section .time-progress { width: 100%; margin-block: .25rem; }
 .analytics-workspace .analytics-section .card > .button { justify-self: start; }
 .practice-week-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .75rem; margin: .5rem 0 0; }
@@ -304,6 +311,10 @@ body:has(.settings-save) > .toast-region { inset-block-end: 6rem; }
   .analytics-workspace .analytics-toolbar { padding: .75rem; }
   .analytics-workspace .analytics-toolbar > .field { flex-basis: 100%; }
   .analytics-workspace .analytics-overview h2 { font-size: 2rem; }
+  .analytics-workspace .analytics-overview { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .analytics-workspace .analytics-overview > section + section { border-inline-start: 0; padding-inline-start: 0; }
+  .analytics-list > .analytics-skill-row { grid-template-columns: minmax(0, 1fr); }
+  .analytics-skill-row > figure { grid-column: 1; grid-row: auto; width: min(100%, 24rem); }
   .settings-workspace .settings-save { padding: .75rem; bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
   body:has(.settings-save) > .toast-region { inset-block-end: calc(10rem + env(safe-area-inset-bottom)); }
   .channels-workspace .routing-matrix { grid-template-columns: minmax(0, 1fr); }

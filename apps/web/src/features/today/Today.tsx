@@ -206,7 +206,7 @@ export function Today() {
     0,
   );
   return (
-    <div className="today-page">
+    <div className={`today-page${simple ? " today-page-simple" : ""}`}>
       <PageHeader
         title="Today"
         eyebrow={calendarDate(today.studyDate)}
@@ -330,7 +330,7 @@ export function Today() {
           )}
         </div>
         </Card>
-        <Card className="today-tasks" id="today-tasks" tabIndex={-1} aria-labelledby="today-task-heading">
+        <section className="today-tasks" id="today-tasks" tabIndex={-1} aria-labelledby="today-task-heading">
           <div className="card-header">
             <div className="task-list-heading"><h2 id="today-task-heading">Your tasks</h2><span className="task-count" aria-label={`${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`}>{tasks.length}</span></div>
             <div className="row task-list-controls"><div className="task-filter">
@@ -396,11 +396,11 @@ export function Today() {
           <p className="caption task-keyboard-help">
             Open a task for its timer and notes.<span className="desktop-shortcuts"> <Shortcut keys={["J", "K"]} /> move · <Shortcut keys={["D"]} /> complete · <Shortcut keys={["S"]} /> timer · <Shortcut keys={["E"]} /> defer · <Shortcut keys={["X"]} /> skip</span>
           </p>
-        </Card>
-      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<Card className="today-review row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></Card>}
+        </section>
+      {data.user.settings.featurePreset!=='simple'&&today.review?.state!=='closed'&&<section className="today-review row between wrap"><div><h2>Review your day</h2><p className="muted">Confirm work, check tomorrow and close the day.</p></div><Link className="button" to="/review">Daily review</Link></section>}
         </div>
         <div className="today-aside">
-            {!simple && <Card className="day-ribbon-card">
+            {!simple && <section className="day-ribbon-card">
           <Link className="day-overview-link" to="/plan" aria-label="Open the day timetable">
           <div className="row between">
             <h2 className="sr-only">Your day at a glance</h2>
@@ -450,9 +450,9 @@ export function Today() {
             <time>{clockLabel(sleep, data.user.settings.clockFormat)}</time>
           </div>
           </Link>
-        </Card>}
+        </section>}
           {!simple && <TodayTimeline slots={ribbonSlots} wake={wake} sleep={sleep} minute={sameDate ? minute : -1} />}
-          <Card>
+          <section className="today-summary">
             <p className="eyebrow">This week</p>
             <h2>{duration(today.weekly.minutes)} logged</h2>
             {weeklyTarget > 0 && (
@@ -477,8 +477,8 @@ export function Today() {
                 <strong>{duration(summary.minutes)}</strong>
               </p>
             ))}
-          </Card>
-          <Card>
+          </section>
+          <section className="today-summary">
             <p className="eyebrow">Deadlines</p>
             {deadlines.length ? (
               <ul className="deadline-list">
@@ -508,7 +508,7 @@ export function Today() {
                 </p>
               </>
             )}
-          </Card>
+          </section>
         </div>
       </div>
       <Sheet
@@ -713,11 +713,11 @@ function NowActions({ task, onOpen }: { task: Task; onOpen: (action?: TaskAction
 
 function TodayTimeline({ slots, wake, sleep, minute }: { slots: TimeSlot[]; wake: number; sleep: number; minute: number }) {
   const data = useData();
-  if (!slots.some(slot => slot.startMin < sleep && slot.endMin > wake)) return <Card className="today-live today-live-empty"><h2>Timeline</h2><p className="muted">No blocks planned today.</p><Link className="button button-text" to="/plan">Open timetable</Link></Card>;
+  if (!slots.some(slot => slot.startMin < sleep && slot.endMin > wake)) return <section className="today-live today-live-empty"><h2>Timeline</h2><p className="muted">No blocks planned today.</p><Link className="button button-text" to="/plan">Open timetable</Link></section>;
   const visibleSlots = slots.filter(slot => slot.startMin < sleep && slot.endMin > wake);
-  if (visibleSlots.length <= 3) return <Card className="today-live today-live-compact"><div className="card-header"><h2>Today’s schedule</h2><Link to="/plan" className="schedule-open" aria-label="Open today's live timetable"><ArrowRight size={18} aria-hidden="true" /></Link></div><ul className="today-agenda">{visibleSlots.map(slot => <li key={slot.id} className={slot.startMin <= minute && slot.endMin > minute ? 'agenda-current' : undefined}><span className="agenda-times"><time>{clockLabel(slot.startMin, data.user.settings.clockFormat)}</time><span>{clockLabel(slot.endMin, data.user.settings.clockFormat)}</span></span><Link to={`/plan?date=${slot.date}`}><strong>{slot.title}</strong><span className="caption">{layerLabels[slot.layer]} · {duration(slot.endMin - slot.startMin)}</span></Link></li>)}</ul></Card>;
+  if (visibleSlots.length <= 3) return <section className="today-live today-live-compact"><div className="card-header"><h2>Today’s schedule</h2><Link to="/plan" className="schedule-open" aria-label="Open today's live timetable"><ArrowRight size={18} aria-hidden="true" /></Link></div><ul className="today-agenda">{visibleSlots.map(slot => <li key={slot.id} className={slot.startMin <= minute && slot.endMin > minute ? 'agenda-current' : undefined}><span className="agenda-times"><time>{clockLabel(slot.startMin, data.user.settings.clockFormat)}</time><span>{clockLabel(slot.endMin, data.user.settings.clockFormat)}</span></span><Link to={`/plan?date=${slot.date}`}><strong>{slot.title}</strong><span className="caption">{layerLabels[slot.layer]} · {duration(slot.endMin - slot.startMin)}</span></Link></li>)}</ul></section>;
   const span = sleep - wake, scale = 32 / 60, height = span * scale + 28, lanes = blockLanes(slots);
-  return <Card className="today-live">
+  return <section className="today-live">
     <h2>Timeline</h2>
     <Link to="/plan" className="today-timeline-link" aria-label="Open today's live timetable">
       <svg viewBox={`0 0 260 ${height}`} className="today-timeline-svg" aria-hidden="true">
@@ -732,5 +732,5 @@ function TodayTimeline({ slots, wake, sleep, minute }: { slots: TimeSlot[]; wake
       </svg>
     </Link>
     <details className="disclosure"><summary>Times and block details</summary>{slots.length ? <ul className="calendar-work">{slots.map(slot => <li key={slot.id}><Link to={`/plan?date=${slot.date}`}>{slot.title}</Link><span className="caption">{clockLabel(slot.startMin, data.user.settings.clockFormat)}–{clockLabel(slot.endMin, data.user.settings.clockFormat)} · {layerLabels[slot.layer]}</span></li>)}</ul> : <p className="caption">No blocks planned today.</p>}</details>
-  </Card>;
+  </section>;
 }

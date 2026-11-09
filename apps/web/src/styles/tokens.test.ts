@@ -72,6 +72,11 @@ describe.each(Object.entries(themes))("%s workspace palette", (_name, tokens) =>
     ).toBeGreaterThanOrEqual(4.5);
   });
   it("keeps action labels readable across button states", () => {
+    for (const state of ["primary", "primary-hover", "primary-press"])
+      expect(
+        contrast(tokens["on-primary"]!, tokens[state]!),
+        `on-primary on ${state}`,
+      ).toBeGreaterThanOrEqual(4.5);
     for (const state of ["accent", "accent-hover", "accent-press"])
       expect(
         contrast(tokens["on-accent"]!, tokens[state]!),
