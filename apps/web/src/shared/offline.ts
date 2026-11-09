@@ -82,6 +82,8 @@ export class OfflineStore {
   private listeners = new Set<() => void>();
   private replaying: Promise<{ sent: number; conflicts: number; remaining: number }> | null = null;
   private mutations: Promise<unknown> = Promise.resolve();
+  private pausedTasks = new Set<string>();
+  private readRevision = 0;
   constructor(private storage: OfflineStorage = new IndexedStorage()) {}
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private notify() { for (const listener of this.listeners) listener(); }
@@ -90,24 +92,43 @@ export class OfflineStore {
   }
   async restoreAccount() { this.accountId = await this.storage.getAccount(); this.notify(); return this.accountId; }
   currentAccount() { return this.accountId; }
+  cacheRevision() { return this.readRevision; }
   async setAccount(accountId: string | null) {
+    if (this.accountId !== accountId) this.readRevision++;
     this.accountId = accountId;
     await this.storage.putAccount(accountId); this.notify();
   }
   async clearAccount() {
     const accountId = this.accountId;
+    this.readRevision++;
     this.accountId = null;
     await this.storage.putAccount(null);
     // Logout clears all personal reads. Unsent events remain isolated for this account.
     if (accountId) await Promise.all((await this.storage.readAll(accountId)).map(read => this.storage.removeRead(read.key)));
     this.notify();
   }
-  async cacheRead(path: string, data: unknown, expectedAccountId: string | null = this.accountId) {
-    const accountId = this.accountId;
-    if (!accountId || accountId !== expectedAccountId || !safeRead.test(path)) return;
-    await this.storage.putRead({ key: keyFor(accountId, path), accountId, path, data, savedAt: new Date().toISOString() });
-    const reads = (await this.storage.readAll(accountId)).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
-    await Promise.all(reads.slice(50).map(read => this.storage.removeRead(read.key)));
+  cacheRead(path: string, data: unknown, expectedAccountId: string | null = this.accountId, expectedRevision = this.readRevision) {
+    return this.mutate(async () => {
+      const accountId = this.accountId;
+      if (!accountId || accountId !== expectedAccountId || expectedRevision !== this.readRevision || !safeRead.test(path)) return;
+      await this.storage.putRead({ key: keyFor(accountId, path), accountId, path, data, savedAt: new Date().toISOString() });
+      const reads = (await this.storage.readAll(accountId)).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+      await Promise.all(reads.slice(50).map(read => this.storage.removeRead(read.key)));
+    });
+  }
+  async pauseTaskReplay(taskIds: string[]) {
+    for (const id of taskIds) this.pausedTasks.add(id);
+    const resume = () => { for (const id of taskIds) this.pausedTasks.delete(id); };
+    try { await this.replaying; return resume; } catch (error) { resume(); throw error; }
+  }
+  forgetTasks(taskIds: string[]) {
+    const accountId = this.accountId; this.readRevision++;
+    return this.mutate(async () => {
+      if (!accountId) return;
+      await Promise.all((await this.storage.readAll(accountId)).map(read => this.storage.removeRead(read.key)));
+      for (const event of await this.storage.queueAll(accountId)) if (taskIds.includes(event.taskId)) await this.storage.removeEvent(event.key);
+      this.notify();
+    });
   }
   async readCached<T>(path: string): Promise<{ data: T; savedAt: string } | null> {
     const accountId = this.accountId;
@@ -199,7 +220,7 @@ export class OfflineStore {
     for (const event of events) {
       if (this.accountId !== accountId) break;
       if (event.status === 'conflict') { blocked.add(event.taskId); continue; }
-      if (blocked.has(event.taskId)) continue;
+      if (blocked.has(event.taskId) || this.pausedTasks.has(event.taskId)) continue;
       try {
         const result = await sender(event.taskId, event.input, accountId);
         if (result && typeof result === 'object' && 'queued' in result && result.queued) throw new OfflineIssue('NETWORK_ERROR', 'This event is still waiting to sync.');
@@ -223,7 +244,7 @@ export const offline = new OfflineStore();
 export const setOfflineAccount = (userId: string | null) => offline.setAccount(userId);
 export const clearOfflineAccount = () => offline.clearAccount();
 export const restoreOfflineAccount = () => offline.restoreAccount();
-export const cacheRead = (path: string, data: unknown, expectedAccountId?: string | null) => offline.cacheRead(path, data, expectedAccountId);
+export const cacheRead = (path: string, data: unknown, expectedAccountId?: string | null, expectedRevision?: number) => offline.cacheRead(path, data, expectedAccountId, expectedRevision);
 export const readCached = <T>(path: string) => offline.readCached<T>(path);
 export const queueProgress = (taskId: string, input: ProgressInput) => offline.queueProgress(taskId, input);
 export const projectQueuedTask = (taskId: string, input: ProgressInput) => offline.projectQueuedTask(taskId, input);

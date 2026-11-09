@@ -37,7 +37,7 @@ timetableRouter.delete('/timetable/slots/:id', async (req, res) => {
   res.setHeader('ETag', slotEtag(slot.version));
   res.json(iso(slot));
 });
-timetableRouter.get('/timetable/templates', async (_req, res) => res.json(iso(await templates.list(owner(res)))));
+timetableRouter.get('/timetable/templates', async (req, res) => res.json(iso(await templates.list(owner(res), req.query.archived === 'true'))));
 timetableRouter.post('/timetable/templates', async (req, res) => res.status(201).json(iso(await templates.create(owner(res), req.body))));
 timetableRouter.patch('/timetable/templates/:id', async (req, res) => res.json(iso(await templates.edit(owner(res), idSchema.parse(req.params.id), req.body, expectedSlotVersion(req.get('If-Match'))))));
 timetableRouter.delete('/timetable/templates/:id', async (req, res) => res.json(iso(await templates.archive(owner(res), idSchema.parse(req.params.id), expectedSlotVersion(req.get('If-Match'))))));

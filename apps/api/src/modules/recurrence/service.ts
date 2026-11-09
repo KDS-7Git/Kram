@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Prisma, type RecurrenceSeries as SeriesRow } from '@prisma/client';
 import { z } from 'zod';
-import { dateSchema, goalSchema, holidaySchema, recurrenceExceptionSchema, recurrenceSeriesSchema } from '@kram/shared';
+import { classDetailsSchema, dateSchema, goalSchema, holidaySchema, recurrenceExceptionSchema, recurrenceSeriesSchema } from '@kram/shared';
 import { expand, splitSeries, validateRRule, type RecurrenceSeries as EngineSeries, type RecurrenceException as EngineException } from '@kram/recurrence';
 import { conflicts, type Layer } from '@kram/timetable';
 import { addDays, daysBetween, studyDate } from '@kram/time';
@@ -15,7 +15,7 @@ import { refreshReminders } from '../notifications/service';
 const pauseRangesSchema = z.array(z.object({ start: dateSchema, end: dateSchema.nullable().optional(), source: z.enum(['goal', 'series']).optional() }));
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 type IncludedSeries = SeriesRow & { exceptions: { date: Date; kind: string; override: Prisma.JsonValue; toDate: Date | null; toStartMin: number | null }[] };
-export const seriesDto = (row: SeriesRow) => ({ ...row, dtstartLocal: calendarString(row.dtstartLocal), effectiveFrom: calendarString(row.effectiveFrom), until: row.until ? calendarString(row.until) : null });
+export const seriesDto = (row: SeriesRow) => ({ ...row, classDetails: row.classDetails ? classDetailsSchema.parse(row.classDetails) : null, dtstartLocal: calendarString(row.dtstartLocal), effectiveFrom: calendarString(row.effectiveFrom), until: row.until ? calendarString(row.until) : null });
 function engineSeries(row: IncludedSeries, holidays: string[]): EngineSeries {
   return { id: row.id, ...(row.goalId ? { goalId: row.goalId } : {}), title: row.title, rrule: row.rrule, dtstartLocal: calendarString(row.dtstartLocal), tz: row.tz,
     until: row.until ? calendarString(row.until) : null, status: row.status as EngineSeries['status'], ...(row.startMin === null ? {} : { startMin: row.startMin }), estMinutes: row.estMinutes, qty: row.qty,
@@ -158,18 +158,19 @@ function checkVersion(row: SeriesRow, version: number) { if (row.version !== ver
 export const recurrence = {
   async get(userId: string, id: string, c: Connection = db) { return notFound(await c.recurrenceSeries.findFirst({ where: { id, ...ownerWhere(userId) }, include: { exceptions: true } }), 'series'); },
   async list(userId: string) { return (await db.recurrenceSeries.findMany({ where: { userId, archivedAt: null }, orderBy: [{ effectiveFrom: 'asc' }, { id: 'asc' }] })).map(seriesDto); },
-  async create(userId: string, input: unknown) {
-    return db.$transaction(async tx => {
+  async create(userId: string, input: unknown, connection: Connection = db, materialize = true) {
+    const create = async (tx: Connection) => {
       await lockOwner(tx, userId); const value = await scopedInput(userId, input, tx);
       if (value.kind === 'goal') throw new ApiError('GOAL_RULE_REQUIRED', 'Create a recurring goal in Goals; its versioned rules create the series.', 400);
-      const row = await tx.recurrenceSeries.create({ data: { ...value, id: newId(), userId, dtstartLocal: calendarDate(value.dtstartLocal), effectiveFrom: calendarDate(value.dtstartLocal), until: value.until ? calendarDate(value.until) : null } });
-      await materializeOccurrences(userId, undefined, tx, undefined, true); return seriesDto(row);
-    }, { timeout: 30000 });
+      const row = await tx.recurrenceSeries.create({ data: { ...value, classDetails: value.classDetails ? json(value.classDetails) : Prisma.DbNull, id: newId(), userId, dtstartLocal: calendarDate(value.dtstartLocal), effectiveFrom: calendarDate(value.dtstartLocal), until: value.until ? calendarDate(value.until) : null } });
+      if (materialize) await materializeOccurrences(userId, undefined, tx, undefined, true); return seriesDto(row);
+    };
+    return connection === db ? db.$transaction(create, { timeout: 30000 }) : create(connection);
   },
-  async exception(userId: string, id: string, input: unknown, version: number) {
-    const value = recurrenceExceptionSchema.parse(input), today = await currentStudyDate(userId);
+  async exception(userId: string, id: string, input: unknown, version: number, connection: Connection = db, materialize = true) {
+    const value = recurrenceExceptionSchema.parse(input), today = await currentStudyDate(userId, connection);
     if (value.date < today || value.kind === 'move' && value.toDate < today) throw new ApiError('HISTORY_PROTECTED', 'Change today or future occurrences; past work stays intact.', 409);
-    return db.$transaction(async tx => {
+    const change = async (tx: Connection) => {
       await lockOwner(tx, userId); const row = await this.get(userId, id, tx); checkVersion(row, version);
       if (row.kind === 'goal' && value.kind === 'move' && value.toDate < calendarString(row.effectiveFrom)) throw new ApiError('RULE_DATE_PROTECTED', 'Move goal work on or after this rule’s effective date.', 409);
       const original = expand({ ...engineSeries(row, []), status: 'active', exceptions: [], pausedRanges: [], holidays: [] }, value.date, value.date);
@@ -187,13 +188,14 @@ export const recurrence = {
       const changed = await tx.recurrenceSeries.update({ where: { id }, data: { version: { increment: 1 } } });
       const first = [today, value.date, ...(value.kind === 'move' ? [value.toDate] : [])].sort()[0]!;
       const last = [addDays(today, 20), value.date, ...(value.kind === 'move' ? [value.toDate] : [])].sort().at(-1)!;
-      await materializeOccurrences(userId, first, tx, last, true); return seriesDto(await this.get(userId, changed.id, tx));
-    }, { timeout: 30000 });
+      if (materialize) await materializeOccurrences(userId, first, tx, last, true); return seriesDto(await this.get(userId, changed.id, tx));
+    };
+    return connection === db ? db.$transaction(change, { timeout: 30000 }) : change(connection);
   },
-  async split(userId: string, id: string, from: string, patch: Record<string, unknown>, version: number) {
-    const today = await currentStudyDate(userId); dateSchema.parse(from);
+  async split(userId: string, id: string, from: string, patch: Record<string, unknown>, version: number, connection: Connection = db, materialize = true) {
+    const today = await currentStudyDate(userId, connection); dateSchema.parse(from);
     if (from < today) throw new ApiError('HISTORY_PROTECTED', 'Start future changes today or later.', 409);
-    return db.$transaction(async tx => {
+    const change = async (tx: Connection) => {
       await lockOwner(tx, userId); const current = await this.get(userId, id, tx); checkVersion(current, version);
       let divided: ReturnType<typeof splitSeries>;
       try { divided = splitSeries(engineSeries(current, []), from, 'rrule' in patch ? { rrule: validRule(String(patch.rrule)) } : {}, newId()); }
@@ -207,18 +209,19 @@ export const recurrence = {
         const following = await tx.recurrenceSeries.findUniqueOrThrow({ where: { ruleVersionId: rule.id } });
         await tx.recurrenceSeries.update({ where: { id: following.id }, data: { pausedRanges: json(divided.next.pausedRanges ?? []) } });
         for (const exception of current.exceptions.filter(value => calendarString(value.date) >= from)) await tx.recurrenceException.create({ data: { id: newId(), userId, seriesId: following.id, date: exception.date, kind: exception.kind, override: exception.override ?? {}, toDate: exception.toDate, toStartMin: exception.toStartMin } });
-        await materializeOccurrences(userId, today, tx, addDays([today, from].sort().at(-1)!, 20), true);
+        if (materialize) await materializeOccurrences(userId, today, tx, addDays([today, from].sort().at(-1)!, 20), true);
         return { previous: seriesDto(await this.get(userId, id, tx)), next: seriesDto(await this.get(userId, following.id, tx)) };
       }
       if (patch.kind !== undefined && patch.kind !== current.kind) throw new ApiError('SERIES_KIND_PROTECTED', 'Create a new series to change its kind.', 400);
       const input = await scopedInput(userId, { ...seriesDto(current), ...patch, dtstartLocal: from }, tx);
       const { previous, next } = divided;
       const old = await tx.recurrenceSeries.update({ where: { id }, data: { until: calendarDate(previous.until!), status: 'ended', version: { increment: 1 } } });
-      const following = await tx.recurrenceSeries.create({ data: { ...input, rrule: next.rrule, pausedRanges: json(next.pausedRanges ?? []), id: next.id, userId, dtstartLocal: calendarDate(from), effectiveFrom: calendarDate(from), until: input.until ? calendarDate(input.until) : null } });
+      const following = await tx.recurrenceSeries.create({ data: { ...input, classDetails: input.classDetails ? json(input.classDetails) : Prisma.DbNull, rrule: next.rrule, pausedRanges: json(next.pausedRanges ?? []), id: next.id, userId, dtstartLocal: calendarDate(from), effectiveFrom: calendarDate(from), until: input.until ? calendarDate(input.until) : null } });
       for (const exception of current.exceptions.filter(value => calendarString(value.date) >= from)) await tx.recurrenceException.create({ data: { id: newId(), userId, seriesId: following.id, date: exception.date, kind: exception.kind, override: exception.override ?? {}, toDate: exception.toDate, toStartMin: exception.toStartMin } });
-      await materializeOccurrences(userId, today, tx, addDays([today, from].sort().at(-1)!, 20), true);
+      if (materialize) await materializeOccurrences(userId, today, tx, addDays([today, from].sort().at(-1)!, 20), true);
       return { previous: seriesDto(old), next: seriesDto(following) };
-    }, { timeout: 30000 });
+    };
+    return connection === db ? db.$transaction(change, { timeout: 30000 }) : change(connection);
   },
   async pause(userId: string, id: string, date: string, resume: boolean, version: number) {
     const today = await currentStudyDate(userId); dateSchema.parse(date);

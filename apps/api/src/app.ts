@@ -21,6 +21,7 @@ import { streaksRouter } from './streaks/router';
 import { fullNotificationsRouter } from './streaks/full-notifications-router';
 import { analyticsRouter } from './analytics/router';
 import { dataRouter } from './data/router';
+import { deletionRouter } from './data/deletion-router';
 import { planningRouter } from './modules/planning/router';
 import { closeJobProducer } from "./jobs";
 
@@ -102,7 +103,7 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1", requireAuth, csrf, hierarchyRouter);
   app.use("/api/v1", goalsRouter, resourcesRouter);
-  app.use("/api/v1", tasksRouter, timetableRouter, notificationsRouter, recurrenceRouter, planningRouter, analyticsRouter, dataRouter, streaksRouter, fullNotificationsRouter);
+  app.use("/api/v1", tasksRouter, timetableRouter, notificationsRouter, recurrenceRouter, planningRouter, analyticsRouter, dataRouter, deletionRouter, streaksRouter, fullNotificationsRouter);
   app.use("/api", (_req, res) =>
     res.status(404).json({
       error: {

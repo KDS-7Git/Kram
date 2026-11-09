@@ -4,9 +4,13 @@ import { dateSchema, idSchema } from '@kram/shared';
 import { iso } from '../../repository';
 import { recurrence, holidays, seriesDto } from './service';
 import { expectedSlotVersion } from '../timetable/service';
+import { classes } from './classes';
 
 export const recurrenceRouter = Router();
 const owner = (res: { locals: Record<string, unknown> }) => String(res.locals.userId);
+recurrenceRouter.post('/recurrence/classes', async (req, res) => res.json(iso(await classes.save(owner(res), req.body))));
+recurrenceRouter.post('/recurrence/classes/day', async (req, res) => res.json(iso(await classes.day(owner(res), req.body))));
+recurrenceRouter.get('/recurrence/classes/day', async (req, res) => res.json(await classes.previewDay(owner(res), dateSchema.parse(req.query.date))));
 recurrenceRouter.get('/recurrence/series', async (_req, res) => res.json(iso(await recurrence.list(owner(res)))));
 recurrenceRouter.post('/recurrence/series', async (req, res) => { const row = await recurrence.create(owner(res), req.body); res.setHeader('ETag', `"${row.version}"`); res.status(201).json(iso(row)); });
 recurrenceRouter.get('/recurrence/series/:id', async (req, res) => { const row = await recurrence.get(owner(res), idSchema.parse(req.params.id)); res.setHeader('ETag', `"${row.version}"`); res.json(iso(seriesDto(row))); });

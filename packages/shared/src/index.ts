@@ -534,12 +534,14 @@ export type TodayResponse = {
 };
 
 const timezoneSchema = settingsSchema.shape.timezone;
+export const classDetailsSchema = z.object({ type: z.enum(['lecture', 'lab']), slot: z.string().trim().max(40).default('') });
 export const recurrenceSeriesSchema = z.object({
   kind: z.enum(['fixed', 'goal']).default('fixed'),
   goalId: idSchema.nullable().default(null),
   skillId: idSchema.nullable().default(null),
   profileId: idSchema.nullable().default(null),
   title: z.string().trim().min(1).max(200),
+  classDetails: classDetailsSchema.nullable().default(null),
   rrule: z.string().trim().min(1).max(1000),
   dtstartLocal: dateSchema,
   tz: timezoneSchema.default('Asia/Kolkata'),
@@ -553,7 +555,40 @@ export const recurrenceSeriesSchema = z.object({
   if (value.until && value.until < value.dtstartLocal) context.addIssue({ code: 'custom', message: 'End after the series anchor.', path: ['until'] });
   if (value.kind === 'goal' && !value.goalId) context.addIssue({ code: 'custom', message: 'Choose a goal.', path: ['goalId'] });
   if (value.kind === 'fixed' && (value.startMin === null || value.startMin + value.estMinutes > 1440)) context.addIssue({ code: 'custom', message: 'Choose a time and duration within one calendar day.', path: ['startMin'] });
+  if (value.classDetails && value.kind !== 'fixed') context.addIssue({ code: 'custom', message: 'Classes and labs are fixed commitments.', path: ['classDetails'] });
 });
+const classRowSchema = z.object({
+  id: idSchema.optional(), version: z.number().int().positive().optional(),
+  course: z.string().trim().min(1).max(200), type: z.enum(['lecture', 'lab']), slot: z.string().trim().max(40).default(''),
+  weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
+  startMin: clockMinuteSchema, estMinutes: z.number().int().min(1).max(960),
+}).superRefine((row, context) => {
+  if (row.id && !row.version) context.addIssue({ code: 'custom', message: 'Reload this meeting before editing.', path: ['version'] });
+  if (new Set(row.weekdays).size !== row.weekdays.length) context.addIssue({ code: 'custom', message: 'Choose each weekday once.', path: ['weekdays'] });
+  if (row.startMin + row.estMinutes > 1440) context.addIssue({ code: 'custom', message: 'Finish within the same calendar day.', path: ['estMinutes'] });
+});
+export const classTimetableSchema = z.object({
+  requestId: idSchema, startDate: dateSchema, endDate: dateSchema, effectiveFrom: dateSchema,
+  rows: z.array(classRowSchema).max(100), removed: z.array(z.object({ id: idSchema, version: z.number().int().positive() })).max(100).default([]),
+}).superRefine((value, context) => {
+  if (value.endDate < value.startDate || value.endDate < value.effectiveFrom) context.addIssue({ code: 'custom', message: 'The semester must end after its start and the change date.', path: ['endDate'] });
+  const ids = [...value.rows.flatMap(row => row.id ? [row.id] : []), ...value.removed.map(row => row.id)];
+  if (new Set(ids).size !== ids.length) context.addIssue({ code: 'custom', message: 'Each existing meeting can be changed once.', path: ['rows'] });
+  if (!value.rows.length && !value.removed.length) context.addIssue({ code: 'custom', message: 'Add a class or lab meeting.', path: ['rows'] });
+});
+export type ClassTimetableInput = z.infer<typeof classTimetableSchema>;
+export const classDaySchema = z.object({ requestId: idSchema, date: dateSchema, weekday: z.number().int().min(1).max(7) });
+/** Only simple weekly rules can be edited without losing a custom calendar pattern. */
+export function classWeekdays(rule: string, anchor: string): number[] | null {
+  const codes = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+  const pairs = rule.replace(/^RRULE:/, '').split(';').map(part => part.split('='));
+  if (pairs.some(pair => pair.length !== 2) || new Set(pairs.map(pair => pair[0])).size !== pairs.length) return null;
+  const parts: Record<string, string> = Object.fromEntries(pairs);
+  if (parts.FREQ !== 'WEEKLY' || Number(parts.INTERVAL || 1) !== 1 || Object.keys(parts).some(key => !['FREQ', 'INTERVAL', 'BYDAY', 'WKST'].includes(key))) return null;
+  if (parts.WKST && !codes.includes(parts.WKST)) return null;
+  const days = parts.BYDAY ? parts.BYDAY.split(',').map(code => codes.indexOf(code) + 1) : [new Date(`${dateSchema.parse(anchor)}T12:00:00Z`).getUTCDay() || 7];
+  return days.some(day => day < 1) || new Set(days).size !== days.length ? null : days.sort((a, b) => a - b);
+}
 const occurrenceFieldsSchema = z.object({ title: z.string().trim().min(1).max(200).optional(), startMin: clockMinuteSchema.optional(), estMinutes: z.number().int().min(1).max(960).optional(), qty: z.number().positive().max(1000000).optional() }).strict();
 export const recurrenceExceptionSchema = z.discriminatedUnion('kind', [
   z.object({ date: dateSchema, kind: z.literal('skip') }),
@@ -561,6 +596,13 @@ export const recurrenceExceptionSchema = z.discriminatedUnion('kind', [
   z.object({ date: dateSchema, kind: z.literal('modify'), override: occurrenceFieldsSchema }),
 ]);
 export type RecurrenceSeries = Entity & z.infer<typeof recurrenceSeriesSchema> & { status: 'active' | 'paused' | 'ended'; version: number; effectiveFrom: string; ruleVersionId: string | null; pausedRanges: { start: string; end?: string | null }[] };
+export type ClassTimetableResult = { rows: RecurrenceSeries[]; reused: boolean };
+export type ClassDayResult = { date: string; weekday: number; added: number; removed: number; reused: boolean };
+export type ClassDayPreview = { weekday: number | null; meetings: { id: string; title: string; startMin: number; endMin: number }[] };
+export const deletionKindSchema = z.enum(['goal', 'goal-history', 'schedule', 'template']);
+export type DeletionKind = z.infer<typeof deletionKindSchema>;
+export type DeletionPreview = { kind: DeletionKind; id: string; title: string; token: string; taskIds: string[]; counts: { label: string; count: number }[] };
+export type DeletionResult = { deleted: true; kind: DeletionKind; id: string; taskIds: string[] };
 export type Occurrence = { id: string; seriesId: string; originalDate: string; localDate: string; status: 'scheduled' | 'suppressed' | 'conflict'; fields: { title: string; startMin?: number; estMinutes: number; qty: number }; manualOverride: boolean; moved: boolean; adjusted: boolean; ambiguous: boolean; tasks: Task[]; slot: TimeSlot | null; series: RecurrenceSeries; conflict: unknown; virtual?: boolean };
 export const holidaySchema = z.object({ date: dateSchema, title: z.string().trim().min(1).max(200) });
 export type Holiday = Entity & z.infer<typeof holidaySchema>;

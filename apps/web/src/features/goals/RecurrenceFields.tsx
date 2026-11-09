@@ -73,7 +73,7 @@ export function RecurrenceFields({
     onChange(`FREQ=${freq};INTERVAL=${next.interval ?? interval}${by}${ending}`);
   };
   return (
-    <div className="stack">
+    <div className="stack recurrence-fields">
       <div className="grid-2 form-grid">
         <Field id="recurrence-frequency" label="Repeat frequency">
           <select
@@ -121,7 +121,7 @@ export function RecurrenceFields({
           <legend>Repeat on</legend>
           <div className="weekday-options">
             {weekdays.map((day, index) => (
-              <label key={day.value}>
+              <label key={day.value} title={selectedDays.length === 1 && selectedDays.includes(dayCodes[index]!) ? 'Select another day before removing this one.' : undefined}>
                 <input
                   type="checkbox"
                   checked={selectedDays.includes(dayCodes[index]!)}

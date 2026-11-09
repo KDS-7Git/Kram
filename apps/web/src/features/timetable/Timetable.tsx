@@ -482,7 +482,7 @@ export function Timetable() {
           </p>
         </>
       )}
-      <div className="row wrap calendar-secondary-actions"><Link className="button" to="/planning">Proposals and plan history</Link><Link className="button" to="/schedules">Schedules and templates</Link></div>
+      <div className="row wrap calendar-secondary-actions"><Link className="button" to="/classes">Classes and labs</Link><Link className="button" to="/schedules">Schedules and templates</Link><Link className="button" to="/planning">Proposals and plan history</Link></div>
       <Sheet
         open={!!editor}
         onOpenChange={(open) => {

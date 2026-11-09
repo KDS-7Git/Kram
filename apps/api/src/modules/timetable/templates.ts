@@ -18,7 +18,7 @@ async function validateEntries(userId: string, value: ReturnType<typeof schedule
   return entries.map(({ date: _date, taskId: _task, ...entry }) => entry);
 }
 export const templates = {
-  list(userId: string) { return db.scheduleTemplate.findMany({ where: { ...ownerWhere(userId), archivedAt: null }, orderBy: [{ name: 'asc' }, { id: 'asc' }] }); },
+  list(userId: string, includeArchived = false) { return db.scheduleTemplate.findMany({ where: { ...ownerWhere(userId), ...(includeArchived ? {} : { archivedAt: null }) }, orderBy: [{ name: 'asc' }, { id: 'asc' }] }); },
   async get(userId: string, id: string, c: Connection = db) { return notFound(await c.scheduleTemplate.findFirst({ where: { id, ...ownerWhere(userId) } }), 'template'); },
   async create(userId: string, input: unknown) {
     const value = scheduleTemplateSchema.parse(input);

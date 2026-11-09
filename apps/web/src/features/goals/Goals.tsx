@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -42,6 +42,7 @@ import { calendarDate, duration, weekdays } from "../../shared/format";
 import { useUI } from "../../shared/ui";
 import { RecurrenceFields, recurrenceWords } from "./RecurrenceFields";
 import { TaskEditor, TaskPanel, TaskEventHistory } from "../tasks/Tasks";
+import { DeleteButton } from '../../components/DeleteButton';
 
 export const goalLabels = {
   daily: "Daily practice",
@@ -516,6 +517,7 @@ export function GoalEditor({
 
 export function GoalDetail() {
   const { goalId } = useParams();
+  const navigate = useNavigate();
   const data = useData();
   const online = useOnline();
   const refresh = useRefresh();
@@ -676,7 +678,7 @@ export function GoalDetail() {
                     ? "This goal is archived. Its rules and progress history remain available."
                     : "Pause when life needs room. Your progress stays with this goal."}
               </p>
-              <div className="row">
+              <div className="row wrap">
                 {["active", "paused"].includes(goal.status) && (
                   <Button
                     loading={changeStatus.isPending}
@@ -705,6 +707,7 @@ export function GoalDetail() {
                     Archive goal
                   </Button>
                 )}
+                <DeleteButton kind="goal" id={goal.id} title={goal.title} onDeleted={() => navigate('/goals')} />
               </div>
             </Card>
           </>
@@ -753,7 +756,7 @@ export function GoalDetail() {
         </Tabs.Content>
         <Tabs.Content value="history" className="stack-lg">
           <Card>
-            <h2>Recorded progress and changes</h2>
+            <div className="row between wrap"><h2>Recorded progress and changes</h2><DeleteButton kind="goal-history" id={goal.id} title={goal.title} /></div>
             {history.isPending ? (
               <Skeleton height={180} />
             ) : history.isError ? (

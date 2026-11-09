@@ -18,6 +18,20 @@ const input = (id: string, kind = 'progress', fields = {}) => progressInputSchem
 const ids = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003'];
 
 describe('account-isolated offline reads and ordered replay', () => {
+  it('erases a deleted goal’s queued events and cached reads without replaying them or losing other queued work', async () => {
+    const store = new OfflineStore(new MemoryStorage()); await store.setAccount('a');
+    await store.cacheRead('/today', { deleted: 'goal' });
+    const beforeDeletion = store.cacheRevision();
+    await store.queueProgress('deleted-task', input(ids[0]!)); await store.queueProgress('other-task', input(ids[1]!));
+    const resume = await store.pauseTaskReplay(['deleted-task']);
+    const calls: string[] = [];
+    await store.replayProgress(async task => { calls.push(task); });
+    expect(calls).toEqual(['other-task']);
+    await store.forgetTasks(['deleted-task']); resume();
+    await store.cacheRead('/today', { deleted: 'late stale response' }, 'a', beforeDeletion);
+    expect(await store.readCached('/today')).toBeNull(); expect(await store.listQueued()).toEqual([]);
+    await store.cacheRead('/today', { fresh: true }); expect((await store.readCached('/today'))?.data).toEqual({ fresh: true });
+  });
   it('isolates accounts and clears read caches on logout while preserving isolated unsent work', async () => {
     const memory = new MemoryStorage(), store = new OfflineStore(memory);
     await store.setAccount('a'); await store.cacheRead('/today', { private: 'a' }); await store.queueProgress('task', input(ids[0]!));

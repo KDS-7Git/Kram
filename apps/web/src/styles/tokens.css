@@ -60,7 +60,7 @@
   --scrollbar-hover: rgb(97 97 94 / 42%);
   --font-body:
     "Source Sans 3 Variable", "Noto Sans Devanagari", "Noto Sans", sans-serif;
-  --font-display: "Source Sans 3 Variable", "Noto Sans Devanagari", "Noto Sans", sans-serif;
+  --font-display: "Fraunces Variable", "Noto Serif Devanagari", "Noto Serif", Georgia, serif;
   --body-weight: 420;
   --radius-control: 0.5rem;
   --radius-card: 0.875rem;

@@ -514,6 +514,7 @@ model RecurrenceSeries {
   ruleVersion GoalRuleVersion? @relation(fields:[ruleVersionId,userId],references:[id,userId],onDelete:Restrict)
   kind String @default("fixed")
   title String
+  classDetails Json?
   rrule String
   dtstartLocal DateTime @db.Date
   effectiveFrom DateTime @db.Date

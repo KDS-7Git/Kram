@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   CalendarDays,
@@ -98,6 +98,7 @@ const OfflineStatus = lazy(() => import('./features/data/OfflineStatus').then(m 
 const Planning = lazy(() => import('./features/planning/Planning').then(m => ({ default: m.Planning })));
 const Review = lazy(() => import('./features/planning/Review').then(m => ({ default: m.Review })));
 const Schedules = lazy(() => import('./features/timetable/Schedules').then(module => ({ default: module.Schedules })));
+const Classes = lazy(() => import('./features/timetable/Classes').then(module => ({ default: module.Classes })));
 const NotificationCenter = lazy(() =>
   import("./features/tasks/reminders").then((module) => ({
     default: module.NotificationCenter,
@@ -136,6 +137,13 @@ function DelayedLoading() {
 
 function NavigationLink({ to, label, icon: Icon, shortcut }: { to: string; label: string; icon: LucideIcon; shortcut?: string[] }) {
   const reduced = useMotionPreference();
+  const { pathname } = useLocation();
+  if (to === '/plan' && ['/classes', '/schedules', '/planning'].includes(pathname)) return <Link to={to} className="nav-link active" aria-current="page">
+    <m.span className="nav-active-pill" layoutId="navigation" layout={!reduced} transition={reduced ? { duration: 0 } : spring} aria-hidden="true" />
+    <Icon size={20} strokeWidth={1.65} aria-hidden="true" />
+    <span>{label}</span>
+    {shortcut && <Shortcut keys={shortcut} className="nav-shortcut" />}
+  </Link>;
   return <NavLink to={to} end={to === "/"} className="nav-link">
     {({ isActive }) => <>
       {isActive && <m.span className="nav-active-pill" layoutId="navigation" layout={!reduced} transition={reduced ? { duration: 0 } : spring} aria-hidden="true" />}
@@ -158,7 +166,7 @@ function Shell({
   const { resolvedTheme, setAppearance } = useAppearance();
   const compactNavigation = workshop || user?.settings.featurePreset === "simple";
   const { pathname } = useLocation();
-  const destination = pathname === "/" ? "Today" : pathname.startsWith("/plan") ? "Plan" : pathname.startsWith("/goals") ? "Goals" : pathname.startsWith("/progress") || pathname.startsWith("/streaks") ? "Progress" : pathname.startsWith("/tasks") ? "Task" : pathname.startsWith("/resources") ? "Resources" : pathname.startsWith("/review") ? "Review" : pathname.startsWith("/settings") ? "Settings" : pathname.startsWith("/notifications") || pathname.startsWith("/channels") ? "Notifications" : pathname.startsWith("/data") ? "Data & recovery" : "Design workshop";
+  const destination = pathname === "/" ? "Today" : pathname.startsWith("/plan") || pathname === '/classes' || pathname === '/schedules' ? "Plan" : pathname.startsWith("/goals") ? "Goals" : pathname.startsWith("/progress") || pathname.startsWith("/streaks") ? "Progress" : pathname.startsWith("/tasks") ? "Task" : pathname.startsWith("/resources") ? "Resources" : pathname.startsWith("/review") ? "Review" : pathname.startsWith("/settings") ? "Settings" : pathname.startsWith("/notifications") || pathname.startsWith("/channels") ? "Notifications" : pathname.startsWith("/data") ? "Data & recovery" : "Design workshop";
   const online = useOnline();
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -468,6 +476,7 @@ function SignedIn({ user }: { user: User }) {
             <Route path="/data" element={<DataRecovery />} />
             <Route path="/review" element={<FeatureGate><Review /></FeatureGate>} />
             <Route path="/schedules" element={<FeatureGate><Schedules /></FeatureGate>} />
+            <Route path="/classes" element={<FeatureGate><Classes /></FeatureGate>} />
             <Route path="/notifications" element={<NotificationCenter />} />
             <Route path="/goals/*" element={<Hierarchy />} />
             <Route path="/goals/:goalId" element={<GoalDetail />} />

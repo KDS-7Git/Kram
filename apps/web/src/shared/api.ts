@@ -89,6 +89,7 @@ async function request<T>(
   };
   if (!navigator.onLine) return ['GET','HEAD'].includes(method) ? cached() : queue();
   const headers = new Headers(options.headers);
+  const requestCacheRevision = offline.cacheRevision();
   headers.set("Accept", "application/json");
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", csrfToken);
@@ -152,7 +153,7 @@ async function request<T>(
   }
   if (path === '/auth/logout') await clearOfflineAccount().catch(()=>undefined);
   if (method === 'GET') {
-    await cacheRead(path, {data:result,headers:[...response.headers.entries()]},requestAccount).catch(()=>undefined);
+    await cacheRead(path, {data:result,headers:[...response.headers.entries()]},requestAccount,requestCacheRevision).catch(()=>undefined);
     if(path==='/bootstrap')window.dispatchEvent(new CustomEvent('kram-cache-status',{detail:{cached:false}}));
   }
   return { data: result as T, headers: response.headers };
