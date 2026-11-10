@@ -1,4 +1,5 @@
-export type ClassDraft = { key: string; id?: string; version?: number; course: string; type: 'lecture' | 'lab'; slot: string; weekdays: number[]; start: string; end: string };
+import type { RecurrenceSeries } from '@kram/shared';
+export type ClassDraft = { key: string; id?: string; version?: number; course: string; type: 'lecture' | 'lab'; slot: string; weekdays: number[]; start: string; end: string; assignment?: NonNullable<RecurrenceSeries['classDetails']>['assignment']; disabled?: boolean };
 export type PastedMeeting = Omit<ClassDraft, 'key' | 'id' | 'version'>;
 export type PasteResult = { rows: PastedMeeting[]; issues: string[]; format: 'list' | 'grid' };
 
@@ -27,8 +28,8 @@ export function classTime(minute: number | null) {
   return minute === null ? '' : `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
 }
 /** Excel clipboard TSV and CSV, including quoted multiline cells and escaped quotes. */
-function cells(text: string): string[][] {
-  const delimiter = text.split(/\r?\n/, 1)[0]?.includes('\t') ? '\t' : ',';
+export function timetableCells(text: string): string[][] {
+  const delimiter = text.includes('\t') ? '\t' : ',';
   const result: string[][] = []; let row: string[] = [], cell = '', quoted = false;
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
@@ -64,7 +65,7 @@ export function parseTimetablePaste(text: string): PasteResult {
   const result: PasteResult = { rows: [], issues: [], format: 'list' };
   if (text.length > 128000) { result.issues.push('Paste a smaller range, up to 100 meetings.'); return result; }
   let table: string[][];
-  try { table = cells(text.replace(/^\uFEFF/, '')); } catch (error) { result.issues.push((error as Error).message); return result; }
+  try { table = timetableCells(text.replace(/^\uFEFF/, '')); } catch (error) { result.issues.push((error as Error).message); return result; }
   if (!table.length) { result.issues.push('Copy some timetable cells from Excel first.'); return result; }
   const headers = table[0]!.map(heading), days = table[0]!.map(dayNumber);
   if (days.filter(Boolean).length >= 2) {

@@ -5,9 +5,12 @@ import { iso } from '../../repository';
 import { recurrence, holidays, seriesDto } from './service';
 import { expectedSlotVersion } from '../timetable/service';
 import { classes } from './classes';
+import { collegeSlots } from './college-slots';
 
 export const recurrenceRouter = Router();
 const owner = (res: { locals: Record<string, unknown> }) => String(res.locals.userId);
+recurrenceRouter.get('/recurrence/college-slots', async (_req, res) => res.json(await collegeSlots.list(owner(res))));
+recurrenceRouter.post('/recurrence/college-slots', async (req, res) => res.json(await collegeSlots.save(owner(res), req.body)));
 recurrenceRouter.post('/recurrence/classes', async (req, res) => res.json(iso(await classes.save(owner(res), req.body))));
 recurrenceRouter.post('/recurrence/classes/day', async (req, res) => res.json(iso(await classes.day(owner(res), req.body))));
 recurrenceRouter.get('/recurrence/classes/day', async (req, res) => res.json(await classes.previewDay(owner(res), dateSchema.parse(req.query.date))));

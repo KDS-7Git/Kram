@@ -40,6 +40,22 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
 .class-schedule-meetings { display: grid; gap: .625rem; margin: 0; padding-inline-start: 1rem; }
 .class-schedule-meetings li > span { display: block; }
 .class-day-preview > div { min-inline-size: 0; }
+.slot-course { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-control); min-inline-size: 0; }
+.slot-course-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(5rem, .25fr) auto; align-items: end; gap: .75rem; }
+.slot-course p, .slot-course .toggle-label { overflow-wrap: anywhere; }
+.slot-course summary { min-block-size: 44px; align-content: center; }
+.slot-course-meeting { padding-block: .75rem; border-block-end: 1px solid var(--border); }
+.slot-course-meeting .toggle-label { min-block-size: 44px; align-items: center; }
+.slot-meeting-time { display: block; }
+.slot-meeting-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.slot-definition-grid th:first-child, .slot-definition-grid td:first-child { min-inline-size: 6rem; }
+.slot-definition-grid td:nth-child(2) { min-inline-size: 11rem; }
+.slot-definition-grid { min-inline-size: 60rem; }
+@media (max-width: 600px) {
+  .slot-course-heading { grid-template-columns: minmax(0, 1fr) auto; }
+  .slot-course-heading > .field:first-child { grid-column: 1 / -1; }
+  .slot-meeting-fields, .slot-meeting-edit .grid-2 { grid-template-columns: 1fr; }
+}
 .deletion-counts { list-style: none; display: grid; gap: .625rem; margin: 0; padding: 0; }
 .deletion-counts li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 .deletion-counts strong { font-variant-numeric: tabular-nums; }

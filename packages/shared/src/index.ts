@@ -534,7 +534,22 @@ export type TodayResponse = {
 };
 
 const timezoneSchema = settingsSchema.shape.timezone;
-export const classDetailsSchema = z.object({ type: z.enum(['lecture', 'lab']), slot: z.string().trim().max(40).default('') });
+export const collegePeriodSchema = z.object({
+  id: idSchema, group: z.string().trim().min(1).max(40), label: z.string().trim().min(1).max(40),
+  weekday: weekdaySchema, startMin: clockMinuteSchema, estMinutes: z.number().int().min(1).max(960),
+  type: z.enum(['lecture', 'lab']).default('lecture'), optional: z.boolean().default(false),
+}).refine(row => row.startMin + row.estMinutes <= 1440, { message: 'Finish within the same calendar day.' });
+export const collegeSlotTemplateSchema = z.object({
+  id: idSchema, version: z.number().int().positive().optional(), name: z.string().trim().min(1).max(100),
+  periods: z.array(collegePeriodSchema).min(1).max(200),
+}).superRefine((value, context) => {
+  if (new Set(value.periods.map(row => row.id)).size !== value.periods.length) context.addIssue({ code: 'custom', message: 'Each slot meeting needs its own identity.', path: ['periods'] });
+  if (new Set(value.periods.map(row => `${row.group}\u0000${row.label}`)).size !== value.periods.length) context.addIssue({ code: 'custom', message: 'Use a unique meeting label within each slot group.', path: ['periods'] });
+});
+export type CollegePeriod = z.infer<typeof collegePeriodSchema>;
+export type CollegeSlotTemplate = z.infer<typeof collegeSlotTemplateSchema> & { version: number };
+const slotAssignmentSchema = z.object({ id: idSchema, templateId: idSchema, group: z.string().trim().min(1).max(40), meetingId: idSchema });
+export const classDetailsSchema = z.object({ type: z.enum(['lecture', 'lab']), slot: z.string().trim().max(40).default(''), assignment: slotAssignmentSchema.optional() });
 export const recurrenceSeriesSchema = z.object({
   kind: z.enum(['fixed', 'goal']).default('fixed'),
   goalId: idSchema.nullable().default(null),
@@ -560,6 +575,7 @@ export const recurrenceSeriesSchema = z.object({
 const classRowSchema = z.object({
   id: idSchema.optional(), version: z.number().int().positive().optional(),
   course: z.string().trim().min(1).max(200), type: z.enum(['lecture', 'lab']), slot: z.string().trim().max(40).default(''),
+  assignment: slotAssignmentSchema.optional(),
   weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
   startMin: clockMinuteSchema, estMinutes: z.number().int().min(1).max(960),
 }).superRefine((row, context) => {
@@ -575,6 +591,12 @@ export const classTimetableSchema = z.object({
   const ids = [...value.rows.flatMap(row => row.id ? [row.id] : []), ...value.removed.map(row => row.id)];
   if (new Set(ids).size !== ids.length) context.addIssue({ code: 'custom', message: 'Each existing meeting can be changed once.', path: ['rows'] });
   if (!value.rows.length && !value.removed.length) context.addIssue({ code: 'custom', message: 'Add a class or lab meeting.', path: ['rows'] });
+  const groups = new Map<string, typeof value.rows>();
+  for (const row of value.rows) if (row.assignment) groups.set(row.assignment.id, [...(groups.get(row.assignment.id) || []), row]);
+  for (const rows of groups.values()) {
+    const first = rows[0]!;
+    if (rows.some(row => row.course !== first.course || row.assignment!.templateId !== first.assignment!.templateId || row.assignment!.group !== first.assignment!.group) || new Set(rows.map(row => row.assignment!.meetingId)).size !== rows.length) context.addIssue({ code: 'custom', message: 'Keep each course assignment consistent and each meeting unique.', path: ['rows'] });
+  }
 });
 export type ClassTimetableInput = z.infer<typeof classTimetableSchema>;
 export const classDaySchema = z.object({ requestId: idSchema, date: dateSchema, weekday: z.number().int().min(1).max(7) });

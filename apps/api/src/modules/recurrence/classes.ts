@@ -73,6 +73,8 @@ export const classes = {
       const last = addDays(first, 20);
       if (daysBetween(today, last) > 366) throw new ApiError('INVALID_DATE_RANGE', 'Choose a semester start and change date within the next 346 days.', 400);
       weeklyConflicts(value.rows);
+      const templateIds = [...new Set(value.rows.flatMap(row => row.assignment ? [row.assignment.templateId] : []))];
+      if (await tx.collegeSlotTemplate.count({ where: { userId, id: { in: templateIds } } }) !== templateIds.length) throw new ApiError('NOT_FOUND', 'Slot grid not found.', 404);
       const settings = await getSettings(userId, tx), result: string[] = [];
       const changes: { row: Meeting; current: Awaited<ReturnType<typeof editable>>; from: string; changed: boolean }[] = [];
       for (const row of value.rows) {
@@ -82,7 +84,7 @@ export const classes = {
         const metadata = seriesDto(current).classDetails;
         const changed = current.title !== row.course || current.startMin !== row.startMin || current.estMinutes !== row.estMinutes ||
           JSON.stringify(classWeekdays(current.rrule, calendarString(current.dtstartLocal))) !== JSON.stringify(row.weekdays) ||
-          (current.until ? calendarString(current.until) : null) !== value.endDate || metadata?.type !== row.type || metadata?.slot !== row.slot;
+          (current.until ? calendarString(current.until) : null) !== value.endDate || metadata?.type !== row.type || metadata?.slot !== row.slot || JSON.stringify(metadata?.assignment) !== JSON.stringify(row.assignment);
         changes.push({ row, current, from, changed });
       }
       const removals = [];
@@ -93,7 +95,7 @@ export const classes = {
       for (const item of [...changes.filter(item => item.changed), ...removals]) await release(userId, item.current.id, item.from, today, tx);
       for (const item of removals) await tx.recurrenceSeries.update({ where: { id: item.current.id }, data: { until: calendarDate(addDays(item.from, -1)), status: 'ended', version: { increment: 1 } } });
       for (const row of value.rows) {
-        const patch = { title: row.course, classDetails: { type: row.type, slot: row.slot }, rrule: `FREQ=WEEKLY;BYDAY=${row.weekdays.map(day => codes[day - 1]).join(',')}`, startMin: row.startMin, estMinutes: row.estMinutes, until: value.endDate };
+        const patch = { title: row.course, classDetails: { type: row.type, slot: row.slot, ...(row.assignment ? { assignment: row.assignment } : {}) }, rrule: `FREQ=WEEKLY;BYDAY=${row.weekdays.map(day => codes[day - 1]).join(',')}`, startMin: row.startMin, estMinutes: row.estMinutes, until: value.endDate };
         if (!row.id) result.push((await recurrence.create(userId, { ...patch, dtstartLocal: first, tz: settings.timezone }, tx, false)).id);
         else {
           const item = changes.find(item => item.current.id === row.id)!;

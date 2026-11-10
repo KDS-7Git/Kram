@@ -46,6 +46,7 @@ model User {
   holidays Holiday[]
   scheduleTemplates ScheduleTemplate[]
   templateApplications TemplateApplication[]
+  collegeSlotTemplates CollegeSlotTemplate[]
   @@map("app_user")
 }
 
@@ -608,6 +609,19 @@ model ScheduleTemplate {
   applications TemplateApplication[]
   @@unique([id,userId])
   @@map("schedule_template")
+}
+
+model CollegeSlotTemplate {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  name String
+  periods Json
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@index([userId], map: "college_slot_template_user_idx")
+  @@map("college_slot_template")
 }
 
 model TemplateApplication {

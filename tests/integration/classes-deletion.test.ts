@@ -7,7 +7,7 @@ import request, { type Agent } from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { v7 as uuid } from 'uuid';
-import { defaultSettings, type ClassTimetableInput, type RecurrenceSeries } from '@kram/shared';
+import { defaultSettings, type CollegeSlotTemplate, type ClassTimetableInput, type RecurrenceSeries } from '@kram/shared';
 import { addDays, weekday } from '@kram/time';
 
 let container: StartedTestContainer, db: PrismaClient, app: Express, agent: Agent;
@@ -19,7 +19,7 @@ const erase = (kind: string, id: string, token: string) => agent.delete(`/api/v1
 const preview = async (kind: string, id: string) => (await agent.get(`/api/v1/deletions/${kind}/${id}`).expect(200)).body;
 const meeting = (course: string, weekdays: number[], startMin: number, estMinutes = 50, type: 'lecture' | 'lab' = 'lecture') => ({ course, weekdays, startMin, estMinutes, type, slot: type === 'lab' ? 'L2' : 'A1' });
 const sheet = (rows: ClassTimetableInput['rows'], patch: Partial<ClassTimetableInput> = {}): ClassTimetableInput => ({ requestId: uuid(), startDate: today, endDate: addDays(today, 40), effectiveFrom: today, rows, removed: [], ...patch });
-const asRows = (rows: RecurrenceSeries[]): ClassTimetableInput['rows'] => rows.map(row => ({ id: row.id, version: row.version, course: row.title, type: row.classDetails!.type, slot: row.classDetails!.slot, weekdays: row.rrule.split('BYDAY=')[1]!.split(',').map(code => ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].indexOf(code) + 1), startMin: row.startMin!, estMinutes: row.estMinutes }));
+const asRows = (rows: RecurrenceSeries[]): ClassTimetableInput['rows'] => rows.map(row => ({ id: row.id, version: row.version, course: row.title, type: row.classDetails!.type, slot: row.classDetails!.slot, assignment: row.classDetails!.assignment, weekdays: row.rrule.split('BYDAY=')[1]!.split(',').map(code => ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].indexOf(code) + 1), startMin: row.startMin!, estMinutes: row.estMinutes }));
 const nextDay = (day: number) => addDays(today, (day - weekday(today) + 7) % 7);
 async function goal(title = 'Synthetic practice') {
   const result = await post('/goals', { skillId, type: 'recurring', title, targetQty: 30, startDate: today, rrule: 'FREQ=DAILY' }).expect(201);
@@ -105,6 +105,57 @@ describe('semester class sheets', () => {
     const count = await db.recurrenceSeries.count();
     await post('/recurrence/classes', sheet([meeting('Would overlap', [2], 610)])).expect(409);
     expect(await db.recurrenceSeries.count()).toBe(count);
+  });
+});
+
+describe('semester slot grids and course assignments', () => {
+  const definitions = () => [1, 2, 3, 4].map((n, index) => ({ id: uuid(), group: 'Q', label: `Q${n}`, weekday: index + 1, startMin: 540 + index * 60, estMinutes: 50, type: 'lecture' as const, optional: n === 4 }));
+  it('saves editable semester definitions with ownership, versioning, retries and portable export', async () => {
+    const input = { id: uuid(), name: 'Semester one', periods: definitions() };
+    const saved = (await post('/recurrence/college-slots', input).expect(200)).body as CollegeSlotTemplate;
+    expect((await post('/recurrence/college-slots', input).expect(200)).body).toEqual(saved);
+    expect((await agent.get('/api/v1/recurrence/college-slots').expect(200)).body).toEqual([saved]);
+    const changed = (await post('/recurrence/college-slots', { ...saved, periods: saved.periods.map(row => ({ ...row, startMin: row.startMin + 10 })) }).expect(200)).body;
+    expect(changed.version).toBe(2);
+    await post('/recurrence/college-slots', { ...saved, name: 'Stale edit' }).expect(412);
+    const nextSemester = { id: uuid(), name: 'Semester two', periods: definitions().map(row => ({ ...row, weekday: 6, startMin: row.startMin + 20 })) };
+    await post('/recurrence/college-slots', nextSemester).expect(200);
+    expect(await db.collegeSlotTemplate.count({ where: { userId } })).toBe(2);
+    const { exportOwner } = await import('../../apps/api/src/data/export');
+    expect((await exportOwner(userId)).tables.college_slot_template).toHaveLength(2);
+    const foreign = await db.user.create({ data: { id: uuid(), email: 'foreign-grid@kram.test', passwordHash: 'fixture-only', settings: defaultSettings, isOwner: false } });
+    const hidden = await db.collegeSlotTemplate.create({ data: { id: uuid(), userId: foreign.id, name: 'Foreign grid', periods: definitions() } });
+    await post('/recurrence/college-slots', { ...input, id: hidden.id, version: 1 }).expect(404);
+    expect((await agent.get('/api/v1/recurrence/college-slots').expect(200)).body).toHaveLength(2);
+    await post('/recurrence/classes', sheet([{ ...meeting('Private grid', [1], 480), assignment: { id: uuid(), templateId: hidden.id, group: 'Q', meetingId: uuid() } }])).expect(404);
+    await post('/recurrence/college-slots', { ...input, id: uuid(), periods: [{ ...input.periods[0], startMin: 1430 }] }).expect(400);
+  });
+  it('retains course grouping, fewer weekly meetings, FS moves and history across future changes', async () => {
+    const template = (await post('/recurrence/college-slots', { id: uuid(), name: 'Flexible semester', periods: definitions() }).expect(200)).body as CollegeSlotTemplate;
+    const assignmentId = uuid();
+    const input = sheet(template.periods.filter(row => !row.optional).map(row => ({ course: 'Networks · CS313', type: row.type, slot: row.label, weekdays: [row.weekday], startMin: row.startMin, estMinutes: row.estMinutes, assignment: { id: assignmentId, templateId: template.id, group: row.group, meetingId: row.id } })));
+    const saved = (await post('/recurrence/classes', input).expect(200)).body.rows as RecurrenceSeries[];
+    expect(saved).toHaveLength(3);
+    expect(saved.every(row => row.classDetails?.assignment?.id === assignmentId)).toBe(true);
+    const noop = (await post('/recurrence/classes', sheet(asRows(saved))).expect(200)).body.rows as RecurrenceSeries[];
+    expect(noop.map(row => [row.id, row.version])).toEqual(saved.map(row => [row.id, row.version]));
+    await post('/recurrence/college-slots', { ...template, periods: template.periods.map(row => ({ ...row, startMin: row.startMin + 5 })) }).expect(200);
+    expect((await agent.get('/api/v1/recurrence/series').expect(200)).body.map((row: RecurrenceSeries) => row.startMin).sort()).toEqual(saved.map(row => row.startMin).sort());
+    const from = addDays(today, 7), before = await db.timeSlot.findMany({ where: { userId, date: { lt: date(from) } }, orderBy: { id: 'asc' } });
+    const fewer = asRows(saved).slice(0, 2); fewer[1] = { ...fewer[1]!, slot: 'FS', weekdays: [5], startMin: 1020 };
+    const changed = (await post('/recurrence/classes', sheet(fewer, { effectiveFrom: from, removed: [{ id: saved[2]!.id, version: saved[2]!.version }] })).expect(200)).body.rows as RecurrenceSeries[];
+    expect(changed).toHaveLength(2);
+    expect(changed.find(row => row.classDetails?.slot === 'FS')).toMatchObject({ rrule: 'FREQ=WEEKLY;BYDAY=FR', startMin: 1020, classDetails: { assignment: { id: assignmentId, group: 'Q' } } });
+    expect(await db.timeSlot.findMany({ where: { userId, date: { lt: date(from) } }, orderBy: { id: 'asc' } })).toEqual(before);
+    const projected = (await agent.get(`/api/v1/timetable/global?from=${from}&to=${addDays(from, 6)}`).expect(200)).body;
+    expect(projected).toHaveLength(2);
+    const fs = changed.find(row => row.classDetails?.slot === 'FS')!, friday = addDays(from, (5 - weekday(from) + 7) % 7);
+    await post(`/recurrence/series/${fs.id}/exceptions`, { date: friday, kind: 'move', toDate: addDays(friday, 1), toStartMin: 960 }).set('If-Match', `"${fs.version}"`).expect(200);
+    expect(await db.timeSlot.count({ where: { userId, date: date(addDays(friday, 1)), archivedAt: null, startMin: 960 } })).toBe(1);
+    expect(await db.timeSlot.count({ where: { userId, date: date(addDays(friday, 7)), archivedAt: null, startMin: 1020 } })).toBe(1);
+    const other = (await post('/recurrence/college-slots', { id: uuid(), name: 'Next semester', periods: [{ ...definitions()[0]!, weekday: 7, startMin: 900 }] }).expect(200)).body;
+    expect(other.id).not.toBe(template.id);
+    expect((await agent.get(`/api/v1/recurrence/series/${fs.id}`).expect(200)).body.classDetails.assignment.templateId).toBe(template.id);
   });
 });
 

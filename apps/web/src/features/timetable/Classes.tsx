@@ -4,80 +4,111 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { v7 as newId } from 'uuid';
 import { BookOpen, Copy, FlaskConical, Trash2 } from 'lucide-react';
 import { addDays } from '@kram/time';
-import { classTimetableSchema, classWeekdays, type ClassDayPreview, type ClassDayResult, type ClassTimetableResult, type Occurrence, type RecurrenceSeries } from '@kram/shared';
+import { classTimetableSchema, classWeekdays, type CollegeSlotTemplate, type ClassDayPreview, type ClassDayResult, type ClassTimetableResult, type Occurrence, type RecurrenceSeries } from '@kram/shared';
 import { Banner, Button, Card, DelayedSkeleton, Field, IconButton, PageHeader } from '../../components/ui/kit';
 import { api, apiList, errorMessage } from '../../shared/api';
 import { useData, useOnline, useRefresh } from '../../shared/data';
 import { calendarDate, clockLabel, duration, weekdays } from '../../shared/format';
 import { useUI } from '../../shared/ui';
 import { classTime, parseClassTime, parseTimetablePaste, type ClassDraft, type PasteResult } from './classPaste';
+import { restoreSlotDrafts, courseGroups } from './collegeSlots';
+import { SlotGridEditor } from './SlotGridEditor';
+import { SlotCourses } from './SlotCourses';
 
 const fullDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const fromSeries = (row: RecurrenceSeries): ClassDraft => ({ key: newId(), id: row.id, version: row.version, course: row.title, type: row.classDetails?.type || (/\blab\b/i.test(row.title) ? 'lab' : 'lecture'), slot: row.classDetails?.slot || '', weekdays: classWeekdays(row.rrule, row.dtstartLocal) || [], start: classTime(row.startMin), end: classTime((row.startMin || 0) + row.estMinutes) });
+const fromSeries = (row: RecurrenceSeries): ClassDraft => ({ key: newId(), id: row.id, version: row.version, course: row.title, type: row.classDetails?.type || (/\blab\b/i.test(row.title) ? 'lab' : 'lecture'), slot: row.classDetails?.slot || '', assignment: row.classDetails?.assignment, weekdays: classWeekdays(row.rrule, row.dtstartLocal) || [], start: classTime(row.startMin), end: classTime((row.startMin || 0) + row.estMinutes) });
 const weekly = (row: RecurrenceSeries, today: string) => row.kind === 'fixed' && row.layer === 'fixed' && (!row.until || row.until >= today) && !!classWeekdays(row.rrule, row.dtstartLocal);
 function rowErrors(row: ClassDraft) {
   const start = parseClassTime(row.start), end = parseClassTime(row.end);
   return { course: !row.course.trim() || row.course.trim().length > 200, weekdays: !row.weekdays.length, start: start === null || start >= 1440,
     end: end === null || start === null || end <= start || end - start > 960, slot: row.slot.trim().length > 40 };
 }
-const payloadRows = (rows: ClassDraft[]) => rows.map(row => ({ ...(row.id ? { id: row.id, version: row.version } : {}), course: row.course.trim(), type: row.type, slot: row.slot.trim(), weekdays: row.weekdays, startMin: parseClassTime(row.start), estMinutes: (parseClassTime(row.end) ?? NaN) - (parseClassTime(row.start) ?? NaN) }));
+const payloadRows = (rows: ClassDraft[]) => rows.filter(row => !row.disabled).map(row => ({ ...(row.id ? { id: row.id, version: row.version } : {}), course: row.course.trim(), type: row.type, slot: row.slot.trim(), assignment: row.assignment, weekdays: row.weekdays, startMin: parseClassTime(row.start), estMinutes: (parseClassTime(row.end) ?? NaN) - (parseClassTime(row.start) ?? NaN) }));
 
 export function Classes() {
   const series = useQuery({ queryKey: ['recurrence', 'series'], queryFn: () => apiList<RecurrenceSeries>('/recurrence/series') });
+  const templates = useQuery({ queryKey: ['recurrence', 'college-slots'], queryFn: () => apiList<CollegeSlotTemplate>('/recurrence/college-slots') });
   return <div className="workspace-page classes-workspace">
-    <PageHeader eyebrow="Plan · college" title="Your classes, one weekly sheet" description="Set up the semester once. Give each lecture or lab its own days and times." action={<Link className="button" to="/plan">Back to timetable</Link>} />
-    {series.isPending ? <DelayedSkeleton height={280} /> : series.isError ? <Banner tone="error" action={<Button onClick={() => void series.refetch()}>Retry</Button>}>{errorMessage(series.error)}</Banner> : <ClassEditor series={series.data || []} />}
+    <PageHeader eyebrow="Plan · college" title="Your classes, one weekly sheet" description="Set up this semester’s slot grid once, assign courses, then adjust the meetings you actually have." action={<Link className="button" to="/plan">Back to timetable</Link>} />
+    {series.isPending || templates.isPending ? <DelayedSkeleton height={280} /> : series.isError || templates.isError ? <Banner tone="error" action={<Button onClick={() => { void series.refetch(); void templates.refetch(); }}>Retry</Button>}>{errorMessage(series.error || templates.error)}</Banner> : <ClassEditor series={series.data || []} templates={templates.data || []} />}
   </div>;
 }
 
-function ClassEditor({ series }: { series: RecurrenceSeries[] }) {
+function ClassEditor({ series, templates }: { series: RecurrenceSeries[]; templates: CollegeSlotTemplate[] }) {
   const data = useData(), online = useOnline(), refresh = useRefresh(), { toast } = useUI();
   const available = series.filter(row => row.classDetails && weekly(row, data.studyDate));
   const covers = (row: RecurrenceSeries, date: string) => row.effectiveFrom <= date && (!row.until || row.until >= date);
   const reference = available.some(row => covers(row, data.studyDate)) ? data.studyDate : available.map(row => row.effectiveFrom).sort()[0] || data.studyDate;
   const initial = available.filter(row => covers(row, reference));
-  const [rows, setRows] = useState<ClassDraft[]>(() => initial.map(fromSeries));
+  const [rows, setRows] = useState<ClassDraft[]>(() => restoreSlotDrafts(initial.map(fromSeries), templates));
+  const [templateId, setTemplateId] = useState(() => initial.find(row => row.classDetails?.assignment)?.classDetails?.assignment?.templateId || templates[0]?.id || '');
+  const [gridEditor, setGridEditor] = useState<{ template?: CollegeSlotTemplate; copy?: boolean } | null>(() => templates.length ? null : {});
+  const selectedTemplate = templates.find(template => template.id === templateId);
   const [removed, setRemoved] = useState<ClassDraft[]>([]), [requestId, setRequestId] = useState(() => newId()), [dirty, setDirty] = useState(false);
+  const [beforeRemoval, setBeforeRemoval] = useState<ClassDraft[] | null>(null);
   const [startDate, setStartDate] = useState(() => initial.map(row => row.dtstartLocal).sort()[0] || data.studyDate);
   const [endDate, setEndDate] = useState(() => initial.flatMap(row => row.until ? [row.until] : []).sort().at(-1) || addDays(data.studyDate, 120));
   const [effectiveFrom, setEffectiveFrom] = useState(reference);
   const [pasteText, setPasteText] = useState(''), [preview, setPreview] = useState<PasteResult | null>(null), [previewRows, setPreviewRows] = useState<ClassDraft[]>([]);
   const [importIds, setImportIds] = useState<string[]>([]);
   const generic = series.filter(row => !row.classDetails && weekly(row, data.studyDate) && ![...rows, ...removed].some(draft => draft.id === row.id));
-  const input = classTimetableSchema.safeParse({ requestId, startDate, endDate, effectiveFrom, rows: payloadRows(rows), removed: removed.filter(row => row.id).map(row => ({ id: row.id, version: row.version })) });
-  const invalidRows = rows.flatMap((row, index) => Object.values(rowErrors(row)).some(Boolean) ? [index + 1] : []);
-  const save = useMutation({ mutationFn: () => api<ClassTimetableResult>('/recurrence/classes', { method: 'POST', body: classTimetableSchema.parse({ requestId, startDate, endDate, effectiveFrom, rows: payloadRows(rows), removed: removed.filter(row => row.id).map(row => ({ id: row.id, version: row.version })) }) }),
-    onSuccess: async result => { setRows(result.rows.map(fromSeries)); setRemoved([]); setDirty(false); setRequestId(newId()); await refresh(); toast('Weekly timetable saved. Meetings repeat through the semester.'); } });
+  const removedPayload = [...removed, ...rows.filter(row => row.disabled)].filter(row => row.id).map(row => ({ id: row.id, version: row.version }));
+  const input = classTimetableSchema.safeParse({ requestId, startDate, endDate, effectiveFrom, rows: payloadRows(rows), removed: removedPayload });
+  const invalidRows = rows.flatMap((row, index) => !row.disabled && Object.values(rowErrors(row)).some(Boolean) ? [row.assignment ? `${row.course || 'Unnamed course'} · ${row.slot || 'custom meeting'}` : `row ${index + 1}`] : []);
+  const emptyAssignments = courseGroups(rows).some(group => group.every(row => row.disabled));
+  const save = useMutation({ mutationFn: () => api<ClassTimetableResult>('/recurrence/classes', { method: 'POST', body: classTimetableSchema.parse({ requestId, startDate, endDate, effectiveFrom, rows: payloadRows(rows), removed: removedPayload }) }),
+    onSuccess: async result => { setRows(restoreSlotDrafts(result.rows.map(fromSeries), templates)); setRemoved([]); setBeforeRemoval(null); setDirty(false); setRequestId(newId()); await refresh(); toast('Weekly timetable saved. Meetings repeat through the semester.'); } });
   const changed = () => { setDirty(true); setRequestId(newId()); save.reset(); };
   const editRows = (next: ClassDraft[]) => { setRows(next); changed(); };
+  const replaceMeetings = (previous: ClassDraft[], next: ClassDraft[]) => {
+    next = next.map(row => {
+      const prior = previous.find(item => item.assignment?.templateId === row.assignment?.templateId && item.assignment?.group === row.assignment?.group && item.assignment?.meetingId === row.assignment?.meetingId);
+      return prior ? { ...row, id: prior.id, version: prior.version, key: prior.key } : row;
+    });
+    setBeforeRemoval(beforeRemoval || rows);
+    setRemoved([...removed, ...previous.filter(row => row.id && !next.some(item => item.id === row.id))]);
+    editRows([...rows.filter(row => !previous.some(item => item.key === row.key)), ...next]);
+  };
   const add = (type: 'lecture' | 'lab') => editRows([...rows, { key: newId(), course: '', type, slot: '', weekdays: [1], start: type === 'lab' ? '14:00' : '08:00', end: type === 'lab' ? '16:00' : '08:50' }]);
   const loadSaved = () => {
     const meetings = available.filter(row => covers(row, effectiveFrom));
-    setRows(meetings.map(fromSeries)); setRemoved([]); setDirty(false); setRequestId(newId()); save.reset();
+    setRows(restoreSlotDrafts(meetings.map(fromSeries), templates)); setRemoved([]); setBeforeRemoval(null); setDirty(false); setRequestId(newId()); save.reset();
+    const savedTemplateId = meetings.find(row => row.classDetails?.assignment)?.classDetails?.assignment?.templateId;
+    if (savedTemplateId) setTemplateId(savedTemplateId);
     if (meetings.length) { setStartDate(meetings.map(row => row.dtstartLocal).sort()[0]!); setEndDate(meetings.flatMap(row => row.until ? [row.until] : []).sort().at(-1) || endDate); }
   };
   const showPreview = (text: string) => { const parsed = parseTimetablePaste(text); setPreview(parsed); setPreviewRows(parsed.rows.map(row => ({ ...row, key: newId() }))); };
   return <div className="stack-lg">
     <Card className="stack-lg class-sheet">
-      <div><h2>Semester timetable</h2><p className="caption">One row per meeting time. Select several days when they share the same time; use another row when the time differs.</p></div>
-      <form className="stack-lg" onSubmit={event => { event.preventDefault(); if (input.success) save.mutate(); }}>
+      <div><h2>Semester slot grid</h2><p className="caption">Keep a separate grid for each semester. Slot names, days, times and optional meetings are all editable.</p></div>
+      {!!templates.length && <Field id="college-grid" label="Grid for new course assignments"><select className="input" id="college-grid" value={templateId} onChange={event => { setTemplateId(event.target.value); setGridEditor(null); }}>{templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}</select></Field>}
+      <div className="row wrap"><Button onClick={() => setGridEditor({})}>New semester grid</Button>{selectedTemplate && <><Button onClick={() => setGridEditor({ template: selectedTemplate })}>Edit slot grid</Button><Button onClick={() => setGridEditor({ template: selectedTemplate, copy: true })}>Copy for new semester</Button></>}{gridEditor && !!templates.length && <Button onClick={() => setGridEditor(null)}>Close grid editor</Button>}</div>
+      {gridEditor && <SlotGridEditor key={`${gridEditor.template?.id || 'new'}-${!!gridEditor.copy}`} template={gridEditor.template} copy={gridEditor.copy} onSaved={template => { setTemplateId(template.id); setGridEditor(null); }} />}
+    </Card>
+    <Card className="stack-lg class-sheet">
+      <div><h2>Semester timetable</h2><p className="caption">Course assignments repeat through these dates. Weekly adjustments apply from the change date.</p></div>
+      <form className="stack-lg" onSubmit={event => { event.preventDefault(); if (input.success && !emptyAssignments) save.mutate(); }}>
         <fieldset disabled={save.isPending} className="class-form-fields stack-lg">
           <div className="class-semester-fields">
             <Field id="class-semester-start" label="Semester starts" hint="New meetings begin on this date or the change date, whichever is later."><input className="input" id="class-semester-start" type="date" required value={startDate} onChange={event => { setStartDate(event.target.value); changed(); }} /></Field>
             <Field id="class-semester-end" label="Semester ends"><input className="input" id="class-semester-end" type="date" required min={startDate} value={endDate} onChange={event => { setEndDate(event.target.value); changed(); }} /></Field>
             <Field id="class-effective" label="Changes apply from" hint="Earlier meetings keep their history."><input className="input" id="class-effective" type="date" required min={data.studyDate} value={effectiveFrom} onChange={event => { setEffectiveFrom(event.target.value); changed(); }} /></Field>
           </div>
-          {!!available.length && <div className="row wrap"><Button disabled={!effectiveFrom || effectiveFrom < data.studyDate} onClick={loadSaved}>Load saved meetings for this change date</Button><span className="caption">Replaces the rows in this sheet with the saved timetable for that date.</span></div>}
+          {!!available.length && <div className="row wrap"><Button disabled={!effectiveFrom || effectiveFrom < data.studyDate} onClick={loadSaved}>Load saved meetings for this change date</Button><Button onClick={() => {
+            const next = [data.studyDate, addDays(endDate || data.studyDate, 1)].sort().at(-1)!;
+            setRows([]); setRemoved([]); setBeforeRemoval(null); setStartDate(next); setEffectiveFrom(next); setEndDate(addDays(next, 120)); changed();
+          }}>Start a new semester sheet</Button><span className="caption">Load replaces this draft with saved meetings. A new sheet keeps earlier semesters and starts after this one; adjust the dates as needed.</span></div>}
+          <SlotCourses rows={rows} templates={templates} selectedTemplate={selectedTemplate} onChange={editRows} onReplace={replaceMeetings} />
           <div className="row wrap"><Button onClick={() => add('lecture')} disabled={rows.length >= 100}><BookOpen size={17} /> Add lecture · 50 min</Button><Button onClick={() => add('lab')} disabled={rows.length >= 100}><FlaskConical size={17} /> Add lab · 2 hours</Button><span className="caption">Durations are editable.</span></div>
-          {!!rows.length && <p className="caption">Scroll the sheet sideways to reach all days, times and row actions. Tab moves to the next cell.</p>}
-          <MeetingGrid rows={rows} onChange={editRows} onRemove={row => { setRemoved([...removed, row]); editRows(rows.filter(item => item.key !== row.key)); }} onPaste={text => { setPasteText(text); showPreview(text); }} />
+          {!!rows.filter(row => !row.assignment).length && <p className="caption">Custom meetings · scroll the sheet sideways to reach all days, times and row actions. Tab moves to the next cell.</p>}
+          {!!rows.filter(row => !row.assignment).length && <MeetingGrid rows={rows.filter(row => !row.assignment)} onChange={next => editRows([...rows.filter(row => row.assignment), ...next])} onRemove={row => replaceMeetings([row], [])} onPaste={text => { setPasteText(text); showPreview(text); }} />}
           {!rows.length && <p className="muted">Add your meetings above, or paste the timetable you compiled in Excel below.</p>}
-          {!!removed.length && <div className="row wrap"><p className="caption">{removed.filter(row => row.id).length} saved meetings will stop repeating from the change date.</p><Button onClick={() => { editRows([...rows, ...removed]); setRemoved([]); }}>Restore removed rows</Button></div>}
-          {!!invalidRows.length && <Banner tone="warning">Check course names, weekdays and start/end times in row{invalidRows.length > 1 ? 's' : ''} {invalidRows.join(', ')}.</Banner>}
+          {beforeRemoval && <div className="row wrap"><p className="caption">{removed.length} saved meetings will stop repeating from the change date. Restore returns the sheet to before removals and slot replacements.</p><Button onClick={() => { editRows(beforeRemoval); setRemoved([]); setBeforeRemoval(null); }}>Restore removed rows</Button></div>}
+          {!!invalidRows.length && <Banner tone="warning">Check course names, weekdays and start/end times for {invalidRows.join(', ')}.</Banner>}
           {!input.success && !invalidRows.length && (rows.length > 0 || removed.length > 0) && <Banner tone="warning">{input.error.issues[0]?.message}</Banner>}
           {save.isError && <Banner tone="error">{errorMessage(save.error)}</Banner>}
           {!online && <Banner>Your edits stay here while offline. Reconnect to save them.</Banner>}
-          <div className="row between wrap"><p className="caption" role="status">{rows.length} meeting patterns · {new Set(rows.map(row => row.course.trim()).filter(Boolean)).size} {new Set(rows.map(row => row.course.trim()).filter(Boolean)).size === 1 ? 'course' : 'courses'}{dirty ? ' · unsaved changes' : ''}</p><Button type="submit" variant="primary" disabled={!online || !input.success || !dirty} loading={save.isPending}>Save weekly timetable</Button></div>
+          <div className="row between wrap"><p className="caption" role="status">{rows.filter(row => !row.disabled).length} meeting patterns · {new Set(rows.map(row => row.course.trim()).filter(Boolean)).size} {new Set(rows.map(row => row.course.trim()).filter(Boolean)).size === 1 ? 'course' : 'courses'}{dirty ? ' · unsaved changes' : ''}</p><Button type="submit" variant="primary" disabled={!online || !input.success || !dirty || emptyAssignments} loading={save.isPending}>Save weekly timetable</Button></div>
         </fieldset>
       </form>
       <details className="disclosure class-paste" open={!!preview}>
