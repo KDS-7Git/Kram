@@ -82,7 +82,7 @@ app.post("/api/v1/__test/reset", async (req, res, next) => {
 });
 app.use(productionApp);
 const api = app.listen(8422, "127.0.0.1");
-const web = process.env.E2E_SERVE_BUILD === '1' ? await (async () => {
+const web = process.env.E2E_SERVE_BUILD !== '0' ? await (async () => {
   const server=app.listen(5174,'127.0.0.1');
   return {close:()=>new Promise<void>(resolve=>server.close(()=>resolve()))};
 })() : await (async () => {

@@ -1,4 +1,6 @@
 .git
+.private
+docs
 .env
 .env.*
 !.env.example

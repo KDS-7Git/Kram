@@ -25,7 +25,6 @@ jobs:
       DATABASE_URL: postgresql://kram:ci-test-only@127.0.0.1:5432/kram_test
       SESSION_SECRET: ci-session-key-not-for-deployment-0123456789-0123456789
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +32,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev
       - run: npm run db:generate
       - run: npm run db:migrate
       - run: npm run check
@@ -62,4 +62,3 @@ jobs:
           tags: kram:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-

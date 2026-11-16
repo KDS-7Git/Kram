@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A private, portable planner with explainable scheduling and permanent progress history.",
+  "description": "A self-hosted planner with explainable scheduling and permanent progress history.",
   "engines": {
     "node": ">=22.20.0"
   },
@@ -34,7 +34,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "test:runtime": "node scripts/verify-runtime.mjs",
     "db:generate": "prisma generate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
@@ -118,5 +118,6 @@
     "typescript-eslint": "^8.44.1",
     "vite": "^7.1.7",
     "vitest": "4.1.12"
-  }
+  },
+  "license": "MIT"
 }

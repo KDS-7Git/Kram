@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { defaultSettings, type Bootstrap } from '@kram/shared';
 
-test.skip(process.env.E2E_SERVE_BUILD !== '1', 'Lazy route download recovery is verified against production chunks.');
+test.skip(process.env.E2E_SERVE_BUILD === '0', 'Lazy route download recovery is verified against production chunks.');
 test.use({ serviceWorkers: 'block' });
 
 test('a failed lazy route download offers reload and recovers the requested screen', async ({ page }) => {

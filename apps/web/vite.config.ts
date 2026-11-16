@@ -3,10 +3,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 import { pwaAssetsPlugin } from "./pwa-assets-plugin";
+import { fontLicensePlugin } from "./license-plugin";
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
-  plugins: [react(), tailwindcss(), pwaAssetsPlugin()],
+  plugins: [react(), tailwindcss(), fontLicensePlugin(), pwaAssetsPlugin()],
   resolve: {
     alias: {
       "@kram/shared": fileURLToPath(
@@ -23,6 +24,7 @@ export default defineConfig({
     proxy: { "/api": process.env.VITE_API_TARGET || "http://127.0.0.1:8420" },
   },
   build: {
+    license: { fileName: 'third-party-licenses.txt' },
     outDir: "../../dist/web", emptyOutDir: true, sourcemap: true,
     rollupOptions: {
       output: {

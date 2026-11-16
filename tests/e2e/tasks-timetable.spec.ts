@@ -646,10 +646,17 @@ test("task shortcuts or touch swipes, pointer time moves, and large text stay us
     await expect
       .poll(async () => (await savedTask(page, task.id)).timerStartedAt)
       .not.toBeNull();
+    const complete = page.getByRole("button", {
+      name: `Complete ${task.title}`,
+      exact: true,
+    });
+    await expect(complete).toHaveAttribute("data-status", "in_progress");
+    await expect(complete).toBeEnabled();
     await page.keyboard.press("s");
     await expect
       .poll(async () => (await savedTask(page, task.id)).timerStartedAt)
       .toBeNull();
+    await expect(complete).toBeEnabled();
     await page.keyboard.press("d");
     await expect(
       page.getByRole("heading", { name: "Confirm completion", exact: true }),

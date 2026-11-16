@@ -1,6 +1,6 @@
 /* Personal responses belong to the account-keyed IndexedDB cache, never CacheStorage. */
 const SHELL = 'kram-shell-__KRAM_BUILD__';
-const PUBLIC = ['/', '/manifest.webmanifest', '/icons/kram-192.png', '/icons/kram-512.png', '/icons/kram-maskable-512.png'];
+const PUBLIC = ['/', '/manifest.webmanifest', '/icons/kram-192.png', '/icons/kram-512.png', '/icons/kram-maskable-512.png', '/third-party-licenses.txt'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);

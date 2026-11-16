@@ -4,7 +4,7 @@ import { v7 as newId } from 'uuid';
 import { collegeSlotTemplateSchema } from '@kram/shared';
 import { assignSlot, parseSlotGrid, periodPayload, restoreSlotDrafts } from './collegeSlots';
 
-const screenshot = readFileSync('docs/examples/non-ic-slot-grid.tsv', 'utf8');
+const screenshot = readFileSync('tests/fixtures/college-slot-grid.tsv', 'utf8');
 const grid = (text: string) => collegeSlotTemplateSchema.parse({ id: newId(), version: 1, name: 'Synthetic semester', periods: parseSlotGrid(text).periods.map(periodPayload) }) as ReturnType<typeof collegeSlotTemplateSchema.parse> & { version: number };
 describe('semester-defined course slots', () => {
   it('imports the supplied grid, using three lectures by default and distinct shared FS/NS choices', () => {

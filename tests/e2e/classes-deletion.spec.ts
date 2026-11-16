@@ -64,7 +64,7 @@ test('semester grids drive course slots, optional meetings and recurring excepti
   test.setTimeout(120000);
   await seed(page); await page.goto('/classes');
   await page.getByLabel('Slot grid name', { exact: true }).fill('Semester 5 · Non-IC');
-  await page.getByLabel('Slot grid cells', { exact: true }).fill(readFileSync('docs/examples/non-ic-slot-grid.tsv', 'utf8'));
+  await page.getByLabel('Slot grid cells', { exact: true }).fill(readFileSync('tests/fixtures/college-slot-grid.tsv', 'utf8'));
   await page.getByRole('button', { name: 'Preview slot grid', exact: true }).click();
   await expect(page.getByLabel('Slot grid preview')).toBeVisible();
   await page.getByRole('button', { name: 'Save slot grid', exact: true }).click();

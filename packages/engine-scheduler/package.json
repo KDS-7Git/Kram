@@ -8,5 +8,6 @@
   },
   "dependencies": {
     "@kram/time": "0.1.0"
-  }
+  },
+  "license": "MIT"
 }

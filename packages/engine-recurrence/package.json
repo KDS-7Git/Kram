@@ -10,5 +10,6 @@
     "@kram/time": "0.1.0",
     "rrule": "^2.8.1",
     "luxon": "^3.7.2"
-  }
+  },
+  "license": "MIT"
 }

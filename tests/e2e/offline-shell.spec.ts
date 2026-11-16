@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { studyDate } from '@kram/time';
 
 const testApi = process.env.E2E_API_URL || 'http://127.0.0.1:8422';
-test.skip(process.env.E2E_SERVE_BUILD !== '1', 'The installable shell is verified against the production build.');
+test.skip(process.env.E2E_SERVE_BUILD === '0', 'The installable shell is verified against the production build.');
 test.setTimeout(60_000);
 test.beforeEach(async ({ request }) => {
   const response = await request.post(`${testApi}/api/v1/__test/reset`, { headers: { 'X-Kram-Test': 'reset-isolated-db' } });
